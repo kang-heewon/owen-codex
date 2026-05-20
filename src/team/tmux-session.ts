@@ -1184,10 +1184,15 @@ export function createTeamSession(
     const leaderPaneId = chooseTeamLeaderPaneId(panes, detectedLeaderPaneId);
     tagPaneInstance(leaderPaneId, instanceId);
     const initialHudPaneIds = findHudPaneIds(teamTarget, leaderPaneId);
-    // Team mode prioritizes leader + worker visibility. Remove HUD panes in this window
-    // to keep a clean "leader left / workers right" layout.
-    for (const hudPaneId of initialHudPaneIds) {
-      runTmux(['kill-pane', '-t', hudPaneId]);
+    const omxEntry = resolveOmxCliEntryPath();
+    const canRecreateTeamHud = Boolean(omxEntry && omxEntry.trim() !== '');
+    // Team mode prioritizes leader + worker visibility. Remove HUD panes only
+    // when we can recreate the team HUD. Otherwise keep the existing HUD alive
+    // instead of making it disappear on team startup failures or broken installs.
+    if (canRecreateTeamHud) {
+      for (const hudPaneId of initialHudPaneIds) {
+        runTmux(['kill-pane', '-t', hudPaneId]);
+      }
     }
 
     const workerPaneIds: string[] = [];
@@ -1261,8 +1266,7 @@ export function createTeamSession(
     let hudPaneId: string | null = null;
     let resizeHookName: string | null = null;
     let resizeHookTarget: string | null = null;
-    const omxEntry = resolveOmxCliEntryPath();
-    if (omxEntry && omxEntry.trim() !== '') {
+    if (canRecreateTeamHud && omxEntry) {
       const hudCmd = `env ${OMX_TMUX_HUD_OWNER_ENV}=1 node ${shellQuoteSingle(translatePathForMsys(omxEntry))} hud --watch`;
       const hudCwd = translatePathForMsys(cwd);
       const hudResult = runTmux([
@@ -1286,29 +1290,46 @@ export function createTeamSession(
               throw new Error(`failed to reconcile HUD resize: ${reconcile.stderr}`);
             }
           } else {
-            resizeHookTarget = buildResizeHookTarget(sessionName, windowIndex);
-            resizeHookName = buildResizeHookName(safeTeamName, sessionName, windowIndex, hudPaneId);
-            const registerHook = runTmux(buildRegisterResizeHookArgs(resizeHookTarget, resizeHookName, hudPaneId));
-            if (!registerHook.ok) {
-              throw new Error(`failed to register resize hook ${resizeHookName}: ${registerHook.stderr}`);
-            }
-            registeredResizeHook = { name: resizeHookName, target: resizeHookTarget };
-
+            const hookTarget = buildResizeHookTarget(sessionName, windowIndex);
+            const hookName = buildResizeHookName(safeTeamName, sessionName, windowIndex, hudPaneId);
+            const registerHook = runTmux(buildRegisterResizeHookArgs(hookTarget, hookName, hudPaneId));
             const clientAttachedHookName = buildClientAttachedReconcileHookName(
               safeTeamName,
               sessionName,
               windowIndex,
               hudPaneId,
             );
+            if (registerHook.ok) {
+              resizeHookTarget = hookTarget;
+              resizeHookName = hookName;
+              registeredResizeHook = { name: resizeHookName, target: resizeHookTarget };
+            } else {
+              // tmux versions/builds that reject indexed window-resized hooks should not
+              // abort madmax/team startup after panes were successfully created. Keep the
+              // fallback narrow: skip only the long-lived resize hook metadata, then
+              // still try the one-shot client-attached reconcile plus the explicit
+              // delayed/direct resize checks below so real tmux/run-shell failures
+              // still surface.
+              console.warn(
+                `[omx] tmux resize hook unavailable for ${hookTarget} (${hookName}): ${registerHook.stderr}; `
+                  + 'continuing with best-effort HUD resize fallback.',
+              );
+            }
             const registerClientAttachedHook = runTmux(
-              buildRegisterClientAttachedReconcileArgs(resizeHookTarget, clientAttachedHookName, hudPaneId),
+              buildRegisterClientAttachedReconcileArgs(hookTarget, clientAttachedHookName, hudPaneId),
             );
-            if (!registerClientAttachedHook.ok) {
+            if (registerClientAttachedHook.ok) {
+              registeredClientAttachedHook = { name: clientAttachedHookName, target: hookTarget };
+            } else if (registerHook.ok) {
               throw new Error(
                 `failed to register client-attached reconcile hook ${clientAttachedHookName}: ${registerClientAttachedHook.stderr}`,
               );
+            } else {
+              console.warn(
+                `[omx] tmux client-attached resize fallback unavailable for ${hookTarget} `
+                  + `(${clientAttachedHookName}): ${registerClientAttachedHook.stderr}; continuing with delayed HUD resize fallback.`,
+              );
             }
-            registeredClientAttachedHook = { name: clientAttachedHookName, target: resizeHookTarget };
 
             const delayed = runTmux(buildScheduleDelayedHudResizeArgs(hudPaneId));
             if (!delayed.ok) {

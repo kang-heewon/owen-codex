@@ -134,6 +134,7 @@ export async function sendPaneInput({
   submitKeyPresses = 2,
   submitDelayMs = 0,
   typePrompt = true,
+  queueFirstSubmit = false,
 }: any): Promise<any> {
   const target = safeString(paneTarget).trim();
   if (!target) {
@@ -162,6 +163,12 @@ export async function sendPaneInput({
   try {
     if (typePrompt) {
       await runProcess('tmux', argv.typeArgv, 3000);
+    }
+    if (queueFirstSubmit && argv.submitArgv.length > 0) {
+      await runProcess('tmux', ['send-keys', '-t', target, 'Tab'], 3000);
+      if (submitDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, submitDelayMs));
+      }
     }
     for (const submit of argv.submitArgv) {
       if (submitDelayMs > 0) {

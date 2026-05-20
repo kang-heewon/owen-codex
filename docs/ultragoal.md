@@ -14,6 +14,8 @@ Upstream Codex goal source also constrains objectives to 4,000 characters, track
 
 New ultragoal plans default to **aggregate Codex goal mode**: Codex gets one objective for the whole ultragoal run, while OMX owns G001/G002 story state and ledger checkpoints. This avoids the impossible same-thread transition from a completed G001 Codex goal to a new G002 Codex goal. Legacy or explicitly requested **per-story** plans remain supported for users who want one Codex thread per story.
 
+Ultragoal intentionally does **not** call Codex `/goal clear`. The interactive TUI/app-server may expose `thread/goal/clear`, but the agent/tool contract available to OMX is only `get_goal` / `create_goal` / `update_goal`; shell commands and hooks cannot clear hidden thread goal state. After completing one ultragoal run, start the next run in a fresh Codex thread or manually run `/goal clear` in the Codex UI before `create_goal` for the new run. Otherwise `get_goal` may still report the previous completed aggregate objective, and the next same-thread `create_goal` can be blocked or confusing even though the OMX ledger for the previous run is complete.
+
 ## Artifacts
 
 All artifacts live under `.omx/ultragoal/`:
@@ -161,6 +163,7 @@ The final ultragoal story is not complete until the active agent has run the fin
 - `create_goal` starts the active objective; it is not a general plan store.
 - `update_goal` is completion-only; pause/resume/budget state is controlled by Codex/user/system, not OMX.
 - Aggregate mode is the default: one Codex objective covers the whole ultragoal run, and G001/G002 are OMX ledger stories.
+- Ultragoal does not invoke `/goal clear` or any hidden `thread/goal/clear` route. For multiple sequential ultragoal runs in one Codex session/thread, clear the completed Codex goal manually with `/goal clear` or open a fresh Codex thread before creating the next run's aggregate goal.
 - Intermediate aggregate story checkpoints require a matching `active` Codex snapshot. A `complete` snapshot before the final story is rejected to prevent premature `update_goal`. A non-clean final review records the old story as `review_blocked` and appends a pending blocker story before any completion checkpoint.
 - Final aggregate story checkpoints require a matching `complete` Codex snapshot captured after `update_goal({status: "complete"})`.
 - There is currently no Codex goal-tool reset/new-goal surface for replacing a completed legacy thread goal. In per-story mode, if `get_goal` returns a different completed objective and `create_goal` rejects because the thread already has a goal, record `omx ultragoal checkpoint --status blocked` with that `get_goal` JSON, then continue in a fresh Codex thread on the same branch/worktree and call `create_goal` there for the ultragoal payload.

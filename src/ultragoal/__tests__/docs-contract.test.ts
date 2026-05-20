@@ -18,8 +18,26 @@ describe('ultragoal docs contract', () => {
     assert.match(doc, /default to \*\*aggregate Codex goal mode\*\*/i);
     assert.match(doc, /Codex gets one objective for the whole ultragoal run/i);
     assert.match(doc, /G001\/G002 story state/i);
+    assert.match(doc, /does \*\*not\*\* call Codex `\/goal clear`/i);
+    assert.match(doc, /manual(?:ly)? run `\/goal clear`/i);
+    assert.match(doc, /multiple sequential ultragoal runs/i);
     assert.match(doc, /Intermediate aggregate story checkpoints require a matching `active` Codex snapshot/i);
     assert.match(doc, /Final aggregate story checkpoints require a matching `complete` Codex snapshot/i);
+  });
+
+  it('documents sequential same-thread runs and /goal clear limitations in mirrored skill guidance', () => {
+    const docs = [
+      loadDoc('skills/ultragoal/SKILL.md'),
+      loadDoc('plugins/oh-my-codex/skills/ultragoal/SKILL.md'),
+    ];
+
+    for (const doc of docs) {
+      assert.match(doc, /does not call Codex `\/goal clear`/i);
+      assert.match(doc, /does not invoke `\/goal clear` or hidden `thread\/goal\/clear`/i);
+      assert.match(doc, /only provides `get_goal`, `create_goal`, and `update_goal`/i);
+      assert.match(doc, /multiple sequential ultragoal runs/i);
+      assert.match(doc, /fresh Codex thread/i);
+    }
   });
 
   it('documents the completed legacy Codex-goal blocked checkpoint workaround', () => {

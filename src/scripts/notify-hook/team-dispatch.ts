@@ -822,6 +822,7 @@ async function injectDispatchRequest(request, config, cwd, stateDir) {
     prompt: request.trigger_message,
     submitKeyPresses,
     typePrompt: shouldTypePrompt,
+    queueFirstSubmit: leaderTargeted,
   });
   if (!sendResult.ok) {
     return {
@@ -876,11 +877,13 @@ async function injectDispatchRequest(request, config, cwd, stateDir) {
           tmux_injection_attempted: true,
         };
       }
-      // Do not declare success while a *worker* pane is still bootstrapping / not
-      // input-ready. Otherwise a pre-ready send can be marked "confirmed" and later
-      // appear as a stuck unsent draft once the UI finishes loading.
-      // Keep leader-fixed behavior unchanged to avoid regressing leader notification flow.
-      if (request.to_worker !== 'leader-fixed' && !paneLooksReady(wideCap.stdout)) {
+      // Do not declare success while a pane is not input-ready. Otherwise a
+      // pre-ready send can be marked "confirmed" and later appear as a stuck
+      // unsent draft once the UI finishes loading. This includes leader-fixed:
+      // its Codex UI can show "tab to queue message" while busy, and marking
+      // delivered before queue/consumption confirmation loses the orchestration
+      // nudge until a human presses Tab manually.
+      if (!paneLooksReady(wideCap.stdout)) {
         continue;
       }
       if (!triggerInNarrow && !triggerNearTail) {
@@ -904,6 +907,7 @@ async function injectDispatchRequest(request, config, cwd, stateDir) {
       prompt: request.trigger_message,
       submitKeyPresses,
       typePrompt: false,
+      queueFirstSubmit: leaderTargeted,
     }).catch(() => {});
   }
 

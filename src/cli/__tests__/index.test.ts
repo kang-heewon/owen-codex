@@ -42,9 +42,11 @@ import {
   resolveProjectLocalCodexHomeForLaunch,
   shouldAutoIsolateMadmaxLaunch,
   createMadmaxIsolatedRoot,
+  buildMadmaxDetachedLaunchContextKey,
   resolveOmxRootForLaunch,
   resolveDisposableWorktreeOmxRootForLaunch,
   prepareCodexHomeForLaunch,
+  persistProjectLaunchRuntimeAuthState,
   runtimeCodexHomePath,
   buildDetachedSessionBootstrapSteps,
   buildDetachedTmuxSessionName,
@@ -136,6 +138,52 @@ describe("madmax state isolation", () => {
       assert.deepEqual(metadata.argv, ["--madmax"]);
       const registry = await readFile(join(runs, "registry.jsonl"), "utf-8");
       assert.match(registry, /"launcher":"omx --madmax"/);
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+      await rm(runs, { recursive: true, force: true });
+    }
+  });
+
+  it("stamps a stable detached launch context and exposes it to boxed launch", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "omx-madmax-source-"));
+    const runs = await mkdtemp(join(tmpdir(), "omx-madmax-runs-"));
+    try {
+      const env: NodeJS.ProcessEnv = { OMX_RUNS_DIR: runs };
+      const runDir = createMadmaxIsolatedRoot(wd, ["--madmax", "--xhigh", "--tmux"], env);
+      const metadata = JSON.parse(await readFile(join(runDir, ".omxbox-run.json"), "utf-8"));
+      const expectedContext = buildMadmaxDetachedLaunchContextKey(wd, ["--madmax", "--xhigh", "--tmux"]);
+      assert.equal(metadata.detached_launch_context, expectedContext);
+      assert.equal(env.OMX_MADMAX_DETACHED_CONTEXT, expectedContext);
+      assert.equal(
+        expectedContext,
+        buildMadmaxDetachedLaunchContextKey(wd, ["--madmax", "--xhigh"]),
+        "explicit --tmux is a transport choice and must not create a second context",
+      );
+      assert.equal(
+        expectedContext,
+        buildMadmaxDetachedLaunchContextKey(wd, ["--xhigh", "--madmax", "--direct"]),
+        "argument order and transport choices must not create duplicate detached contexts",
+      );
+      assert.notEqual(
+        expectedContext,
+        buildMadmaxDetachedLaunchContextKey(wd, ["--madmax", "--low"]),
+        "different launch semantics may run concurrently",
+      );
+      assert.notEqual(
+        buildMadmaxDetachedLaunchContextKey(wd, ["--madmax", "--high", "--xhigh"]),
+        buildMadmaxDetachedLaunchContextKey(wd, ["--madmax", "--xhigh", "--high"]),
+        "last reasoning shorthand wins, so reversed reasoning order is a distinct context",
+      );
+      const otherWd = await mkdtemp(join(tmpdir(), "omx-madmax-other-source-"));
+      try {
+        assert.notEqual(
+          expectedContext,
+          buildMadmaxDetachedLaunchContextKey(otherWd, ["--madmax", "--xhigh"]),
+          "different work contexts may run concurrently",
+        );
+      } finally {
+        await rm(otherWd, { recursive: true, force: true });
+      }
     } finally {
       await rm(wd, { recursive: true, force: true });
       await rm(runs, { recursive: true, force: true });
@@ -1999,6 +2047,36 @@ describe("project launch scope helpers", () => {
       await prepareCodexHomeForLaunch(wd, "session-2033-repeat", {});
       assert.equal(await readFile(configPath, "utf-8"), originalConfig);
       assert.equal((await stat(configPath)).mtimeMs, beforeStat.mtimeMs);
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it("persists project-scope Codex auth written into the runtime CODEX_HOME mirror", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "omx-launch-runtime-auth-home-"));
+    try {
+      const projectCodexHome = join(wd, ".codex");
+      await mkdir(join(wd, ".omx"), { recursive: true });
+      await mkdir(projectCodexHome, { recursive: true });
+      await writeFile(
+        join(wd, ".omx", "setup-scope.json"),
+        JSON.stringify({ scope: "project" }),
+      );
+      await writeFile(join(projectCodexHome, "config.toml"), 'model = "gpt-5.5"\n');
+
+      const prepared = await prepareCodexHomeForLaunch(wd, "session-auth", {});
+      const runtimeCodexHome = runtimeCodexHomePath(wd, "session-auth");
+      const opaqueAuthState = JSON.stringify({ token: "opaque-test-token" });
+      await writeFile(join(runtimeCodexHome, "auth.json"), opaqueAuthState);
+      await writeFile(join(runtimeCodexHome, "config.toml"), 'model = "gpt-5.5"\n[tui.model_availability_nux]\n"gpt-5.5" = 1\n');
+
+      await persistProjectLaunchRuntimeAuthState(
+        prepared.runtimeCodexHomeForCleanup,
+        prepared.projectLocalCodexHomeForCleanup,
+      );
+
+      assert.equal(await readFile(join(projectCodexHome, "auth.json"), "utf-8"), opaqueAuthState);
+      assert.equal(await readFile(join(projectCodexHome, "config.toml"), "utf-8"), 'model = "gpt-5.5"\n');
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

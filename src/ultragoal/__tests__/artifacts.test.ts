@@ -142,13 +142,13 @@ describe('ultragoal artifacts', () => {
       assert.match(instruction, /Codex goal = the whole ultragoal run/i);
       assert.match(instruction, /same aggregate objective as active/i);
       assert.match(instruction, /do not call update_goal yet/i);
-      assert.doesNotMatch(instruction, /fresh Codex thread/i);
       assert.match(instruction, /--codex-goal-json/);
       assert.match(instruction, /Complete the durable ultragoal plan/);
       assert.match(instruction, /including later accepted\/appended stories/);
       assert.match(instruction, /\.omx\/ultragoal\/ledger\.jsonl/);
       assert.match(instruction, /Complete first milestone/);
-      assert.doesNotMatch(instruction, /\/goal\b/);
+      assert.match(instruction, /does not call \/goal clear/);
+      assert.match(instruction, /start a fresh Codex thread/);
       assert.doesNotMatch(instruction, /\.\.\/\.\.\/codex/);
       assert.doesNotMatch(instruction, /`codex\s+goal\b/i);
     });

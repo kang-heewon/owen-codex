@@ -35,6 +35,7 @@ function runSendPaneInputInChild(params: {
   prompt: string;
   submitKeyPresses: number;
   typePrompt: boolean;
+  queueFirstSubmit?: boolean;
 }) {
   const payload = JSON.stringify({
     paneTarget: params.paneTarget,
@@ -42,6 +43,7 @@ function runSendPaneInputInChild(params: {
     submitKeyPresses: params.submitKeyPresses,
     tmuxBin: join(params.fakeBinDir, 'tmux'),
     typePrompt: params.typePrompt,
+    queueFirstSubmit: params.queueFirstSubmit,
   });
   const script = `
     const input = ${payload};
@@ -114,6 +116,42 @@ describe('notify-hook team tmux guard bridge', () => {
       assert.equal(lines.length, 2);
       assert.match(lines[0], /send-keys -t %42 C-m/);
       assert.match(lines[1], /send-keys -t %42 C-m/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('queue-first submits with Tab before C-m when requested', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'omx-team-tmux-guard-'));
+    const fakeBinDir = join(cwd, 'fake-bin');
+    const tmuxLogPath = join(cwd, 'tmux.log');
+
+    try {
+      await mkdir(fakeBinDir, { recursive: true });
+      await writeFile(join(fakeBinDir, 'tmux'), buildFakeTmux(tmuxLogPath));
+      await chmod(join(fakeBinDir, 'tmux'), 0o755);
+
+      const moduleUrl = new URL('../../../dist/scripts/notify-hook/team-tmux-guard.js', import.meta.url).href;
+      const result = runSendPaneInputInChild({
+        fakeBinDir,
+        moduleUrl,
+        paneTarget: '%42',
+        prompt: 'Read /tmp/team/mailbox/leader-fixed.json; new msg from worker-1. Review it; decide next step.',
+        submitKeyPresses: 2,
+        typePrompt: true,
+        queueFirstSubmit: true,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.error, undefined);
+      assert.match(result.stdout, /"ok":true/);
+
+      const lines = (await readFile(tmuxLogPath, 'utf-8')).trim().split('\n').filter(Boolean);
+      assert.equal(lines.length, 4);
+      assert.match(lines[0], /send-keys -t %42 -l Read \/tmp\/team\/mailbox\/leader-fixed\.json/);
+      assert.match(lines[1], /send-keys -t %42 Tab/);
+      assert.match(lines[2], /send-keys -t %42 C-m/);
+      assert.match(lines[3], /send-keys -t %42 C-m/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
