@@ -1977,6 +1977,9 @@ async function buildModeBasedStopOutput(
   cwd: string,
   sessionId?: string,
 ): Promise<Record<string, unknown> | null> {
+  if (await readCanonicalTerminalRunStateForStop(cwd, sessionId, mode)) {
+    return null;
+  }
   const state = await readModeStateForActiveDecision(mode, sessionId?.trim() || undefined, cwd);
   if (!state || !shouldContinueRun(state)) return null;
   const phase = formatPhase(state.current_phase);

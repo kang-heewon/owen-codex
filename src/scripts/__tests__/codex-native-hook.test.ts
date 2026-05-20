@@ -6305,6 +6305,91 @@ exit 0
     }
   });
 
+  it("allows Stop when terminal Autopilot run-state shadows stale session ralplan state", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "omx-native-hook-stop-autopilot-terminal-run-state-"));
+    try {
+      const stateDir = join(cwd, ".omx", "state");
+      const sessionId = "sess-stop-autopilot-terminal-run-state";
+      await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+      await writeJson(join(stateDir, "sessions", sessionId, "autopilot-state.json"), {
+        active: true,
+        mode: "autopilot",
+        current_phase: "ralplan",
+      });
+      await writeJson(join(stateDir, "sessions", sessionId, "run-state.json"), {
+        version: 1,
+        active: false,
+        mode: "autopilot",
+        outcome: "finish",
+        lifecycle_outcome: "finished",
+        current_phase: "complete",
+        completed_at: "2026-05-20T11:00:00.000Z",
+        updated_at: "2026-05-20T11:00:00.000Z",
+      });
+
+      const result = await dispatchCodexNativeHook(
+        {
+          hook_event_name: "Stop",
+          cwd,
+          session_id: sessionId,
+          thread_id: "thread-stop-autopilot-terminal-run-state",
+          turn_id: "turn-stop-autopilot-terminal-run-state-1",
+          last_assistant_message: "Done. Verification passed.",
+        },
+        { cwd },
+      );
+
+      assert.equal(result.omxEventName, "stop");
+      assert.equal(result.outputJson, null);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("still blocks Stop while Autopilot ralplan state is genuinely non-terminal", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "omx-native-hook-stop-autopilot-active-ralplan-"));
+    try {
+      const stateDir = join(cwd, ".omx", "state");
+      const sessionId = "sess-stop-autopilot-active-ralplan";
+      await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+      await writeJson(join(stateDir, "sessions", sessionId, "autopilot-state.json"), {
+        active: true,
+        mode: "autopilot",
+        current_phase: "ralplan",
+      });
+      await writeJson(join(stateDir, "sessions", sessionId, "run-state.json"), {
+        version: 1,
+        active: true,
+        mode: "autopilot",
+        outcome: "continue",
+        current_phase: "ralplan",
+        updated_at: "2026-05-20T11:00:00.000Z",
+      });
+
+      const result = await dispatchCodexNativeHook(
+        {
+          hook_event_name: "Stop",
+          cwd,
+          session_id: sessionId,
+          thread_id: "thread-stop-autopilot-active-ralplan",
+          turn_id: "turn-stop-autopilot-active-ralplan-1",
+        },
+        { cwd },
+      );
+
+      assert.equal(result.omxEventName, "stop");
+      assert.deepEqual(result.outputJson, {
+        decision: "block",
+        reason:
+          "OMX autopilot is still active (phase: ralplan); continue the task and gather fresh verification evidence before stopping.",
+        stopReason: "autopilot_ralplan",
+        systemMessage: "OMX autopilot is still active (phase: ralplan).",
+      });
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("does not block Stop from stale root Autopilot planning state when the explicit session has no scoped state", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "omx-native-hook-stop-stale-root-autopilot-planning-"));
     try {
