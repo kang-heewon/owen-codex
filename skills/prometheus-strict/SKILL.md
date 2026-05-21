@@ -43,6 +43,16 @@ OMX already has `$plan`, `$ralplan`, and `$deep-interview`. Prometheus Strict ex
 - If a safe assumption is available, state it and continue.
 - Use repository reads when needed to make paths, tests, and handoff commands concrete.
 - Recommend `$team` only when Oracle identifies independent, bounded, verifiable lanes.
+
+### Structured Question Surface
+
+Every Metis/Momus/Oracle question to the user MUST go through the surface-appropriate structured question path. Plain prose questioning is the last fallback, not the default.
+
+- In attached-tmux OMX runtime, use `omx question` as the OMX-owned structured question surface (this is the `AskUserQuestion` equivalent for Prometheus Strict). From attached-tmux Bash/tool paths, prefix the command with `OMX_QUESTION_RETURN_PANE=$TMUX_PANE` (or a concrete `%pane` value) so the leader-pane return target is preserved.
+- Wait for the `omx question` JSON answer before scoring ambiguity, asking another round, or handing off; prefer `answers[0].answer` / `answers[]`, and use the legacy top-level `answer` only as a compatibility fallback.
+- Outside tmux, use the native structured input tool when one is available.
+- Only when neither structured surface can render, ask exactly one concise plain-text question and wait for the answer.
+- Never batch multiple interview rounds into a single `questions[]` form; Prometheus Strict is one round at a time, like deep-interview.
 </Execution_Policy>
 
 <Steps>

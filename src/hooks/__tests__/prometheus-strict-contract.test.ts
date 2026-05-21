@@ -127,6 +127,42 @@ describe('prometheus-strict clean-room contract', () => {
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-oracle.md')), /Prometheus Strict Plan/i);
   });
 
+  it('routes interview questions through the OMX structured question surface with documented fallbacks', () => {
+    const skill = readRepoFile(skillPath);
+
+    assert.match(skill, /omx question/, 'skill must name `omx question` as the structured question surface');
+    assert.match(
+      skill,
+      /native structured input/i,
+      'skill must document the outside-tmux native structured input fallback',
+    );
+    assert.match(
+      skill,
+      /plain[-\s]?text/i,
+      'skill must document the plain-text last-resort fallback',
+    );
+    assert.match(
+      skill,
+      /attached[-\s]?tmux/i,
+      'skill must name the attached-tmux precondition for `omx question`',
+    );
+
+    for (const promptName of promptNames) {
+      const promptPath = join(repoRoot, 'prompts', `${promptName}.md`);
+      const content = readRepoFile(promptPath);
+      assert.match(
+        content,
+        /omx question/,
+        `${promptName} must reference the OMX structured question surface (omx question)`,
+      );
+      assert.match(
+        content,
+        /native structured input|plain[-\s]?text/i,
+        `${promptName} must reference at least one documented question fallback`,
+      );
+    }
+  });
+
   it('pins the public docs entry for the skill handoff path', () => {
     assert.ok(existsSync(skillPath), 'prometheus-strict skill must exist');
 

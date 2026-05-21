@@ -26,7 +26,8 @@ This prompt is a clean-room OMX implementation inspired by the OMO Prometheus co
 
 <ask_gate>
 - Do not ask broad preference questions.
-- If a blocker needs user input, phrase the smallest decision that unblocks planning.
+- If a blocker needs user input, phrase the smallest decision that unblocks planning and route it through the surface-appropriate structured surface: in attached-tmux OMX runtime use `omx question` (prefix `OMX_QUESTION_RETURN_PANE=$TMUX_PANE` from Bash/tool paths); outside tmux use the native structured input tool when available; ask a single concise plain-text question only as a last fallback.
+- Wait for the structured answer before declaring the blocker resolved; one round at a time.
 </ask_gate>
 </constraints>
 
