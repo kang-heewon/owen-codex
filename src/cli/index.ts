@@ -1228,6 +1228,23 @@ const MADMAX_DETACHED_LOCK_RETRY_MS = 50;
 const MADMAX_DETACHED_LOCK_MAX_ATTEMPTS = 100;
 const OMX_MADMAX_DETACHED_CONTEXT_ENV = "OMX_MADMAX_DETACHED_CONTEXT";
 
+interface MadmaxDetachedLockRetryOptions {
+  maxAttempts?: number;
+  retryMs?: number;
+}
+
+interface MadmaxDetachedLockOwner {
+  version: 1;
+  pid: number;
+  context_key: string;
+  acquired_at: string;
+}
+
+interface MadmaxDetachedLockInspection {
+  stale: boolean;
+  diagnostic: string;
+}
+
 interface MadmaxDetachedActiveRecord {
   version: 1;
   context_key: string;
@@ -1358,17 +1375,96 @@ function detachedTmuxSessionExists(sessionName: string): boolean {
   }
 }
 
-function withMadmaxDetachedContextLock<T>(
+function readMadmaxDetachedLockOwner(lockPath: string): MadmaxDetachedLockOwner | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(lockPath, "owner.json"), "utf-8")) as Partial<MadmaxDetachedLockOwner>;
+    if (
+      parsed.version !== 1 ||
+      typeof parsed.pid !== "number" ||
+      !Number.isSafeInteger(parsed.pid) ||
+      parsed.pid <= 0 ||
+      typeof parsed.context_key !== "string" ||
+      typeof parsed.acquired_at !== "string"
+    ) {
+      return null;
+    }
+    return {
+      version: 1,
+      pid: parsed.pid,
+      context_key: parsed.context_key,
+      acquired_at: parsed.acquired_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readMadmaxDetachedLockPid(lockPath: string): number | null {
+  const owner = readMadmaxDetachedLockOwner(lockPath);
+  if (owner) return owner.pid;
+  try {
+    const holderPid = Number.parseInt(readFileSync(join(lockPath, "pid"), "utf-8").trim(), 10);
+    return Number.isSafeInteger(holderPid) && holderPid > 0 ? holderPid : null;
+  } catch {
+    return null;
+  }
+}
+
+function inspectMadmaxDetachedContextLock(lockPath: string): MadmaxDetachedLockInspection {
+  const lockStat = statSync(lockPath, { throwIfNoEntry: false });
+  if (!lockStat) {
+    return { stale: false, diagnostic: "lock disappeared while waiting" };
+  }
+  const ageMs = Math.max(0, Date.now() - lockStat.mtimeMs);
+  const owner = readMadmaxDetachedLockOwner(lockPath);
+  const holderPid = owner?.pid ?? readMadmaxDetachedLockPid(lockPath);
+  if (holderPid) {
+    if (!isProcessAlive(holderPid)) {
+      return {
+        stale: true,
+        diagnostic: `stale holder pid ${holderPid} is not running; lock age ${Math.round(ageMs)}ms`,
+      };
+    }
+    const ownerContext = owner ? `, owner context ${owner.context_key}` : ", legacy pid-only lock";
+    return {
+      stale: false,
+      diagnostic: `holder pid ${holderPid} is still running${ownerContext}; lock age ${Math.round(ageMs)}ms`,
+    };
+  }
+  if (ageMs > MADMAX_DETACHED_LOCK_STALE_MS) {
+    return {
+      stale: true,
+      diagnostic: `legacy lock has no readable owner pid and is older than ${MADMAX_DETACHED_LOCK_STALE_MS}ms; lock age ${Math.round(ageMs)}ms`,
+    };
+  }
+  return {
+    stale: false,
+    diagnostic: `lock has no readable owner pid yet; lock age ${Math.round(ageMs)}ms`,
+  };
+}
+
+export function withMadmaxDetachedContextLock<T>(
   runsRoot: string,
   contextKey: string,
   run: () => T,
+  options: MadmaxDetachedLockRetryOptions = {},
 ): T {
   const lockPath = join(runsRoot, MADMAX_DETACHED_ACTIVE_DIR, `${contextKey}.lock`);
+  const maxAttempts = options.maxAttempts ?? MADMAX_DETACHED_LOCK_MAX_ATTEMPTS;
+  const retryMs = options.retryMs ?? MADMAX_DETACHED_LOCK_RETRY_MS;
+  let lastDiagnostic = "lock was busy";
   mkdirSync(dirname(lockPath), { recursive: true });
-  for (let attempt = 0; attempt < MADMAX_DETACHED_LOCK_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       mkdirSync(lockPath);
       try {
+        const owner: MadmaxDetachedLockOwner = {
+          version: 1,
+          pid: process.pid,
+          context_key: contextKey,
+          acquired_at: new Date().toISOString(),
+        };
+        writeFileSync(join(lockPath, "owner.json"), `${JSON.stringify(owner, null, 2)}\n`, { mode: 0o600 });
         writeFileSync(join(lockPath, "pid"), String(process.pid));
         return run();
       } finally {
@@ -1380,27 +1476,18 @@ function withMadmaxDetachedContextLock<T>(
           ? String((err as NodeJS.ErrnoException).code)
           : "";
       if (code !== "EEXIST") throw err;
-      const lockStat = statSync(lockPath, { throwIfNoEntry: false });
-      if (lockStat && Date.now() - lockStat.mtimeMs > MADMAX_DETACHED_LOCK_STALE_MS) {
-        let holderAlive = false;
-        try {
-          const holderPid = Number.parseInt(readFileSync(join(lockPath, "pid"), "utf-8").trim(), 10);
-          if (Number.isSafeInteger(holderPid) && holderPid > 0) {
-            process.kill(holderPid, 0);
-            holderAlive = true;
-          }
-        } catch {
-          holderAlive = false;
-        }
-        if (!holderAlive) {
-          rmSync(lockPath, { recursive: true, force: true });
-          continue;
-        }
+      const inspection = inspectMadmaxDetachedContextLock(lockPath);
+      lastDiagnostic = inspection.diagnostic;
+      if (inspection.stale) {
+        rmSync(lockPath, { recursive: true, force: true });
+        continue;
       }
-      blockMs(MADMAX_DETACHED_LOCK_RETRY_MS);
+      blockMs(retryMs);
     }
   }
-  throw new MadmaxDetachedGuardError(`timed out waiting for madmax detached launch context lock: ${lockPath}`);
+  throw new MadmaxDetachedGuardError(
+    `timed out waiting for madmax detached launch context lock: ${lockPath} (${lastDiagnostic})`,
+  );
 }
 
 function isMadmaxDetachedGuardEnabled(env: NodeJS.ProcessEnv): boolean {

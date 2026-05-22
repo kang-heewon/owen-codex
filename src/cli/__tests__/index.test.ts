@@ -43,6 +43,7 @@ import {
   shouldAutoIsolateMadmaxLaunch,
   createMadmaxIsolatedRoot,
   buildMadmaxDetachedLaunchContextKey,
+  withMadmaxDetachedContextLock,
   resolveOmxRootForLaunch,
   resolveDisposableWorktreeOmxRootForLaunch,
   prepareCodexHomeForLaunch,
@@ -212,6 +213,66 @@ describe("madmax state isolation", () => {
       );
     } finally {
       await rm(wd, { recursive: true, force: true });
+      await rm(runs, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers a madmax detached context lock whose holder pid has already exited", async () => {
+    const runs = await mkdtemp(join(tmpdir(), "omx-madmax-lock-stale-"));
+    try {
+      const contextKey = "stale-context";
+      const lockPath = join(runs, "active-detached", `${contextKey}.lock`);
+      mkdirSync(lockPath, { recursive: true });
+      await writeFile(join(lockPath, "pid"), "2147483647");
+
+      let ran = false;
+      const result = withMadmaxDetachedContextLock(
+        runs,
+        contextKey,
+        () => {
+          ran = true;
+          return "acquired";
+        },
+        { maxAttempts: 2, retryMs: 0 },
+      );
+
+      assert.equal(result, "acquired");
+      assert.equal(ran, true);
+      assert.equal(existsSync(lockPath), false);
+    } finally {
+      await rm(runs, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves a live madmax detached context lock and reports holder diagnostics on timeout", async () => {
+    const runs = await mkdtemp(join(tmpdir(), "omx-madmax-lock-live-"));
+    try {
+      const contextKey = "live-context";
+      const lockPath = join(runs, "active-detached", `${contextKey}.lock`);
+      mkdirSync(lockPath, { recursive: true });
+      await writeFile(
+        join(lockPath, "owner.json"),
+        `${JSON.stringify({
+          version: 1,
+          pid: process.pid,
+          context_key: contextKey,
+          acquired_at: new Date().toISOString(),
+        })}\n`,
+      );
+      await writeFile(join(lockPath, "pid"), String(process.pid));
+
+      assert.throws(
+        () => withMadmaxDetachedContextLock(runs, contextKey, () => "should-not-run", { maxAttempts: 1, retryMs: 0 }),
+        (err: unknown) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /timed out waiting for madmax detached launch context lock/);
+          assert.match(err.message, new RegExp(`holder pid ${process.pid} is still running`));
+          assert.match(err.message, /owner context live-context/);
+          return true;
+        },
+      );
+      assert.equal(existsSync(lockPath), true);
+    } finally {
       await rm(runs, { recursive: true, force: true });
     }
   });
