@@ -263,7 +263,6 @@ describe('readUltragoalState', { concurrency: false }, () => {
         failed: 0,
         reviewBlocked: 0,
         needsUserDecision: 0,
-        progressCurrent: 2,
         progressTotal: 3,
         activeGoal: {
           id: 'G002-hud-progress',
@@ -278,6 +277,16 @@ describe('readUltragoalState', { concurrency: false }, () => {
 
   it('returns null when no ultragoal plan exists', async () => {
     await withTempRepo('omx-hud-ultragoal-missing-', async (cwd) => {
+      assert.equal(await readUltragoalState(cwd), null);
+    });
+  });
+
+  it('returns null for malformed ultragoal JSON', async () => {
+    await withTempRepo('omx-hud-ultragoal-malformed-', async (cwd) => {
+      const ultragoalDir = join(cwd, '.omx', 'ultragoal');
+      await mkdir(ultragoalDir, { recursive: true });
+      await writeFile(join(ultragoalDir, 'goals.json'), '{bad json');
+
       assert.equal(await readUltragoalState(cwd), null);
     });
   });

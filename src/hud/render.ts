@@ -125,8 +125,14 @@ function renderTeam(ctx: HudRenderContext): string | null {
 }
 
 
+function truncateDynamicText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  if (maxLength <= 1) return '…';
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 function renderUltragoal(ctx: HudRenderContext): string | null {
-  if (!ctx.ultragoal) return null;
+  if (!ctx.ultragoal?.active) return null;
   const total = ctx.ultragoal.progressTotal;
   const complete = ctx.ultragoal.complete;
   if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(complete)) return null;
@@ -134,7 +140,8 @@ function renderUltragoal(ctx: HudRenderContext): string | null {
   const progress = `ultragoal ${complete}/${total}`;
   const id = ctx.ultragoal.activeGoal?.id ? sanitizeDynamicText(ctx.ultragoal.activeGoal.id) : '';
   const title = ctx.ultragoal.activeGoal?.title ? sanitizeDynamicText(ctx.ultragoal.activeGoal.title) : '';
-  const objective = ctx.ultragoal.activeGoal?.objective ? sanitizeDynamicText(ctx.ultragoal.activeGoal.objective) : '';
+  const rawObjective = ctx.ultragoal.activeGoal?.objective ? sanitizeDynamicText(ctx.ultragoal.activeGoal.objective) : '';
+  const objective = rawObjective ? truncateDynamicText(rawObjective, 96) : '';
   const heading = [id, title].filter(Boolean).join(': ');
   const summary = heading ? `${progress} ▶ ${heading}` : progress;
   return cyan(objective ? `${summary} · objective: ${objective}` : summary);

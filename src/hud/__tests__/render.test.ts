@@ -256,7 +256,6 @@ describe('renderHud – ultragoal', () => {
         failed: 0,
         reviewBlocked: 0,
         needsUserDecision: 0,
-        progressCurrent: 3,
         progressTotal: 5,
         activeGoal: {
           id: 'G003-tests',
@@ -279,6 +278,58 @@ describe('renderHud – ultragoal', () => {
   it('omits ultragoal when null', () => {
     const result = renderHud(emptyCtx(), 'focused');
     assert.ok(!result.includes('ultragoal'));
+  });
+
+  it('omits completed ultragoal plans instead of showing stale progress', () => {
+    const ctx = {
+      ...emptyCtx(),
+      ultragoal: {
+        active: false,
+        status: 'complete',
+        total: 2,
+        complete: 2,
+        pending: 0,
+        inProgress: 0,
+        failed: 0,
+        reviewBlocked: 0,
+        needsUserDecision: 0,
+        progressTotal: 2,
+      },
+    };
+
+    const result = renderHud(ctx, 'focused');
+    assert.ok(!result.includes('ultragoal'));
+  });
+
+  it('truncates long ultragoal objectives', () => {
+    const longObjective = 'show active ultragoal objective in OMX HUD '.repeat(8);
+    const ctx = {
+      ...emptyCtx(),
+      ultragoal: {
+        active: true,
+        status: 'in_progress',
+        total: 1,
+        complete: 0,
+        pending: 0,
+        inProgress: 1,
+        failed: 0,
+        reviewBlocked: 0,
+        needsUserDecision: 0,
+        progressTotal: 1,
+        activeGoal: {
+          id: 'G001-long',
+          title: 'Long objective',
+          objective: longObjective,
+          status: 'in_progress',
+          index: 1,
+        },
+      },
+    };
+
+    const result = stripSgr(renderHud(ctx, 'focused'));
+    assert.ok(result.includes('objective: show active ultragoal objective in OMX HUD'));
+    assert.ok(result.includes('…'));
+    assert.ok(!result.includes(longObjective));
   });
 });
 

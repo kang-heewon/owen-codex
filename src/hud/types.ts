@@ -28,7 +28,6 @@ export interface UltragoalStateForHud {
   failed: number;
   reviewBlocked: number;
   needsUserDecision: number;
-  progressCurrent?: number;
   progressTotal: number;
   activeGoal?: UltragoalActiveGoalForHud;
 }

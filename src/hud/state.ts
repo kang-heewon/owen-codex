@@ -186,7 +186,6 @@ export async function readUltragoalState(cwd: string): Promise<UltragoalStateFor
     failed: failed_goals,
     reviewBlocked: review_blocked_goals,
     needsUserDecision: needs_user_decision_goals,
-    progressCurrent: activeIndex >= 0 ? activeIndex + 1 : completed_goals,
     progressTotal: goals.length,
     activeGoal: activeGoal && activeIndex >= 0 ? {
       id: activeGoal.id,
