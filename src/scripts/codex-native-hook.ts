@@ -1,5 +1,5 @@
 import { execFileSync } from "child_process";
-import { closeSync, existsSync, openSync, readFileSync, readSync } from "fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "fs";
 import { appendFile, mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
 import { extname, join, relative, resolve } from "path";
 import { pathToFileURL } from "url";
@@ -214,6 +214,57 @@ function safeContextSnippet(value: unknown, maxLength = 300): string {
   const text = safeString(value).replace(/\s+/g, " ").trim();
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+const SIDE_CONVERSATION_BOUNDARY_PATTERNS = [
+  /side conversation boundary/i,
+  /inherited history from the parent thread/i,
+  /reference context only/i,
+  /only messages submitted after this boundary are active/i,
+  /side-conversation assistant/i,
+] as const;
+
+function textHasSideConversationBoundary(text: string): boolean {
+  return SIDE_CONVERSATION_BOUNDARY_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function isLikelySideConversationStopPayload(payload: CodexHookPayload): boolean {
+  const payloadText = [
+    payload.prompt,
+    payload.user_prompt,
+    payload.userPrompt,
+    payload.input,
+    payload.last_user_message,
+    payload.lastUserMessage,
+    payload.last_assistant_message,
+    payload.lastAssistantMessage,
+  ].map(safeString).join("\n");
+  if (textHasSideConversationBoundary(payloadText)) return true;
+
+  const transcriptPath = safeString(payload.transcript_path ?? payload.transcriptPath).trim();
+  if (!transcriptPath || !existsSync(transcriptPath)) return false;
+
+  try {
+    const maxBytes = 256 * 1024;
+    const stats = statSync(transcriptPath);
+    const fd = openSync(transcriptPath, "r");
+    try {
+      const bytesToRead = Math.min(maxBytes, Math.max(0, stats.size));
+      const buffer = Buffer.alloc(bytesToRead);
+      const position = Math.max(0, stats.size - bytesToRead);
+      const bytesRead = readSync(fd, buffer, 0, bytesToRead, position);
+      return textHasSideConversationBoundary(buffer.toString("utf-8", 0, bytesRead));
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return false;
+  }
+}
+
+function shouldSuppressParentWorkflowStopForSideConversation(payload: CodexHookPayload): boolean {
+  if (safeString(payload.hook_event_name ?? payload.hookEventName).trim() !== "Stop") return false;
+  return isLikelySideConversationStopPayload(payload);
 }
 
 interface NativeSubagentSessionStartMetadata {
@@ -3745,8 +3796,12 @@ async function buildStopHookOutput(
   const sessionId = readPayloadSessionId(payload);
   const canonicalSessionId = await resolveInternalSessionIdForPayload(cwd, sessionId);
   const threadId = readPayloadThreadId(payload);
+  const suppressParentWorkflowStop = shouldSuppressParentWorkflowStopForSideConversation(payload);
   if (canonicalSessionId) {
     await reconcileStaleRootSkillActiveStateForStop(cwd, stateDir, canonicalSessionId);
+  }
+  if (suppressParentWorkflowStop) {
+    return null;
   }
   const execFollowupOutput = await buildExecFollowupStopOutput(cwd, canonicalSessionId);
   if (execFollowupOutput) return execFollowupOutput;

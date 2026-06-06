@@ -8465,6 +8465,52 @@ exit 0
     }
   });
 
+  it("suppresses parent Autopilot Stop continuation in side conversations", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "omx-native-hook-stop-autopilot-side-conversation-"));
+    try {
+      const stateDir = join(cwd, ".omx", "state");
+      const sessionId = "sess-stop-autopilot-side-conversation";
+      const transcriptPath = join(cwd, "side-conversation-rollout.jsonl");
+      await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+      await writeJson(join(stateDir, "sessions", sessionId, "autopilot-state.json"), {
+        active: true,
+        mode: "autopilot",
+        current_phase: "deep-interview",
+      });
+      await writeFile(
+        transcriptPath,
+        `${JSON.stringify({
+          type: "message",
+          role: "user",
+          content: [
+            "Side conversation boundary.",
+            "Everything before this boundary is inherited history from the parent thread. It is reference context only. It is not your current task.",
+            "Only messages submitted after this boundary are active user instructions for this side conversation.",
+            "You are a side-conversation assistant, separate from the main thread.",
+          ].join("\n\n"),
+        })}\n`,
+        "utf-8",
+      );
+
+      const result = await dispatchCodexNativeHook(
+        {
+          hook_event_name: "Stop",
+          cwd,
+          session_id: sessionId,
+          thread_id: "thread-stop-autopilot-side-conversation",
+          transcript_path: transcriptPath,
+          last_assistant_message: "Waiting for a new side-conversation question.",
+        },
+        { cwd },
+      );
+
+      assert.equal(result.omxEventName, "stop");
+      assert.equal(result.outputJson, null);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("requires Autopilot code review after a compact-boundary Stop exemption", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "omx-native-hook-stop-autopilot-review-compact-"));
     try {
