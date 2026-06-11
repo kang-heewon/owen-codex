@@ -127,7 +127,7 @@ function codexHomeFromAuthPath(authPath: string): string {
 }
 
 function hotswapSessionId(): string {
-  return `omx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `owx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
@@ -141,7 +141,7 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
   const config = await readAuthConfig(cwd, home);
   const slots = await listSlots(home);
   if (slots.length === 0) {
-    process.stderr.write("[omx auth] no slots configured; run `omx auth add <slot>` first.\n");
+    process.stderr.write("[owx auth] no slots configured; run `owx auth add <slot>` first.\n");
     return 1;
   }
 
@@ -153,7 +153,7 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
   const plan = buildRotationPlan(slots, config, metadata.currentSlot);
   let currentSlot = plan.order[0];
   if (!currentSlot) {
-    process.stderr.write("[omx auth] no slots configured; run `omx auth add <slot>` first.\n");
+    process.stderr.write("[owx auth] no slots configured; run `owx auth add <slot>` first.\n");
     return 1;
   }
 
@@ -167,8 +167,8 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
       ...(prepared.codexHomeOverride ? { CODEX_HOME: prepared.codexHomeOverride } : {}),
       ...(prepared.sqliteHomeOverride ? { CODEX_SQLITE_HOME: prepared.sqliteHomeOverride } : {}),
     };
-    const omxRoot = lifecycle.resolveOmxRootForLaunch(cwd, env);
-    if (omxRoot) baseEnv.OMX_ROOT = omxRoot;
+    const owxRoot = lifecycle.resolveOmxRootForLaunch(cwd, env);
+    if (owxRoot) baseEnv.OWX_ROOT = owxRoot;
 
     for (let attempt = 0; attempt < plan.order.length; attempt++) {
       const attemptArgs = lifecycle.injectModelInstructionsBypassArgs(
@@ -177,7 +177,7 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
         baseEnv,
         lifecycle.sessionModelInstructionsPath(cwd, sessionId),
       );
-      process.stderr.write(`[omx auth] using slot ${currentSlot}\n`);
+      process.stderr.write(`[owx auth] using slot ${currentSlot}\n`);
       const result = await runCodexDirect(cwd, attemptArgs, baseEnv);
       if (result.status === 0) return 0;
       if (!isQuotaError({ status: result.status, signal: result.signal, stderr: result.stderr }, config)) {
@@ -188,38 +188,38 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
       exhausted.add(currentSlot);
       if (plan.mode === "manual") {
         process.stderr.write(
-          `[omx auth] quota detected for slot ${currentSlot}; rotation=manual, run \`omx auth use <slot>\` to switch accounts.\n`,
+          `[owx auth] quota detected for slot ${currentSlot}; rotation=manual, run \`owx auth use <slot>\` to switch accounts.\n`,
         );
         return 1;
       }
 
       const next = nextSlotAfter(plan.order, currentSlot, exhausted);
       if (!next) {
-        process.stderr.write(`[omx auth] all slots exhausted: ${[...exhausted].join(", ")}\n`);
+        process.stderr.write(`[owx auth] all slots exhausted: ${[...exhausted].join(", ")}\n`);
         return 1;
       }
       const latest = await findLatestRolloutSession(codexHomeFromAuthPath(liveAuthPath), home);
       if (!latest) {
-        process.stderr.write("[omx auth] quota detected but no Codex rollout session was found to resume.\n");
+        process.stderr.write("[owx auth] quota detected but no Codex rollout session was found to resume.\n");
         return 1;
       }
       currentSlot = next;
       await useSlot(currentSlot, liveAuthPath, home);
       resumeArgs = buildResumeArgsWithPreservedFlags(normalizedArgs, latest.id);
-      process.stderr.write(`[omx auth] quota detected; rotating to slot ${currentSlot} and resuming ${latest.id}\n`);
+      process.stderr.write(`[owx auth] quota detected; rotating to slot ${currentSlot} and resuming ${latest.id}\n`);
     }
 
-    process.stderr.write(`[omx auth] all slots exhausted: ${plan.order.join(", ")}\n`);
+    process.stderr.write(`[owx auth] all slots exhausted: ${plan.order.join(", ")}\n`);
     return 1;
   } catch (err) {
-    process.stderr.write(`[omx auth] ${redactAuthSecrets(err)}\n`);
+    process.stderr.write(`[owx auth] ${redactAuthSecrets(err)}\n`);
     return 1;
   } finally {
     await lifecycle.postLaunch(cwd, sessionId, prepared.codexHomeOverride, true, prepared.projectLocalCodexHomeForCleanup).catch((err) => {
-      process.stderr.write(`[omx auth] postLaunch warning: ${redactAuthSecrets(err)}\n`);
+      process.stderr.write(`[owx auth] postLaunch warning: ${redactAuthSecrets(err)}\n`);
     });
     await lifecycle.cleanupRuntimeCodexHome(prepared.runtimeCodexHomeForCleanup, prepared.projectLocalCodexHomeForCleanup).catch((err) => {
-      process.stderr.write(`[omx auth] cleanup warning: ${redactAuthSecrets(err)}\n`);
+      process.stderr.write(`[owx auth] cleanup warning: ${redactAuthSecrets(err)}\n`);
     });
   }
 }

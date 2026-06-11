@@ -7,7 +7,7 @@ import {
   reconcileCodexGoalSnapshot,
 } from '../goal-workflows/codex-goal-snapshot.js';
 
-export const ULTRAGOAL_DIR = '.omx/ultragoal';
+export const ULTRAGOAL_DIR = '.owx/ultragoal';
 export const ULTRAGOAL_BRIEF = 'brief.md';
 export const ULTRAGOAL_GOALS = 'goals.json';
 export const ULTRAGOAL_LEDGER = 'ledger.jsonl';
@@ -486,7 +486,7 @@ async function canReconcileCompletedTaskScopedAggregateSnapshot(
 function buildCompletedLegacyGoalRemediation(goal: UltragoalItem): string {
   return [
     'If get_goal returns a different completed legacy/thread objective, do not repeat --status complete in this thread.',
-    `Record a non-terminal blocker with: omx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<completed legacy Codex goal blocks create_goal in this thread>" --codex-goal-json "<different completed get_goal JSON or path>".`,
+    `Record a non-terminal blocker with: owx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<completed legacy Codex goal blocks create_goal in this thread>" --codex-goal-json "<different completed get_goal JSON or path>".`,
     'Then continue only from a Codex goal context with no active/completed conflicting goal, in the same repo/worktree, and create the intended goal there.',
   ].join(' ');
 }
@@ -494,7 +494,7 @@ function buildCompletedLegacyGoalRemediation(goal: UltragoalItem): string {
 function buildUnavailableCodexGoalRemediation(goal: UltragoalItem): string {
   return [
     'If get_goal itself is unavailable due to a Codex DB/schema/context error, such as "no such table: thread_goals", do not repeat --status complete or mark the Codex goal complete from shell state.',
-    `Record an auditable non-terminal blocker with: omx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<get_goal unavailable due to Codex DB/schema/context error; safe recovery requires a working Codex goal context>" --codex-goal-json "<unavailable get_goal error JSON or path>".`,
+    `Record an auditable non-terminal blocker with: owx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<get_goal unavailable due to Codex DB/schema/context error; safe recovery requires a working Codex goal context>" --codex-goal-json "<unavailable get_goal error JSON or path>".`,
     'Then continue from a Codex goal context where get_goal works and strict completion reconciliation can be proven.',
   ].join(' ');
 }
@@ -696,7 +696,7 @@ export async function readUltragoalPlan(cwd: string): Promise<UltragoalPlan> {
   try {
     raw = await readFile(path, 'utf-8');
   } catch {
-    throw new UltragoalError(`No ultragoal plan found at ${repoRelative(cwd, path)}. Run \`omx ultragoal create-goals ...\` first.`);
+    throw new UltragoalError(`No ultragoal plan found at ${repoRelative(cwd, path)}. Run \`owx ultragoal create-goals ...\` first.`);
   }
   const parsed = JSON.parse(raw) as UltragoalPlan;
   if (parsed.version !== 1 || !Array.isArray(parsed.goals)) {
@@ -1351,7 +1351,7 @@ export async function checkpointUltragoal(cwd: string, options: CheckpointOption
         };
       } else {
         const taskScopedRequirement = aggregateMode && snapshot?.status === 'complete' && Boolean(snapshot.objective)
-          ? ' Completed task-scoped aggregate reconciliation requires the checkpoint goal to be the active in-progress OMX goal, evidence that names that active OMX goal id, names .omx/ultragoal/goals.json or ledger.jsonl, includes completed implementation plus validation/review evidence, and a get_goal objective that maps to the ultragoal brief/artifact.'
+          ? ' Completed task-scoped aggregate reconciliation requires the checkpoint goal to be the active in-progress OWX goal, evidence that names that active OWX goal id, names .owx/ultragoal/goals.json or ledger.jsonl, includes completed implementation plus validation/review evidence, and a get_goal objective that maps to the ultragoal brief/artifact.'
           : '';
         const remediation = reconciliation.snapshot.available
           && reconciliation.snapshot.status === 'complete'
@@ -1529,7 +1529,7 @@ function buildPerStoryCodexGoalInstruction(goal: UltragoalItem, plan: UltragoalP
     '- If a different active Codex goal exists, finish/checkpoint that goal before starting this ultragoal.',
     '- Ultragoal cannot call /goal clear from the model/shell tool surface. For another per-story goal in the same session/thread after a completed Codex goal, manually run /goal clear in the Codex UI before creating the next goal.',
     '- If get_goal returns a different completed legacy/thread goal and create_goal rejects because this thread already has a completed goal, continue only from a Codex goal context with no active/completed conflicting goal in the same repo/worktree and create the payload there.',
-    `- To preserve the durable ledger before switching threads, record the non-terminal blocker without failing this goal: omx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<completed legacy Codex goal blocks create_goal in this thread>" --codex-goal-json "<get_goal JSON or path>"`,
+    `- To preserve the durable ledger before switching threads, record the non-terminal blocker without failing this goal: owx ultragoal checkpoint --goal-id ${goal.id} --status blocked --evidence "<completed legacy Codex goal blocks create_goal in this thread>" --codex-goal-json "<get_goal JSON or path>"`,
     '- Work only this goal until its completion audit passes.',
     finalStory
       ? '- Final mandatory quality gate: run ai-slop-cleaner on changed files even when it is a no-op, rerun verification, then run $code-review.'
@@ -1541,8 +1541,8 @@ function buildPerStoryCodexGoalInstruction(goal: UltragoalItem, plan: UltragoalP
       ? '- If final $code-review is non-clean, missing independentReview evidence, or independent delegation is unavailable/skipped/failed, do not call update_goal. Record blockers with:'
       : '- After the goal is actually complete, call update_goal({status: "complete"}), call get_goal again for a fresh completion snapshot, then checkpoint the ledger with:',
     finalStory
-      ? `  omx ultragoal record-review-blockers --goal-id ${goal.id} --title "Resolve final code-review blockers" --objective "<blocker-resolution objective>" --evidence "<review findings>" --codex-goal-json "<active get_goal JSON or path>"`
-      : `  omx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
+      ? `  owx ultragoal record-review-blockers --goal-id ${goal.id} --title "Resolve final code-review blockers" --objective "<blocker-resolution objective>" --evidence "<review findings>" --codex-goal-json "<active get_goal JSON or path>"`
+      : `  owx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
     finalStory
       ? '- In legacy per-story mode, the blocker story may require an available Codex goal context because this story remains an active incomplete Codex goal; do not claim it is complete.'
       : null,
@@ -1550,7 +1550,7 @@ function buildPerStoryCodexGoalInstruction(goal: UltragoalItem, plan: UltragoalP
       ? '- If final $code-review is clean (APPROVE + CLEAR + independent code-reviewer and architect subagent evidence), call update_goal({status: "complete"}), call get_goal again, then checkpoint with --quality-gate-json:'
       : null,
     finalStory
-      ? `  omx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh complete get_goal JSON or path>" --quality-gate-json "<quality gate JSON or path>"`
+      ? `  owx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh complete get_goal JSON or path>" --quality-gate-json "<quality gate JSON or path>"`
       : null,
     '- If blocked or failed, checkpoint with --status failed and the failure evidence; rerun complete-goals --retry-failed to resume.',
     '',
@@ -1574,14 +1574,14 @@ function buildAggregateCodexGoalInstruction(goal: UltragoalItem, plan: Ultragoal
     `Goal: ${goal.id} — ${goal.title}`,
     '',
     'Codex goal integration constraints:',
-    '- Codex goal = the whole ultragoal run; OMX G001/G002/etc. = ledger stories.',
+    '- Codex goal = the whole ultragoal run; OWX G001/G002/etc. = ledger stories.',
     '- First call get_goal. If no active goal exists, call create_goal with the aggregate payload below.',
-    '- If get_goal reports the same aggregate objective as active, continue this OMX story without creating a new Codex goal.',
+    '- If get_goal reports the same aggregate objective as active, continue this OWX story without creating a new Codex goal.',
     '- If a different active or incomplete Codex goal exists, finish/checkpoint that goal before starting this ultragoal; do not replace hidden Codex state from the shell.',
     '- Ultragoal does not call /goal clear. After a completed aggregate run, manually run /goal clear in the Codex UI before starting another ultragoal run in the same session/thread.',
     finalStory
       ? '- This is the final pending story: run the mandatory final ai-slop-cleaner pass, rerun verification, and run $code-review before any update_goal call.'
-      : '- This is not the final story: do not call update_goal yet; the aggregate Codex goal must remain active while later OMX stories remain.',
+      : '- This is not the final story: do not call update_goal yet; the aggregate Codex goal must remain active while later OWX stories remain.',
     finalStory
       ? '- Final $code-review is clean only when it is APPROVE with architect status CLEAR and includes independentReview evidence from both code-reviewer and architect subagents.'
       : null,
@@ -1589,15 +1589,15 @@ function buildAggregateCodexGoalInstruction(goal: UltragoalItem, plan: Ultragoal
       ? '- If final $code-review is non-clean, missing independentReview evidence, or independent delegation is unavailable/skipped/failed, do not call update_goal. Record durable blocker work first:'
       : null,
     finalStory
-      ? `  omx ultragoal record-review-blockers --goal-id ${goal.id} --title "Resolve final code-review blockers" --objective "<blocker-resolution objective>" --evidence "<review findings>" --codex-goal-json "<active get_goal JSON or path>"`
+      ? `  owx ultragoal record-review-blockers --goal-id ${goal.id} --title "Resolve final code-review blockers" --objective "<blocker-resolution objective>" --evidence "<review findings>" --codex-goal-json "<active get_goal JSON or path>"`
       : null,
     finalStory
       ? '- If final $code-review is clean (APPROVE + CLEAR + independent code-reviewer and architect subagent evidence), call update_goal({status: "complete"}), call get_goal again for a fresh complete snapshot, then checkpoint with --quality-gate-json.'
       : null,
-    `- Checkpoint this OMX story with a fresh get_goal snapshot whose objective matches the aggregate payload and whose status is ${checkpointStatus}:`,
+    `- Checkpoint this OWX story with a fresh get_goal snapshot whose objective matches the aggregate payload and whose status is ${checkpointStatus}:`,
     finalStory
-      ? `  omx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh complete get_goal JSON or path>" --quality-gate-json "<quality gate JSON or path>"`
-      : `  omx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
+      ? `  owx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh complete get_goal JSON or path>" --quality-gate-json "<quality gate JSON or path>"`
+      : `  owx ultragoal checkpoint --goal-id ${goal.id} --status complete --evidence "<tests/files/PR evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
     '- If blocked or failed, checkpoint with --status failed and the failure evidence; rerun complete-goals --retry-failed to resume.',
     '',
     'create_goal payload:',
@@ -1606,7 +1606,7 @@ function buildAggregateCodexGoalInstruction(goal: UltragoalItem, plan: Ultragoal
     'Aggregate objective:',
     objective,
     '',
-    'Current OMX story objective:',
+    'Current OWX story objective:',
     goal.objective,
   ].filter((line): line is string => line !== null).join('\n');
 }

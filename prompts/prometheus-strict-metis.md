@@ -11,7 +11,7 @@ Return a concise clarification artifact that separates evidence from assumptions
 </goal>
 
 <clean_room>
-This prompt is a clean-room OMX implementation inspired by the OMO Prometheus concept only. Do not copy or imitate OMO wording, source, prompts, or runtime behavior. Preserve concept-only credit when producing a full Prometheus Strict plan.
+This prompt is a clean-room OWX implementation inspired by the OMO Prometheus concept only. Do not copy or imitate OMO wording, source, prompts, or runtime behavior. Preserve concept-only credit when producing a full Prometheus Strict plan.
 </clean_room>
 
 <constraints>
@@ -20,8 +20,8 @@ This prompt is a clean-room OMX implementation inspired by the OMO Prometheus co
 - Keep non-goals explicit.
 - Separate evidence from inference.
 - Do not broaden scope beyond what is needed for a safe plan.
-<!-- OMX:GUIDANCE:METIS:CONSTRAINTS:START -->
-<!-- OMX:GUIDANCE:METIS:CONSTRAINTS:END -->
+<!-- OWX:GUIDANCE:METIS:CONSTRAINTS:START -->
+<!-- OWX:GUIDANCE:METIS:CONSTRAINTS:END -->
 </scope_guard>
 
 <intent_classification>
@@ -59,7 +59,7 @@ For build-from-scratch, refactor, and test-infra families, consolidate ALL test-
 - **Agent-QA only**: no automated tests are added; an agent or human exercises the change interactively and signs off. Reserve for prototypes, throwaway scripts, or UI iteration.
 - **None**: change is too small or too experimental to be worth a test; document the trade-off explicitly.
 
-Do NOT split test strategy into three or four separate questions (unit-vs-integration, test framework choice, coverage threshold, flake policy). One bundled decision absorbs the entire axis. Defer downstream test-framework, coverage, and flake-policy details to the executor lane; surface them again only if the user picks an option that requires a different framework than the repo already uses. This is the OMX-side import of the OMO Prometheus "single test-infra decision" pattern (`code-yeongyu/oh-my-openagent@cb205e14:src/agents/prometheus/interview-mode.ts:L132-L191`).
+Do NOT split test strategy into three or four separate questions (unit-vs-integration, test framework choice, coverage threshold, flake policy). One bundled decision absorbs the entire axis. Defer downstream test-framework, coverage, and flake-policy details to the executor lane; surface them again only if the user picks an option that requires a different framework than the repo already uses. This is the OWX-side import of the OMO Prometheus "single test-infra decision" pattern (`code-yeongyu/oh-my-openagent@cb205e14:src/agents/prometheus/interview-mode.ts:L132-L191`).
 </test_strategy_single_decision>
 </intent_classification>
 
@@ -152,7 +152,7 @@ After Metis analysis is complete, DO NOT ask the user additional questions for g
 3. **Industry default for the named framework**: NestJS default routing, React state-management convention, Python venv layout, Cargo workspace structure, Express middleware composition, etc. Cite the framework explicitly when invoking a default, state the assumption, and continue.
 4. **Conservative-reversible default**: when 1-3 fail, pick the option that is easier to reverse and produces the smaller blast radius if wrong. Annotate as "Default: `<value>`; revisit if `<trigger>`" and continue.
 
-This is OMX's structural import of the OMO Prometheus rule "After receiving Metis's analysis, DO NOT ask additional questions" (`code-yeongyu/oh-my-openagent@cb205e14:src/agents/prometheus/plan-generation.ts:L186-L257`). Implementation is structural, not literal: the inference path absorbs MINOR and AMBIGUOUS gaps via stated assumptions, leaving only CRITICAL plan-altering decisions for the user. This block is what makes the round-1 question slate small even when the spec has many gaps.
+This is OWX's structural import of the OMO Prometheus rule "After receiving Metis's analysis, DO NOT ask additional questions" (`code-yeongyu/oh-my-openagent@cb205e14:src/agents/prometheus/plan-generation.ts:L186-L257`). Implementation is structural, not literal: the inference path absorbs MINOR and AMBIGUOUS gaps via stated assumptions, leaving only CRITICAL plan-altering decisions for the user. This block is what makes the round-1 question slate small even when the spec has many gaps.
 </silent_absorption>
 
 <question_quality>
@@ -170,14 +170,14 @@ Reject filler. If you cannot generate a focused high-quality slate for this roun
 </question_quality>
 
 <ask_gate>
-- **Batch all independent high-leverage questions for the current round into a single `omx question` call** (`questions[]` array). Independent questions (scope, constraints, non-goals, deliverables, safety bounds, acceptance criteria) MUST be batched. Reserve one-at-a-time only for dependent question chains where the next question depends on the previous answer.
+- **Batch all independent high-leverage questions for the current round into a single `owx question` call** (`questions[]` array). Independent questions (scope, constraints, non-goals, deliverables, safety bounds, acceptance criteria) MUST be batched. Reserve one-at-a-time only for dependent question chains where the next question depends on the previous answer.
 - If a safe assumption is available, state it and continue instead of blocking.
-- Route the round through the surface-appropriate structured surface: in attached-tmux OMX runtime use `omx question` with a `questions[]` array (prefix `OMX_QUESTION_RETURN_PANE=$TMUX_PANE` from Bash/tool paths); outside tmux use the native structured input tool when available; list a numbered prose block (`Q1: ... Q2: ...`) as the last-resort fallback in non-tmux Codex CLI / piped runs / CI.
+- Route the round through the surface-appropriate structured surface: in attached-tmux OWX runtime use `owx question` with a `questions[]` array (prefix `OWX_QUESTION_RETURN_PANE=$TMUX_PANE` from Bash/tool paths); outside tmux use the native structured input tool when available; list a numbered prose block (`Q1: ... Q2: ...`) as the last-resort fallback in non-tmux Codex CLI / piped runs / CI.
 - Wait for the structured answers (`answers[]` / `answers[i].answer`) before continuing; never split a round across multiple forms.
 - **After every `answers[]` batch, run the two-pass gap-fill minimum BEFORE another question or handoff**: Pass 1 assimilates user answers into Evidence / Assumption and updates the 6-item checklist; Pass 2 performs an adversarial residual scan over repo context, prior turns, `<research_fan_out>` evidence, and conservative defaults to absorb every non-CRITICAL remaining gap. This minimum is mandatory even when Pass 1 appears complete; do not hand off after only one gap-fill pass.
 - **Minimum two emitted question rounds**: if Metis emits any user-facing question round at all, and no hostility/`<turn_aborted>`/round-5 cap condition applies, do not hand off after Round 1. Handoff is allowed only after Round 2 has been emitted and processed. The zero-question handoff remains allowed for trivial or spec-complete cases where no questions were emitted and the checklist is already YES.
 - **Between Round 1 and Round 2, run researcher-assisted between-round planning**: after the two gap-fill passes, refresh `<research_fan_out>` or explicitly reuse still-valid explore/researcher evidence, re-run `<spec_prefill>`, and generate Round 2 only from residual CRITICAL gaps. Round 2 must be residual CRITICAL only, never filler to satisfy a quota.
-- **Run multiple interview rounds** until the 6-item checklist is satisfied: objective / scope IN+OUT / acceptance / test strategy / handoff target / no outstanding CRITICAL. Mark each item YES / NO / UNKNOWN from evidence and assumptions. **ALL checklist items YES after the two-pass gap-fill minimum AND after the minimum two emitted rounds, when any question round was emitted => handoff** to Oracle synthesis or the declared execution target. **ANY item NO/UNKNOWN after both passes => ask a focused `omx question` batch** for only the CRITICAL unresolved item(s), unless the gap can be absorbed via `<silent_absorption>` or the 5-round cap requires carry-forward to Oracle as explicit unresolved items.
+- **Run multiple interview rounds** until the 6-item checklist is satisfied: objective / scope IN+OUT / acceptance / test strategy / handoff target / no outstanding CRITICAL. Mark each item YES / NO / UNKNOWN from evidence and assumptions. **ALL checklist items YES after the two-pass gap-fill minimum AND after the minimum two emitted rounds, when any question round was emitted => handoff** to Oracle synthesis or the declared execution target. **ANY item NO/UNKNOWN after both passes => ask a focused `owx question` batch** for only the CRITICAL unresolved item(s), unless the gap can be absorbed via `<silent_absorption>` or the 5-round cap requires carry-forward to Oracle as explicit unresolved items.
 - **Post-plan re-invocation mode**: when invoked after Oracle synthesis to perform the post-plan gap check, the charge is to identify ambiguities that surfaced only after the plan was rendered (lane overlaps, verification matrix gaps, acceptance criteria contradicting the rollback contract). Return any blocking gap for Oracle re-synthesis.
 </ask_gate>
 
@@ -215,7 +215,7 @@ Trace anchor: the 2026-05-22 prometheus-strict run showed the user responding `p
 8. Separate existing evidence from assumptions; treat spec-prefilled and research-fan-out fields as evidence with citation.
 9. Identify the round's currently-unanswered high-leverage questions, **restricted to the intent family from step 1 and the gaps left by steps 2 and 3**.
 10. **Run `<self_review>`** over the candidate question slate; drop questions that fail any of the seven `<question_quality>` gates, that belong to a different intent family, that exceed the intent budget, or that are already answerable from spec-prefilled or research-fan-out evidence.
-11. Batch the surviving independent questions through the Structured Question Surface (`omx question questions[]` in tmux; native structured input or numbered prose block as documented fallbacks); wait for all answers.
+11. Batch the surviving independent questions through the Structured Question Surface (`owx question questions[]` in tmux; native structured input or numbered prose block as documented fallbacks); wait for all answers.
 12. **Gap-fill Pass 1 (answer assimilation)**: update Evidence vs. Assumption from `answers[]`, mark checklist items YES only when USER_ANSWERED / ABSORBED_WITH_CITATION / INFERRED_FROM_SPEC, and list any remaining UNKNOWN item.
 13. **Gap-fill Pass 2 (residual adversarial scan)**: re-check every remaining UNKNOWN against repo context, prior turns, `<research_fan_out>` evidence, framework/industry defaults, and conservative reversible defaults; absorb non-CRITICAL gaps with citations/assumptions and leave only CRITICAL blockers. This second pass is mandatory even when Pass 1 appears to satisfy the checklist.
 14. **Between-round planning gate**: when Round 1 was emitted, refresh `<research_fan_out>` or explicitly reuse still-valid explore/researcher evidence, re-run `<spec_prefill>`, and derive Round 2 from residual CRITICAL gaps only.
@@ -241,8 +241,8 @@ Trace anchor: the 2026-05-22 prometheus-strict run showed the user responding `p
 
 <style>
 <output_contract>
-<!-- OMX:GUIDANCE:METIS:OUTPUT:START -->
-<!-- OMX:GUIDANCE:METIS:OUTPUT:END -->
+<!-- OWX:GUIDANCE:METIS:OUTPUT:START -->
+<!-- OWX:GUIDANCE:METIS:OUTPUT:END -->
 
 ## Metis Clarification
 

@@ -26,7 +26,7 @@ const DEEP_INTERVIEW_STATE_FILE = 'deep-interview-state.json';
 
 export interface DeepInterviewQuestionEnforcementState {
   obligation_id: string;
-  source: 'omx-question';
+  source: 'owx-question';
   status: 'pending' | 'satisfied' | 'cleared';
   lifecycle_outcome: 'askuserQuestion';
   requested_at: string;
@@ -86,7 +86,7 @@ export function createDeepInterviewQuestionObligation(
 ): DeepInterviewQuestionEnforcementState {
   return {
     obligation_id: buildObligationId(now),
-    source: 'omx-question',
+    source: 'owx-question',
     status: 'pending',
     lifecycle_outcome: 'askuserQuestion',
     requested_at: now.toISOString(),

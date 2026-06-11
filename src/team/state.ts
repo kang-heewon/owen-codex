@@ -81,7 +81,7 @@ export interface TeamConfig {
   max_workers: number; // default 20, configurable up to 20
   workers: WorkerInfo[];
   created_at: string;
-  tmux_session: string; // "omx-team-{name}"
+  tmux_session: string; // "owx-team-{name}"
   next_task_id: number;
   leader_cwd?: string;
   team_state_root?: string;
@@ -558,7 +558,7 @@ function parseOptionalBoolean(raw: string | null): boolean | null {
 }
 
 function resolveDisplayModeFromEnv(env: NodeJS.ProcessEnv): TeamPolicy['display_mode'] {
-  const raw = readEnvValue(env, ['OMX_TEAM_DISPLAY_MODE', 'OMX_TEAM_MODE']);
+  const raw = readEnvValue(env, ['OWX_TEAM_DISPLAY_MODE', 'OWX_TEAM_MODE']);
   if (!raw) return 'auto';
   if (raw === 'in_process' || raw === 'in-process') return 'split_pane';
   if (raw === 'split_pane' || raw === 'tmux') return 'split_pane';
@@ -567,27 +567,27 @@ function resolveDisplayModeFromEnv(env: NodeJS.ProcessEnv): TeamPolicy['display_
 }
 
 function resolveWorkerLaunchModeFromEnv(env: NodeJS.ProcessEnv): TeamPolicy['worker_launch_mode'] {
-  const raw = readEnvValue(env, ['OMX_TEAM_WORKER_LAUNCH_MODE']);
+  const raw = readEnvValue(env, ['OWX_TEAM_WORKER_LAUNCH_MODE']);
   if (!raw || raw === 'interactive') return 'interactive';
   if (raw === 'prompt') return 'prompt';
-  throw new Error(`Invalid OMX_TEAM_WORKER_LAUNCH_MODE value "${raw}". Expected: interactive, prompt`);
+  throw new Error(`Invalid OWX_TEAM_WORKER_LAUNCH_MODE value "${raw}". Expected: interactive, prompt`);
 }
 
 function resolvePermissionsSnapshot(env: NodeJS.ProcessEnv): PermissionsSnapshot {
   const snapshot = defaultPermissionsSnapshot();
 
   const approvalMode = readEnvValue(env, [
-    'OMX_APPROVAL_MODE',
+    'OWX_APPROVAL_MODE',
     'CODEX_APPROVAL_MODE',
     'CODEX_APPROVAL_POLICY',
     'CLAUDE_CODE_APPROVAL_MODE',
   ]);
   if (approvalMode) snapshot.approval_mode = approvalMode;
 
-  const sandboxMode = readEnvValue(env, ['OMX_SANDBOX_MODE', 'CODEX_SANDBOX_MODE', 'SANDBOX_MODE']);
+  const sandboxMode = readEnvValue(env, ['OWX_SANDBOX_MODE', 'CODEX_SANDBOX_MODE', 'SANDBOX_MODE']);
   if (sandboxMode) snapshot.sandbox_mode = sandboxMode;
 
-  const network = parseOptionalBoolean(readEnvValue(env, ['OMX_NETWORK_ACCESS', 'CODEX_NETWORK_ACCESS', 'NETWORK_ACCESS']));
+  const network = parseOptionalBoolean(readEnvValue(env, ['OWX_NETWORK_ACCESS', 'CODEX_NETWORK_ACCESS', 'NETWORK_ACCESS']));
   if (network !== null) snapshot.network_access = network;
   else if (snapshot.sandbox_mode.toLowerCase().includes('offline')) snapshot.network_access = false;
 
@@ -595,7 +595,7 @@ function resolvePermissionsSnapshot(env: NodeJS.ProcessEnv): PermissionsSnapshot
 }
 
 async function resolveLeaderSessionId(cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
-  const fromEnv = readEnvValue(env, ['OMX_SESSION_ID', 'CODEX_SESSION_ID', 'SESSION_ID']);
+  const fromEnv = readEnvValue(env, ['OWX_SESSION_ID', 'CODEX_SESSION_ID', 'SESSION_ID']);
   if (fromEnv) return fromEnv;
   return (await readUsableSessionState(cwd))?.session_id ?? '';
 }
@@ -611,7 +611,7 @@ function normalizeTask(task: TeamTask): TeamTaskV2 {
   };
 }
 
-// Team state directory: .omx/state/team/{teamName}/
+// Team state directory: .owx/state/team/{teamName}/
 function resolveTeamStateRoot(cwd: string, env: NodeJS.ProcessEnv = process.env): string {
   return resolveCanonicalTeamStateRoot(cwd, env);
 }
@@ -769,7 +769,7 @@ export async function writeAtomic(filePath: string, data: string): Promise<void>
 }
 
 // Initialize team state directory + config.json
-// Creates: .omx/state/team/{name}/, workers/{worker-1}..{worker-N}/, tasks/
+// Creates: .owx/state/team/{name}/, workers/{worker-1}..{worker-N}/, tasks/
 // Throws if workerCount > maxWorkers (default 20)
 export async function initTeamState(
   teamName: string,
@@ -819,7 +819,7 @@ export async function initTeamState(
   }
 
   const leaderSessionId = await resolveLeaderSessionId(cwd, env);
-  const leaderWorkerId = readEnvValue(env, ['OMX_TEAM_WORKER']) ?? 'leader-fixed';
+  const leaderWorkerId = readEnvValue(env, ['OWX_TEAM_WORKER']) ?? 'leader-fixed';
   const displayMode = resolveDisplayModeFromEnv(env);
   const permissionsSnapshot = resolvePermissionsSnapshot(env);
   const workerLaunchMode = resolveWorkerLaunchModeFromEnv(env);
@@ -834,7 +834,7 @@ export async function initTeamState(
     max_workers: maxWorkers,
     workers,
     created_at: new Date().toISOString(),
-    tmux_session: `omx-team-${teamName}`,
+    tmux_session: `owx-team-${teamName}`,
     next_task_id: 1,
     leader_cwd: workspace.leader_cwd,
     team_state_root: workspace.team_state_root,

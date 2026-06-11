@@ -28,17 +28,17 @@ import { runQuestionUi } from '../question/ui.js';
 const DEFAULT_QUESTION_WAIT_TIMEOUT_MS = 30 * 60 * 1000;
 
 function parseQuestionWaitTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = String(env.OMX_QUESTION_WAIT_TIMEOUT_MS ?? '').trim();
+  const raw = String(env.OWX_QUESTION_WAIT_TIMEOUT_MS ?? '').trim();
   if (!raw) return DEFAULT_QUESTION_WAIT_TIMEOUT_MS;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_QUESTION_WAIT_TIMEOUT_MS;
 }
 
-export const QUESTION_HELP = `omx question - OMX-owned blocking user question entrypoint
+export const QUESTION_HELP = `owx question - OWX-owned blocking user question entrypoint
 
 Usage:
-  omx question --input '<json>' [--json]
-  omx question --ui --state-path <absolute-or-relative-record-path>
+  owx question --input '<json>' [--json]
+  owx question --ui --state-path <absolute-or-relative-record-path>
 
 Options:
   --help, -h           Show this help message
@@ -48,15 +48,15 @@ Options:
   --answer <json>      JSON answer object or {"answers":[...]} payload for --answer-question-id
   --session-id <id>    Optional session scope for answer submission
   --json               Emit compact JSON on stdout for machine callers
-  --ui                 Internal renderer mode; renders the OMX question UI for an existing state record
+  --ui                 Internal renderer mode; renders the OWX question UI for an existing state record
   --state-path <path>  Question record path used by --ui mode
 
 Input schema:
   {
     "header": "Optional short heading",
-    "question": "What should OMX do next?",
+    "question": "What should OWX do next?",
     "questions": [
-      {"id":"next-step","question":"What should OMX do next?","options":[{"label":"Proceed","value":"proceed"}],"allow_other":false}
+      {"id":"next-step","question":"What should OWX do next?","options":[{"label":"Proceed","value":"proceed"}],"allow_other":false}
     ],
     "options": [
       {"label": "Proceed", "value": "proceed", "description": "Continue"},
@@ -202,7 +202,7 @@ async function readOwningAutopilotDeepInterviewObligation(
 
   return {
     obligation_id: waitState.obligationId,
-    source: 'omx-question',
+    source: 'owx-question',
     status: 'pending',
     lifecycle_outcome: 'askuserQuestion',
     requested_at: waitState.requestedAt ?? new Date().toISOString(),
@@ -289,7 +289,7 @@ export async function questionCommand(args: string[]): Promise<void> {
     return;
   }
 
-  if (!parsed.input) throw new Error('omx question requires --input in normal mode');
+  if (!parsed.input) throw new Error('owx question requires --input in normal mode');
 
   let rawInput: unknown;
   try {

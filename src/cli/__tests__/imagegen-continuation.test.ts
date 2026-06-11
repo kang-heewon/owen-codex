@@ -15,17 +15,17 @@ import { writeSessionStart } from "../../hooks/session.js";
 function runOmx(cwd: string, argv: string[]): { status: number | null; stdout: string; stderr: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, "..", "..", "..");
-  const omxBin = join(repoRoot, "dist", "cli", "omx.js");
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, "dist", "cli", "owx.js");
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: "utf-8",
     env: {
       ...process.env,
       CODEX_HOME: "",
-      OMX_MODEL_INSTRUCTIONS_FILE: "",
-      OMX_TEAM_WORKER: "",
-      OMX_TEAM_STATE_ROOT: "",
-      OMX_TEAM_LEADER_CWD: "",
+      OWX_MODEL_INSTRUCTIONS_FILE: "",
+      OWX_TEAM_WORKER: "",
+      OWX_TEAM_STATE_ROOT: "",
+      OWX_TEAM_LEADER_CWD: "",
     },
   });
   return {
@@ -35,7 +35,7 @@ function runOmx(cwd: string, argv: string[]): { status: number | null; stdout: s
   };
 }
 
-describe("omx imagegen continuation", () => {
+describe("owx imagegen continuation", () => {
   it("parses continuation arguments for built-in image generation recovery", () => {
     const parsed = parseImagegenContinuationArgs([
       "continuation",
@@ -45,7 +45,7 @@ describe("omx imagegen continuation", () => {
       "--generated-dir",
       "C:/Users/USER/.codex/generated_images/sess-imagegen",
       "--work-dir",
-      ".omx/image-gen/run",
+      ".owx/image-gen/run",
       "--after",
       "2026-05-06T00:00:00.000Z",
       "--json",
@@ -54,22 +54,22 @@ describe("omx imagegen continuation", () => {
     assert.equal(parsed.sessionId, "sess-imagegen");
     assert.equal(parsed.artifactName, "hairstyles-sheet.png");
     assert.equal(parsed.generatedImagesDir, "C:/Users/USER/.codex/generated_images/sess-imagegen");
-    assert.equal(parsed.workDir, ".omx/image-gen/run");
+    assert.equal(parsed.workDir, ".owx/image-gen/run");
     assert.equal(parsed.after, "2026-05-06T00:00:00.000Z");
     assert.equal(parsed.json, true);
   });
 
   it("writes pending imagegen metadata and queues a Stop-hook follow-up", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-imagegen-continuation-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-imagegen-continuation-"));
     try {
-      const session = await writeSessionStart(wd, "omx-test-imagegen");
+      const session = await writeSessionStart(wd, "owx-test-imagegen");
       const result = await prepareImagegenContinuation({
         cwd: wd,
         sessionId: session.session_id,
         actor: "visual-ralph",
         artifactName: "hairstyles-sheet.png",
-        generatedImagesDir: "C:/Users/USER/.codex/generated_images/omx-test-imagegen",
-        workDir: ".omx/image-gen/visible-creation-v1",
+        generatedImagesDir: "C:/Users/USER/.codex/generated_images/owx-test-imagegen",
+        workDir: ".owx/image-gen/visible-creation-v1",
         after: "2026-05-06T00:00:00.000Z",
         nowIso: "2026-05-06T00:01:00.000Z",
       });
@@ -80,7 +80,7 @@ describe("omx imagegen continuation", () => {
         resume_instruction?: string;
       };
       assert.equal(pending.artifact_name, "hairstyles-sheet.png");
-      assert.equal(pending.generated_images_dir, "C:/Users/USER/.codex/generated_images/omx-test-imagegen");
+      assert.equal(pending.generated_images_dir, "C:/Users/USER/.codex/generated_images/owx-test-imagegen");
       assert.match(String(pending.resume_instruction), /Resume the interrupted Ralph visual\/imagegen workflow/);
 
       const followups = await readPendingExecFollowups(wd, session.session_id);
@@ -94,9 +94,9 @@ describe("omx imagegen continuation", () => {
   });
 
   it("exposes the helper through the CLI", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-imagegen-cli-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-imagegen-cli-"));
     try {
-      const session = await writeSessionStart(wd, "omx-test-imagegen-cli");
+      const session = await writeSessionStart(wd, "owx-test-imagegen-cli");
       const result = runOmx(wd, [
         "imagegen",
         "continuation",
@@ -124,7 +124,7 @@ describe("omx imagegen continuation", () => {
   });
 
   it("queues continuation metadata even when no exec session is accepting input", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-imagegen-no-active-exec-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-imagegen-no-active-exec-"));
     try {
       const result = runOmx(wd, [
         "imagegen",

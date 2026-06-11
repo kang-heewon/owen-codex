@@ -10,12 +10,12 @@ import {
 	isDirectCliInvocation,
 	syncPluginMirror,
 } from "../../scripts/sync-plugin-mirror.js";
-import { buildOmxPluginMcpManifest } from "../../config/omx-first-party-mcp.js";
+import { buildOmxPluginMcpManifest } from "../../config/owx-first-party-mcp.js";
 
 const root = process.cwd();
 
 async function copyBundleFixture(): Promise<string> {
-	const fixtureRoot = await mkdtemp(join(tmpdir(), "omx-plugin-bundle-ssot-"));
+	const fixtureRoot = await mkdtemp(join(tmpdir(), "owx-plugin-bundle-ssot-"));
 	await Promise.all([
 		cp(join(root, "templates"), join(fixtureRoot, "templates"), {
 			recursive: true,
@@ -63,7 +63,7 @@ describe("plugin bundle SSOT contract", () => {
 		assert.deepEqual(result.mirroredSkillNames, expectedSkillNames);
 		assert.equal(result.mirroredSkillNames.includes("pipeline"), true);
 		const pluginMcp = JSON.parse(
-			await readFile(join(root, "plugins", "oh-my-codex", ".mcp.json"), "utf-8"),
+			await readFile(join(root, "plugins", "owen-codex", ".mcp.json"), "utf-8"),
 		) as { mcpServers?: Record<string, { enabled?: boolean }> };
 		assert.deepEqual(
 			Object.values(pluginMcp.mcpServers ?? {}).map((server) => server.enabled),
@@ -90,7 +90,7 @@ describe("plugin bundle SSOT contract", () => {
 		const fixtureRoot = await copyBundleFixture();
 		try {
 			await writeFile(
-				join(fixtureRoot, "plugins", "oh-my-codex", ".mcp.json"),
+				join(fixtureRoot, "plugins", "owen-codex", ".mcp.json"),
 				`${JSON.stringify({ mcpServers: {} }, null, 2)}\n`,
 			);
 
@@ -107,7 +107,7 @@ describe("plugin bundle SSOT contract", () => {
 		const fixtureRoot = await copyBundleFixture();
 		try {
 			await writeFile(
-				join(fixtureRoot, "plugins", "oh-my-codex", ".mcp.json"),
+				join(fixtureRoot, "plugins", "owen-codex", ".mcp.json"),
 				`${JSON.stringify({ mcpServers: {} }, null, 2)}\n`,
 			);
 
@@ -134,7 +134,7 @@ describe("plugin bundle SSOT contract", () => {
 			const skill = manifest.skills.find((entry) => entry.name === "help");
 			assert.ok(skill, "fixture should include help skill");
 			skill.status = "deprecated";
-			skill.canonical = "omx-setup";
+			skill.canonical = "owx-setup";
 			await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
 			const result = await syncPluginMirror({ root: fixtureRoot });

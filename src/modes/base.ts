@@ -1,5 +1,5 @@
 /**
- * Base mode lifecycle management for oh-my-codex
+ * Base mode lifecycle management for owen-codex
  * All execution modes (autopilot, autoresearch, deep-interview, ralph, ultrawork, team, ultraqa, ralplan) share this base.
  */
 
@@ -142,7 +142,7 @@ export async function startMode(
     task_description: taskDescription,
     started_at: new Date().toISOString(),
     ...(transitionMessage ? { transition_message: transitionMessage } : {}),
-    ...(mode === 'ralph' && scope.sessionId ? { owner_omx_session_id: scope.sessionId } : {}),
+    ...(mode === 'ralph' && scope.sessionId ? { owner_owx_session_id: scope.sessionId } : {}),
   };
 
   const withContext = withModeRuntimeContext({}, stateBase) as ModeState;
@@ -215,8 +215,8 @@ function assertRalphUpdateMatchesSession(state: ModeState, sessionId?: string): 
   const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
   if (!normalizedSessionId) return;
 
-  const ownerOmxSessionId = typeof state.owner_omx_session_id === 'string'
-    ? state.owner_omx_session_id.trim()
+  const ownerOmxSessionId = typeof state.owner_owx_session_id === 'string'
+    ? state.owner_owx_session_id.trim()
     : '';
   if (ownerOmxSessionId && ownerOmxSessionId !== normalizedSessionId) {
     throw new Error(`Mode ralph state belongs to another session (${ownerOmxSessionId})`);
@@ -255,8 +255,8 @@ export async function updateModeState(
   if (!Object.prototype.hasOwnProperty.call(updates, 'run_outcome')) {
     delete updatedBase.run_outcome;
   }
-  if (mode === 'ralph' && scope.sessionId && typeof updatedBase.owner_omx_session_id !== 'string') {
-    updatedBase.owner_omx_session_id = scope.sessionId;
+  if (mode === 'ralph' && scope.sessionId && typeof updatedBase.owner_owx_session_id !== 'string') {
+    updatedBase.owner_owx_session_id = scope.sessionId;
   }
   const normalizedBase = normalizeModeStateOrThrow(mode, updatedBase as ModeState);
   const updated = withModeRuntimeContext(current, normalizedBase) as ModeState;

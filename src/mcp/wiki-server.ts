@@ -1,5 +1,5 @@
 /**
- * OMX Wiki MCP Server
+ * OWX Wiki MCP Server
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -25,7 +25,7 @@ import {
 import type { WikiCategory } from '../wiki/types.js';
 
 const server = new Server(
-  { name: 'omx-wiki', version: '0.1.0' },
+  { name: 'owx-wiki', version: '0.1.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -256,7 +256,7 @@ export async function handleWikiToolCall(request: {
             legacyFallback: true,
             pages: listPages(root),
             index: readIndex(root),
-            message: 'Legacy .omx/wiki fallback is read-only; copy selected pages into omx_wiki/ before refreshing canonical metadata.',
+            message: 'Legacy .owx/wiki fallback is read-only; copy selected pages into owx_wiki/ before refreshing canonical metadata.',
           });
         }
         withWikiLock(root, () => {

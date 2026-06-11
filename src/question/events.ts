@@ -11,7 +11,7 @@ const QUESTION_EVENT_LOCK_STALE_MS = 30_000;
 const QUESTION_EVENT_LOCK_TIMEOUT_MS = 10_000;
 
 export interface QuestionEventRecord {
-  kind: 'omx.question-event/v1';
+  kind: 'owx.question-event/v1';
   event_id: string;
   type: QuestionEventType;
   question_id: string;
@@ -115,7 +115,7 @@ function safeString(value: unknown): string {
 }
 
 export function resolveQuestionRunId(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  return safeString(env.OMX_RUN_ID) || safeString(env.OMX_RUN_ID_OVERRIDE) || safeString(env.OMX_CURRENT_RUN_ID) || undefined;
+  return safeString(env.OWX_RUN_ID) || safeString(env.OWX_RUN_ID_OVERRIDE) || safeString(env.OWX_CURRENT_RUN_ID) || undefined;
 }
 
 function truncateSummary(value: string, max = 600): string {
@@ -141,7 +141,7 @@ export function buildQuestionEvent(
   const answerCount = record.answers?.length ?? (record.answer ? 1 : 0);
   const runId = options.runId ?? record.run_id ?? resolveQuestionRunId();
   return {
-    kind: 'omx.question-event/v1',
+    kind: 'owx.question-event/v1',
     event_id: `${type}-${record.question_id}-${now.toISOString().replace(/[:.]/g, '-')}`,
     type,
     question_id: record.question_id,

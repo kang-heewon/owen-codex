@@ -126,7 +126,7 @@ const authorityOnly = process.argv.includes('--authority-only');
 const pollMs = Math.max(50, asNumber(argValue('--poll-ms', '250'), 250));
 const idleMaxPollMs = Math.max(
   pollMs,
-  asNumber(argValue('--idle-max-poll-ms', process.env.OMX_NOTIFY_FALLBACK_IDLE_MAX_POLL_MS || '1000'), 1000),
+  asNumber(argValue('--idle-max-poll-ms', process.env.OWX_NOTIFY_FALLBACK_IDLE_MAX_POLL_MS || '1000'), 1000),
 );
 const parentPid = Math.trunc(asNumber(argValue('--parent-pid', String(process.ppid || 0)), process.ppid || 0));
 const startedAt = Date.now();
@@ -137,15 +137,15 @@ const maxLifetimeMs = runOnce
   : Math.max(
     pollMs,
     asNumber(
-      argValue('--max-lifetime-ms', process.env.OMX_NOTIFY_FALLBACK_MAX_LIFETIME_MS || String(defaultMaxLifetimeMs)),
+      argValue('--max-lifetime-ms', process.env.OWX_NOTIFY_FALLBACK_MAX_LIFETIME_MS || String(defaultMaxLifetimeMs)),
       defaultMaxLifetimeMs
     )
   );
 
-const runtimeRoot = resolve(process.env.OMX_ROOT || process.env.OMX_STATE_ROOT || cwd);
-const omxDir = join(runtimeRoot, '.omx');
-const logsDir = join(omxDir, 'logs');
-const stateDir = join(omxDir, 'state');
+const runtimeRoot = resolve(process.env.OWX_ROOT || process.env.OWX_STATE_ROOT || cwd);
+const owxDir = join(runtimeRoot, '.owx');
+const logsDir = join(owxDir, 'logs');
+const stateDir = join(owxDir, 'state');
 const statePath = join(stateDir, 'notify-fallback-state.json');
 const pidFilePath = resolve(argValue('--pid-file', join(stateDir, 'notify-fallback.pid')));
 const logPath = join(logsDir, `notify-fallback-${new Date().toISOString().split('T')[0]}.jsonl`);
@@ -154,7 +154,7 @@ const logLockPath = `${logPath}.lock`;
 const defaultMaxLogBytes = 10 * 1024 * 1024;
 const maxLogBytes = Math.max(
   0,
-  asNumber(argValue('--log-max-bytes', process.env.OMX_NOTIFY_FALLBACK_LOG_MAX_BYTES || String(defaultMaxLogBytes)), defaultMaxLogBytes),
+  asNumber(argValue('--log-max-bytes', process.env.OWX_NOTIFY_FALLBACK_LOG_MAX_BYTES || String(defaultMaxLogBytes)), defaultMaxLogBytes),
 );
 const ralphSteerTimestampPath = join(stateDir, 'ralph-last-steer-at');
 const ralphSteerLockPath = join(stateDir, 'ralph-continue-steer.lock');
@@ -287,7 +287,7 @@ let shutdownPromise: Promise<void> | null = null;
 const dispatchTickMax = Math.max(1, asNumber(argValue('--dispatch-max-per-tick', '5'), 5));
 let dispatchDrainRuns = 0;
 let lastDispatchDrain: DispatchDrainState = {
-  leader_only: safeString(process.env.OMX_TEAM_WORKER || '').trim() === '',
+  leader_only: safeString(process.env.OWX_TEAM_WORKER || '').trim() === '',
   last_tick_at: null,
   last_result: null,
   last_error: null,
@@ -295,7 +295,7 @@ let lastDispatchDrain: DispatchDrainState = {
 let leaderNudgeRuns = 0;
 let lastLeaderNudge: LeaderNudgeState = {
   enabled: true,
-  leader_only: safeString(process.env.OMX_TEAM_WORKER || '').trim() === '',
+  leader_only: safeString(process.env.OWX_TEAM_WORKER || '').trim() === '',
   stale_threshold_ms: null,
   precomputed_leader_stale: null,
   last_tick_at: null,
@@ -336,7 +336,7 @@ let lastAuthorityBackoff: AuthorityBackoffState = {
 };
 const AUTO_NUDGE_STALL_MS = Math.max(
   pollMs,
-  asNumber(process.env.OMX_NOTIFY_FALLBACK_AUTO_NUDGE_STALL_MS || '5000', 5000),
+  asNumber(process.env.OWX_NOTIFY_FALLBACK_AUTO_NUDGE_STALL_MS || '5000', 5000),
 );
 let lastFallbackAutoNudge: FallbackAutoNudgeState = {
   enabled: true,
@@ -1651,7 +1651,7 @@ async function invokeNotifyHook(payload: Record<string, unknown>, filePath: stri
     encoding: 'utf-8',
     env: {
       ...process.env,
-      OMX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD: cwd,
+      OWX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD: cwd,
     },
     windowsHide: true,
   });
@@ -1782,7 +1782,7 @@ async function pollFiles(): Promise<number> {
 
 async function runLeaderNudgeTick(): Promise<boolean> {
   const startedIso = new Date().toISOString();
-  const leaderOnly = safeString(process.env.OMX_TEAM_WORKER || '').trim() === '';
+  const leaderOnly = safeString(process.env.OWX_TEAM_WORKER || '').trim() === '';
   const staleThresholdMs = resolveLeaderStalenessThresholdMs();
 
   if (!leaderOnly) {
@@ -1857,7 +1857,7 @@ async function runDispatchDrainTick(): Promise<boolean> {
     const result = await drainPendingTeamDispatch({ cwd, stateDir, logsDir, maxPerTick: dispatchTickMax } as any);
     dispatchDrainRuns += 1;
     lastDispatchDrain = {
-      leader_only: safeString(process.env.OMX_TEAM_WORKER || '').trim() === '',
+      leader_only: safeString(process.env.OWX_TEAM_WORKER || '').trim() === '',
       last_tick_at: startedIso,
       last_result: result,
       last_error: null,
@@ -1875,7 +1875,7 @@ async function runDispatchDrainTick(): Promise<boolean> {
   } catch (err) {
     dispatchDrainRuns += 1;
     lastDispatchDrain = {
-      leader_only: safeString(process.env.OMX_TEAM_WORKER || '').trim() === '',
+      leader_only: safeString(process.env.OWX_TEAM_WORKER || '').trim() === '',
       last_tick_at: startedIso,
       last_result: null,
       last_error: err instanceof Error ? err.message : safeString(err),
@@ -1963,7 +1963,7 @@ function shutdown(signal: string): void {
 }
 
 async function main(): Promise<void> {
-  if (process.env.NODE_ENV === 'test' && process.env.OMX_NOTIFY_FALLBACK_TEST_FATAL === '1') {
+  if (process.env.NODE_ENV === 'test' && process.env.OWX_NOTIFY_FALLBACK_TEST_FATAL === '1') {
     throw new Error('test fatal notify fallback failure');
   }
   await mkdir(logsDir, { recursive: true }).catch(() => {});

@@ -28,8 +28,8 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 
 function extractAuthTable(parsed: unknown): Record<string, unknown> | undefined {
   const root = asRecord(parsed);
-  const omx = asRecord(root?.omx);
-  return asRecord(omx?.auth);
+  const owx = asRecord(root?.owx);
+  return asRecord(owx?.auth);
 }
 
 function parseRotation(value: unknown): AuthRotationMode | undefined {
@@ -47,9 +47,9 @@ export async function readAuthConfig(
   home = homedir(),
 ): Promise<AuthConfig> {
   const candidates = [
-    join(cwd, ".omx", "config.toml"),
-    join(cwd, "omx.toml"),
-    join(home, ".omx", "config.toml"),
+    join(cwd, ".owx", "config.toml"),
+    join(cwd, "owx.toml"),
+    join(home, ".owx", "config.toml"),
   ];
   const merged: AuthConfig = { ...DEFAULT_AUTH_CONFIG, sources: [] };
   const seen = { rotation: false, priority: false, quotaPatterns: false };

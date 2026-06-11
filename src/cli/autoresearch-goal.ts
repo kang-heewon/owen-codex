@@ -16,24 +16,24 @@ import {
   readCodexGoalSnapshotInput,
 } from '../goal-workflows/codex-goal-snapshot.js';
 
-export const AUTORESEARCH_GOAL_HELP = `omx autoresearch-goal - Durable professor-critic research workflow over Codex goal mode
+export const AUTORESEARCH_GOAL_HELP = `owx autoresearch-goal - Durable professor-critic research workflow over Codex goal mode
 
 Usage:
-  omx autoresearch-goal create --topic <text> --rubric <text|path> [--critic-command <cmd>] [--slug <slug>] [--force] [--json]
-  omx autoresearch-goal handoff --slug <slug> [--json]
-  omx autoresearch-goal verdict --slug <slug> --verdict <pass|fail|blocked> --evidence <text> [--summary <text>] [--artifact <path>] [--json]
-  omx autoresearch-goal complete --slug <slug> --codex-goal-json <json-or-path> [--json]
-  omx autoresearch-goal status --slug <slug> [--codex-goal-json <json-or-path>] [--json]
+  owx autoresearch-goal create --topic <text> --rubric <text|path> [--critic-command <cmd>] [--slug <slug>] [--force] [--json]
+  owx autoresearch-goal handoff --slug <slug> [--json]
+  owx autoresearch-goal verdict --slug <slug> --verdict <pass|fail|blocked> --evidence <text> [--summary <text>] [--artifact <path>] [--json]
+  owx autoresearch-goal complete --slug <slug> --codex-goal-json <json-or-path> [--json]
+  owx autoresearch-goal status --slug <slug> [--codex-goal-json <json-or-path>] [--json]
 
 Artifacts:
-  .omx/goals/autoresearch/<slug>/mission.json
-  .omx/goals/autoresearch/<slug>/rubric.md
-  .omx/goals/autoresearch/<slug>/ledger.jsonl
-  .omx/goals/autoresearch/<slug>/completion.json
+  .owx/goals/autoresearch/<slug>/mission.json
+  .owx/goals/autoresearch/<slug>/rubric.md
+  .owx/goals/autoresearch/<slug>/ledger.jsonl
+  .owx/goals/autoresearch/<slug>/completion.json
 
 Goal-mode boundary:
-  This command does not revive deprecated omx autoresearch and does not mutate hidden Codex /goal state.
-  It writes durable OMX artifacts and prints a model-facing handoff for get_goal/create_goal/update_goal.
+  This command does not revive deprecated owx autoresearch and does not mutate hidden Codex /goal state.
+  It writes durable OWX artifacts and prints a model-facing handoff for get_goal/create_goal/update_goal.
   Completion is blocked until professor-critic validation records verdict=pass.
 `;
 
@@ -144,7 +144,7 @@ export async function autoresearchGoalCommand(args: string[]): Promise<void> {
       if (json) printJson({ ok: true, ...result });
       else {
         console.log(`autoresearch-goal complete: ${result.mission.slug}`);
-        console.log('Codex goal reconciliation: matched a fresh complete get_goal snapshot; OMX mission completion is now durable.');
+        console.log('Codex goal reconciliation: matched a fresh complete get_goal snapshot; OWX mission completion is now durable.');
       }
       return;
     }

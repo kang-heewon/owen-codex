@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { parse as parseToml } from "@iarna/toml";
 import { setup } from "../setup.js";
 import { uninstall } from "../uninstall.js";
-import { OMX_FIRST_PARTY_MCP_SERVER_NAMES } from "../../config/omx-first-party-mcp.js";
+import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../../config/owx-first-party-mcp.js";
 
 const packageRoot = process.cwd();
 let previousPathForFakeCodex: string | undefined;
@@ -24,7 +24,7 @@ let fakeCodexBinDir: string | null = null;
 
 before(async () => {
 	previousPathForFakeCodex = process.env.PATH;
-	fakeCodexBinDir = await mkdtemp(join(tmpdir(), "omx-fake-codex-"));
+	fakeCodexBinDir = await mkdtemp(join(tmpdir(), "owx-fake-codex-"));
 	const fakeCodexPath = join(fakeCodexBinDir, "codex");
 	await writeFile(
 		fakeCodexPath,
@@ -115,7 +115,7 @@ async function withIsolatedUserHome<T>(
 
 describe("notify setup scope", () => {
 	it("does not write unsupported project-scope notify", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-project-no-notify-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-project-no-notify-"));
 		try {
 			await withTempCwd(wd, async () => {
 				await setup({ scope: "project" });
@@ -128,8 +128,8 @@ describe("notify setup scope", () => {
 		}
 	});
 
-	it("preserves existing user project-scope notify while suppressing OMX notify", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-project-user-notify-"));
+	it("preserves existing user project-scope notify while suppressing OWX notify", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-project-user-notify-"));
 		try {
 			await mkdir(join(wd, ".codex"), { recursive: true });
 			await writeFile(
@@ -141,7 +141,7 @@ describe("notify setup scope", () => {
 			});
 			const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
 			assert.match(config, /^notify = \["node", "\/tmp\/notify-hook\.js"\]$/m);
-			assert.doesNotMatch(config, /oh-my-codex.*notify-hook\.js/);
+			assert.doesNotMatch(config, /owen-codex.*notify-hook\.js/);
 			assert.match(config, /^approval_policy = "never"$/m);
 		} finally {
 			await rm(wd, { recursive: true, force: true });
@@ -149,7 +149,7 @@ describe("notify setup scope", () => {
 	});
 
 	it("wraps and restores an existing user notify", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-user-notify-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-user-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
@@ -168,12 +168,12 @@ describe("notify setup scope", () => {
 				);
 				const metadataPath = join(
 					codexHomeDir,
-					".omx",
+					".owx",
 					"notify-dispatch.json",
 				);
 				const metadata = JSON.parse(await readFile(metadataPath, "utf-8"));
 				assert.deepEqual(metadata.previousNotify, ["node", "/tmp/user-notify.js"]);
-				assert.deepEqual(metadata.omxNotify?.slice(0, 1), ["node"]);
+				assert.deepEqual(metadata.owxNotify?.slice(0, 1), ["node"]);
 
 				await withTempCwd(wd, async () => {
 					await setup({ scope: "user" });
@@ -207,17 +207,17 @@ describe("notify setup scope", () => {
 		}
 	});
 
-	it("does not preserve stale OMX dispatcher metadata as previous notify", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-stale-dispatcher-notify-"));
+	it("does not preserve stale OWX dispatcher metadata as previous notify", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-stale-dispatcher-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
 				const metadataPath = join(
 					codexHomeDir,
-					".omx",
+					".owx",
 					"notify-dispatch.json",
 				);
-				const stalePkgRoot = join(wd, "old-global", "oh-my-codex");
+				const stalePkgRoot = join(wd, "old-global", "owen-codex");
 				const staleDispatcher = join(
 					stalePkgRoot,
 					"dist",
@@ -232,7 +232,7 @@ describe("notify setup scope", () => {
 				await writeFile(
 					metadataPath,
 					JSON.stringify({
-						managedBy: "oh-my-codex",
+						managedBy: "owen-codex",
 						version: 1,
 						previousNotify: [
 							"node",
@@ -240,7 +240,7 @@ describe("notify setup scope", () => {
 							"--metadata",
 							metadataPath,
 						],
-						omxNotify: [
+						owxNotify: [
 							"node",
 							join(stalePkgRoot, "dist", "scripts", "notify-hook.js"),
 						],
@@ -262,16 +262,16 @@ describe("notify setup scope", () => {
 	});
 
 	it("does not preserve nested encoded stale turn-ended previous notify metadata", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-stale-nested-wrapper-notify-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-stale-nested-wrapper-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
 				const metadataPath = join(
 					codexHomeDir,
-					".omx",
+					".owx",
 					"notify-dispatch.json",
 				);
-				const stalePkgRoot = join(wd, "old-global", "oh-my-codex");
+				const stalePkgRoot = join(wd, "old-global", "owen-codex");
 				const staleDispatcher = join(
 					stalePkgRoot,
 					"dist",
@@ -294,7 +294,7 @@ describe("notify setup scope", () => {
 				await writeFile(
 					metadataPath,
 					JSON.stringify({
-						managedBy: "oh-my-codex",
+						managedBy: "owen-codex",
 						version: 1,
 						previousNotify: [
 							"node",
@@ -303,7 +303,7 @@ describe("notify setup scope", () => {
 							"--previous-notify",
 							JSON.stringify(nestedWrapper),
 						],
-						omxNotify: [
+						owxNotify: [
 							"node",
 							join(stalePkgRoot, "dist", "scripts", "notify-hook.js"),
 						],
@@ -325,17 +325,17 @@ describe("notify setup scope", () => {
 		}
 	});
 
-	it("does not preserve stale turn-ended wrappers with OMX previous notify metadata", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-stale-wrapper-notify-"));
+	it("does not preserve stale turn-ended wrappers with OWX previous notify metadata", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-stale-wrapper-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
 				const metadataPath = join(
 					codexHomeDir,
-					".omx",
+					".owx",
 					"notify-dispatch.json",
 				);
-				const stalePkgRoot = join(wd, "old-global", "oh-my-codex");
+				const stalePkgRoot = join(wd, "old-global", "owen-codex");
 				const staleDispatcher = join(
 					stalePkgRoot,
 					"dist",
@@ -351,7 +351,7 @@ describe("notify setup scope", () => {
 				await writeFile(
 					metadataPath,
 					JSON.stringify({
-						managedBy: "oh-my-codex",
+						managedBy: "owen-codex",
 						version: 1,
 						previousNotify: [
 							"node",
@@ -365,7 +365,7 @@ describe("notify setup scope", () => {
 								metadataPath,
 							]),
 						],
-						omxNotify: [
+						owxNotify: [
 							"node",
 							join(stalePkgRoot, "dist", "scripts", "notify-hook.js"),
 						],
@@ -388,13 +388,13 @@ describe("notify setup scope", () => {
 	});
 
 	it("repairs reporter-shaped SkyComputerUseClient dispatcher metadata on rerun", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-reporter-wrapper-notify-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-reporter-wrapper-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
 				const metadataPath = join(
 					codexHomeDir,
-					".omx",
+					".owx",
 					"notify-dispatch.json",
 				);
 				const stalePkgRoot = join(wd, "pkg-without-managed-name");
@@ -415,7 +415,7 @@ approval_policy = "on-failure"
 				await writeFile(
 					metadataPath,
 					JSON.stringify({
-						managedBy: "oh-my-codex",
+						managedBy: "owen-codex",
 						version: 1,
 						previousNotify: [
 							staleTurnEndedWrapper,
@@ -428,7 +428,7 @@ approval_policy = "on-failure"
 								metadataPath,
 							]),
 						],
-						omxNotify: [
+						owxNotify: [
 							"node",
 							join(stalePkgRoot, "dist", "scripts", "notify-hook.js"),
 						],
@@ -450,8 +450,8 @@ approval_policy = "on-failure"
 		}
 	});
 
-	it("does not wrap stale global OMX notify hooks as user notify commands", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-stale-hook-notify-"));
+	it("does not wrap stale global OWX notify hooks as user notify commands", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-stale-hook-notify-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await mkdir(codexHomeDir, { recursive: true });
@@ -460,7 +460,7 @@ approval_policy = "on-failure"
 					"homebrew",
 					"lib",
 					"node_modules",
-					"oh-my-codex",
+					"owen-codex",
 					"dist",
 					"scripts",
 					"notify-hook.js",
@@ -477,7 +477,7 @@ approval_policy = "on-failure"
 				const config = await readFile(join(codexHomeDir, "config.toml"), "utf-8");
 				assert.match(config, /^notify = \["node", ".*notify-hook\.js"\]$/m);
 				assert.doesNotMatch(config, /notify-dispatcher\.js/);
-				assert.doesNotMatch(config, /lib\/node_modules\/oh-my-codex\/dist\/scripts\/notify-hook\.js/);
+				assert.doesNotMatch(config, /lib\/node_modules\/owen-codex\/dist\/scripts\/notify-hook\.js/);
 			});
 		} finally {
 			await rm(wd, { recursive: true, force: true });
@@ -501,7 +501,7 @@ async function assertProjectPluginModeArtifacts(wd: string): Promise<void> {
 	assert.equal(existsSync(join(wd, "AGENTS.md")), false);
 
 	const persisted = JSON.parse(
-		await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+		await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 	) as { scope: string; installMode?: string };
 	assert.deepEqual(persisted, {
 		scope: "project",
@@ -537,13 +537,13 @@ async function seedPluginCacheFromInstalledSkills(
 		"plugins",
 		"cache",
 		"local-marketplace",
-		"oh-my-codex",
+		"owen-codex",
 		"local",
 	);
 	await mkdir(join(artifactPath, ".codex-plugin"), { recursive: true });
 	await writeFile(
 		join(artifactPath, ".codex-plugin", "plugin.json"),
-		JSON.stringify({ name: "oh-my-codex", version: "local" }),
+		JSON.stringify({ name: "owen-codex", version: "local" }),
 	);
 	const manifest = JSON.parse(
 		await readFile(
@@ -578,14 +578,14 @@ async function seedStalePluginDiscoveryCache(codexHomeDir: string): Promise<stri
 		codexHomeDir,
 		"plugins",
 		"cache",
-		"oh-my-codex-local",
-		"oh-my-codex",
+		"owen-codex-local",
+		"owen-codex",
 	);
 	await mkdir(join(artifactPath, ".codex-plugin"), { recursive: true });
 	await writeFile(
 		join(artifactPath, ".codex-plugin", "plugin.json"),
 		JSON.stringify(
-			{ name: "oh-my-codex", version: "0.0.0", skills: "./skills/" },
+			{ name: "owen-codex", version: "0.0.0", skills: "./skills/" },
 			null,
 			2,
 		),
@@ -599,12 +599,12 @@ async function seedStalePluginDiscoveryCache(codexHomeDir: string): Promise<stri
 async function seedSameVersionPluginCacheWithStaleHooks(codexHomeDir: string): Promise<string> {
 	const cacheDir = await packagedPluginCacheDir(codexHomeDir);
 	await mkdir(dirname(cacheDir), { recursive: true });
-	await cp(join(packageRoot, "plugins", "oh-my-codex"), cacheDir, {
+	await cp(join(packageRoot, "plugins", "owen-codex"), cacheDir, {
 		recursive: true,
 	});
 	await writeFile(
-		join(cacheDir, "hooks", "omx-command.json"),
-		JSON.stringify({ command: process.execPath, argsPrefix: [join(packageRoot, "dist", "cli", "omx.js")] }, null, 2) + "\n",
+		join(cacheDir, "hooks", "owx-command.json"),
+		JSON.stringify({ command: process.execPath, argsPrefix: [join(packageRoot, "dist", "cli", "owx.js")] }, null, 2) + "\n",
 	);
 	const hooksPath = join(cacheDir, "hooks", "hooks.json");
 	const hooks = JSON.parse(await readFile(hooksPath, "utf-8")) as { hooks?: { PreToolUse?: Array<Record<string, unknown>> } };
@@ -619,12 +619,12 @@ async function seedSameVersionPluginCacheWithStaleHooks(codexHomeDir: string): P
 async function seedSameVersionPluginCacheWithStaleLauncher(codexHomeDir: string): Promise<string> {
 	const cacheDir = await packagedPluginCacheDir(codexHomeDir);
 	await mkdir(dirname(cacheDir), { recursive: true });
-	await cp(join(packageRoot, "plugins", "oh-my-codex"), cacheDir, {
+	await cp(join(packageRoot, "plugins", "owen-codex"), cacheDir, {
 		recursive: true,
 	});
 	await writeFile(
-		join(cacheDir, "hooks", "omx-command.json"),
-		JSON.stringify({ command: "/stale/node", argsPrefix: ["/stale/omx.js"] }, null, 2) + "\n",
+		join(cacheDir, "hooks", "owx-command.json"),
+		JSON.stringify({ command: "/stale/node", argsPrefix: ["/stale/owx.js"] }, null, 2) + "\n",
 	);
 	return cacheDir;
 }
@@ -632,7 +632,7 @@ async function seedSameVersionPluginCacheWithStaleLauncher(codexHomeDir: string)
 async function packagedPluginCacheDir(codexHomeDir: string): Promise<string> {
 	const manifest = JSON.parse(
 		await readFile(
-			join(packageRoot, "plugins", "oh-my-codex", ".codex-plugin", "plugin.json"),
+			join(packageRoot, "plugins", "owen-codex", ".codex-plugin", "plugin.json"),
 			"utf-8",
 		),
 	) as { version: string };
@@ -640,21 +640,21 @@ async function packagedPluginCacheDir(codexHomeDir: string): Promise<string> {
 		codexHomeDir,
 		"plugins",
 		"cache",
-		"oh-my-codex-local",
-		"oh-my-codex",
+		"owen-codex-local",
+		"owen-codex",
 		manifest.version,
 	);
 }
 
-describe("omx setup install mode behavior", () => {
+describe("owx setup install mode behavior", () => {
 	it("summarizes and keeps persisted setup preferences when review chooses keep", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "user", installMode: "legacy" }),
 					);
 
@@ -676,11 +676,11 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						output,
-						/Using setup scope: user \(from \.omx\/setup-scope\.json\)/,
+						/Using setup scope: user \(from \.owx\/setup-scope\.json\)/,
 					);
 					assert.match(
 						output,
-						/Using setup install mode: legacy \(from \.omx\/setup-scope\.json\)/,
+						/Using setup install mode: legacy \(from \.owx\/setup-scope\.json\)/,
 					);
 				});
 			});
@@ -690,13 +690,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("uses persisted choices as defaults when review changes setup preferences", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "user", installMode: "legacy" }),
 					);
 
@@ -713,7 +713,7 @@ describe("omx setup install mode behavior", () => {
 					});
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -728,13 +728,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("clears user-scope install mode when review switches setup to project scope", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "user", installMode: "plugin" }),
 					);
 
@@ -747,7 +747,7 @@ describe("omx setup install mode behavior", () => {
 					});
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, { scope: "project", mcpMode: "none" });
 				});
@@ -758,13 +758,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("reviews persisted scope when only install mode is provided", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "project" }),
 					);
 
@@ -783,7 +783,7 @@ describe("omx setup install mode behavior", () => {
 
 					assert.equal(reviewed, true);
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -798,13 +798,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("reviews persisted install mode when only user scope is provided", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "user", installMode: "legacy" }),
 					);
 
@@ -823,7 +823,7 @@ describe("omx setup install mode behavior", () => {
 
 					assert.equal(reviewed, true);
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -838,13 +838,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("ignores persisted setup preferences when review chooses reset", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "project", installMode: "plugin" }),
 					);
 
@@ -861,7 +861,7 @@ describe("omx setup install mode behavior", () => {
 					});
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -876,7 +876,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("installs native agent TOML files in plugin mode so agent_type roles are available", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const output = await runSetupWithCapturedLogs(wd, {
@@ -887,7 +887,7 @@ describe("omx setup install mode behavior", () => {
 				assert.match(output, /Next steps:/);
 				assert.match(
 					output,
-					/Registered Codex marketplace oh-my-codex-local supplies OMX skills and workflow surfaces/,
+					/Registered Codex marketplace owen-codex-local supplies OWX skills and workflow surfaces/,
 				);
 				assert.match(output, /Native agent role TOML files written to \.codex\/agents\//);
 
@@ -904,7 +904,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("omits Team plugin skills and native team executor when plugin mode disables Team", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-no-team-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-no-team-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -922,8 +922,8 @@ describe("omx setup install mode behavior", () => {
 					codexHomeDir,
 					"plugins",
 					"cache",
-					"oh-my-codex-local",
-					"oh-my-codex",
+					"owen-codex-local",
+					"owen-codex",
 					pkg.version,
 					"skills",
 				);
@@ -939,7 +939,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("keeps legacy-mode next steps describing native agent TOML output", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				const output = await runSetupWithCapturedLogs(wd, {
@@ -959,7 +959,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("persists user install mode choices alongside setup scope", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
@@ -968,7 +968,7 @@ describe("omx setup install mode behavior", () => {
 			});
 
 			const persisted = JSON.parse(
-				await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+				await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 			) as { scope: string; installMode?: string; mcpMode?: string };
 			assert.deepEqual(persisted, {
 				scope: "user",
@@ -981,14 +981,14 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("defaults setup to no first-party MCP blocks", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-mcp-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-mcp-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
 					await setup({ scope: "user", installMode: "legacy" });
 				});
 				const config = await readFile(join(codexHomeDir, "config.toml"), "utf-8");
-				assert.doesNotMatch(config, /^\[mcp_servers\.omx_state\]$/m);
+				assert.doesNotMatch(config, /^\[mcp_servers\.owx_state\]$/m);
 			});
 		} finally {
 			await rm(wd, { recursive: true, force: true });
@@ -996,16 +996,16 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("emits first-party MCP blocks when compat MCP mode is requested", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-mcp-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-mcp-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
 					await setup({ scope: "user", installMode: "legacy", mcpMode: "compat" });
 				});
 				const config = await readFile(join(codexHomeDir, "config.toml"), "utf-8");
-				assert.match(config, /^\[mcp_servers\.omx_state\]$/m);
+				assert.match(config, /^\[mcp_servers\.owx_state\]$/m);
 				const persisted = JSON.parse(
-					await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+					await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 				) as { mcpMode?: string };
 				assert.equal(persisted.mcpMode, "compat");
 			});
@@ -1015,14 +1015,14 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("warns and preserves existing first-party MCP registrations in non-interactive default setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-mcp-preserve-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-mcp-preserve-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const configPath = join(codexHomeDir, "config.toml");
 				await writeFile(
 					configPath,
 					[
-						"[mcp_servers.omx_state]",
+						"[mcp_servers.owx_state]",
 						'command = "node"',
 						'args = ["/tmp/state-server.js"]',
 						"",
@@ -1036,8 +1036,8 @@ describe("omx setup install mode behavior", () => {
 					installMode: "legacy",
 				});
 				const config = await readFile(configPath, "utf-8");
-				assert.match(output, /deprecated first-party OMX MCP registrations were detected but preserved/);
-				assert.match(config, /^\[mcp_servers\.omx_state\]$/m);
+				assert.match(output, /deprecated first-party OWX MCP registrations were detected but preserved/);
+				assert.match(config, /^\[mcp_servers\.owx_state\]$/m);
 				assert.match(config, /^\[mcp_servers\.user_tool\]$/m);
 			});
 		} finally {
@@ -1046,18 +1046,18 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("removes existing first-party MCP registrations only when the interactive migration prompt is accepted", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-mcp-remove-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-mcp-remove-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const configPath = join(codexHomeDir, "config.toml");
 				await writeFile(
 					configPath,
 					[
-						"[mcp_servers.omx_state]",
+						"[mcp_servers.owx_state]",
 						'command = "node"',
 						'args = ["/tmp/state-server.js"]',
 						"",
-						"[mcp_servers.omx_team_run]",
+						"[mcp_servers.owx_team_run]",
 						'command = "node"',
 						"",
 						"[mcp_servers.user_tool]",
@@ -1069,14 +1069,14 @@ describe("omx setup install mode behavior", () => {
 					scope: "user",
 					installMode: "legacy",
 					firstPartyMcpRemovalPrompt: async (_path, kinds) => {
-						assert.deepEqual(kinds, ["config.toml [mcp_servers.omx_*]"]);
+						assert.deepEqual(kinds, ["config.toml [mcp_servers.owx_*]"]);
 						return true;
 					},
 				});
 				const config = await readFile(configPath, "utf-8");
-				assert.match(output, /Deprecated first-party OMX MCP registrations will be removed/);
-				assert.doesNotMatch(config, /^\[mcp_servers\.omx_state\]$/m);
-				assert.doesNotMatch(config, /^\[mcp_servers\.omx_team_run\]$/m);
+				assert.match(output, /Deprecated first-party OWX MCP registrations will be removed/);
+				assert.doesNotMatch(config, /^\[mcp_servers\.owx_state\]$/m);
+				assert.doesNotMatch(config, /^\[mcp_servers\.owx_team_run\]$/m);
 				assert.match(config, /^\[mcp_servers\.user_tool\]$/m);
 			});
 		} finally {
@@ -1085,13 +1085,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves existing first-party MCP registrations when the interactive migration prompt is declined", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-mcp-decline-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-mcp-decline-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const configPath = join(codexHomeDir, "config.toml");
 				await writeFile(
 					configPath,
-					"[mcp_servers.omx_memory]\ncommand = \"node\"\n\n[mcp_servers.user_tool]\ncommand = \"user-tool\"\n",
+					"[mcp_servers.owx_memory]\ncommand = \"node\"\n\n[mcp_servers.user_tool]\ncommand = \"user-tool\"\n",
 				);
 				await withTempCwd(wd, async () => {
 					await setup({
@@ -1101,7 +1101,7 @@ describe("omx setup install mode behavior", () => {
 					});
 				});
 				const config = await readFile(configPath, "utf-8");
-				assert.match(config, /^\[mcp_servers\.omx_memory\]$/m);
+				assert.match(config, /^\[mcp_servers\.owx_memory\]$/m);
 				assert.match(config, /^\[mcp_servers\.user_tool\]$/m);
 			});
 		} finally {
@@ -1109,8 +1109,8 @@ describe("omx setup install mode behavior", () => {
 		}
 	});
 
-	it("defaults to plugin mode when an installed oh-my-codex plugin cache is discovered", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+	it("defaults to plugin mode when an installed owen-codex plugin cache is discovered", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1118,19 +1118,19 @@ describe("omx setup install mode behavior", () => {
 						codexHomeDir,
 						"plugins",
 						"cache",
-						"oh-my-codex-local",
-						"oh-my-codex",
+						"owen-codex-local",
+						"owen-codex",
 					);
 					await mkdir(join(pluginDir, ".codex-plugin"), { recursive: true });
 					await writeFile(
 						join(pluginDir, ".codex-plugin", "plugin.json"),
-						JSON.stringify({ name: "oh-my-codex", version: "local" }),
+						JSON.stringify({ name: "owen-codex", version: "local" }),
 					);
 
 					await setup({ scope: "user" });
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -1150,7 +1150,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("invalidates stale plugin discovery caches so updated plugin skills refresh", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1181,7 +1181,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("invalidates same-version plugin caches when hook file contents drift", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1205,7 +1205,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("invalidates same-version plugin caches when the pinned hook launcher drifts", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1216,10 +1216,10 @@ describe("omx setup install mode behavior", () => {
 					});
 
 					const launcher = JSON.parse(
-						await readFile(join(cacheDir, "hooks", "omx-command.json"), "utf-8"),
+						await readFile(join(cacheDir, "hooks", "owx-command.json"), "utf-8"),
 					) as { command?: string; argsPrefix?: string[] };
 					assert.equal(launcher.command, process.execPath);
-					assert.deepEqual(launcher.argsPrefix, [join(packageRoot, "dist", "cli", "omx.js")]);
+					assert.deepEqual(launcher.argsPrefix, [join(packageRoot, "dist", "cli", "owx.js")]);
 					assert.match(output, /Invalidated 1 stale Codex plugin discovery cache entry/);
 					assert.match(output, /Installed local Codex plugin cache/);
 				});
@@ -1230,7 +1230,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("reports stale plugin discovery cache invalidation during dry-run without deleting it", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1253,7 +1253,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("reports plugin cache materialization during dry-run without writing cache", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1272,7 +1272,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("does not prompt for install mode during project-scoped setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		let promptCalls = 0;
 		try {
 			await withTempCwd(wd, async () => {
@@ -1287,7 +1287,7 @@ describe("omx setup install mode behavior", () => {
 
 			assert.equal(promptCalls, 0);
 			const persisted = JSON.parse(
-				await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+				await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 			) as { scope: string; installMode?: string };
 			assert.deepEqual(persisted, { scope: "project", mcpMode: "none" });
 		} finally {
@@ -1296,7 +1296,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("does not reuse stale user install mode for project-scoped setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
@@ -1305,7 +1305,7 @@ describe("omx setup install mode behavior", () => {
 					await setup({ scope: "project" });
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, { scope: "project", mcpMode: "none" });
 					assert.equal(
@@ -1316,7 +1316,7 @@ describe("omx setup install mode behavior", () => {
 					await setup({ scope: "project" });
 
 					const repeatedPersisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(repeatedPersisted, { scope: "project", mcpMode: "none" });
 					assert.equal(
@@ -1335,7 +1335,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("does not reuse stale project install mode for user-scoped setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1344,7 +1344,7 @@ describe("omx setup install mode behavior", () => {
 					await setup({ scope: "user" });
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -1371,7 +1371,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("registers the local Codex plugin marketplace without reintroducing legacy assets", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1385,9 +1385,9 @@ describe("omx setup install mode behavior", () => {
 							'source_type = "local"',
 							'source = "/tmp/other"',
 							"",
-							"[marketplaces.oh-my-codex-local]",
+							"[marketplaces.owen-codex-local]",
 							'source_type = "local"',
-							'source = "/tmp/stale-oh-my-codex"',
+							'source = "/tmp/stale-owen-codex"',
 							"",
 						].join("\n"),
 					);
@@ -1404,27 +1404,27 @@ describe("omx setup install mode behavior", () => {
 						plugins?: Record<string, { enabled?: boolean }>;
 					};
 					assert.equal(
-						parsed.marketplaces?.["oh-my-codex-local"]?.source_type,
+						parsed.marketplaces?.["owen-codex-local"]?.source_type,
 						"local",
 					);
 					assert.equal(
-						parsed.marketplaces?.["oh-my-codex-local"]?.source,
+						parsed.marketplaces?.["owen-codex-local"]?.source,
 						packageRoot,
 					);
 					assert.equal(parsed.marketplaces?.other?.source_type, "local");
 					assert.equal(parsed.marketplaces?.other?.source, "/tmp/other");
 					assert.equal(
-						(config.match(/^\[marketplaces\.oh-my-codex-local\]$/gm) ?? [])
+						(config.match(/^\[marketplaces\.owen-codex-local\]$/gm) ?? [])
 							.length,
 						1,
 					);
 					assert.equal(
-						(config.match(/^\[plugins\."oh-my-codex@oh-my-codex-local"\]$/gm) ?? [])
+						(config.match(/^\[plugins\."owen-codex@owen-codex-local"\]$/gm) ?? [])
 							.length,
 						1,
 					);
 					assert.equal(
-						parsed.plugins?.["oh-my-codex@oh-my-codex-local"]?.enabled,
+						parsed.plugins?.["owen-codex@owen-codex-local"]?.enabled,
 						true,
 					);
 					const cacheDir = await packagedPluginCacheDir(codexHomeDir);
@@ -1460,7 +1460,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("enables the local Codex plugin while preserving plugin subtable policy", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1468,10 +1468,10 @@ describe("omx setup install mode behavior", () => {
 					await writeFile(
 						configPath,
 						[
-							"[plugins.\"oh-my-codex@oh-my-codex-local\"]",
+							"[plugins.\"owen-codex@owen-codex-local\"]",
 							"enabled = false",
 							"",
-							"[plugins.\"oh-my-codex@oh-my-codex-local\".mcp_servers.omx_state]",
+							"[plugins.\"owen-codex@owen-codex-local\".mcp_servers.owx_state]",
 							"enabled = false",
 							"",
 						].join("\n"),
@@ -1492,17 +1492,17 @@ describe("omx setup install mode behavior", () => {
 					};
 
 					assert.equal(
-						(config.match(/^\[plugins\."oh-my-codex@oh-my-codex-local"\]$/gm) ?? [])
+						(config.match(/^\[plugins\."owen-codex@owen-codex-local"\]$/gm) ?? [])
 							.length,
 						1,
 					);
 					assert.equal(
-						parsed.plugins?.["oh-my-codex@oh-my-codex-local"]?.enabled,
+						parsed.plugins?.["owen-codex@owen-codex-local"]?.enabled,
 						true,
 					);
 					assert.equal(
-						parsed.plugins?.["oh-my-codex@oh-my-codex-local"]?.mcp_servers
-							?.omx_state?.enabled,
+						parsed.plugins?.["owen-codex@owen-codex-local"]?.mcp_servers
+							?.owx_state?.enabled,
 						false,
 					);
 				});
@@ -1513,7 +1513,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("registers plugin MCP subtables only when compat MCP mode is requested", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1532,8 +1532,8 @@ describe("omx setup install mode behavior", () => {
 						>;
 					};
 					assert.equal(
-						parsed.plugins?.["oh-my-codex@oh-my-codex-local"]?.mcp_servers
-							?.omx_state?.enabled,
+						parsed.plugins?.["owen-codex@owen-codex-local"]?.mcp_servers
+							?.owx_state?.enabled,
 						true,
 					);
 
@@ -1550,8 +1550,8 @@ describe("omx setup install mode behavior", () => {
 						>;
 					};
 					assert.equal(
-						parsed.plugins?.["oh-my-codex@oh-my-codex-local"]?.mcp_servers
-							?.omx_state?.enabled,
+						parsed.plugins?.["owen-codex@owen-codex-local"]?.mcp_servers
+							?.owx_state?.enabled,
 						true,
 					);
 				});
@@ -1562,20 +1562,20 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("removes plugin MCP registrations only when the migration prompt is accepted", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-plugin-mcp-remove-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-plugin-mcp-remove-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const configPath = join(codexHomeDir, "config.toml");
 				await writeFile(
 					configPath,
 					[
-						"[mcp_servers.omx_state]",
+						"[mcp_servers.owx_state]",
 						'command = "node"',
 						"",
-						'[plugins."oh-my-codex@oh-my-codex-local"]',
+						'[plugins."owen-codex@owen-codex-local"]',
 						"enabled = true",
 						"",
-						'[plugins."oh-my-codex@oh-my-codex-local".mcp_servers.omx_memory]',
+						'[plugins."owen-codex@owen-codex-local".mcp_servers.owx_memory]',
 						"enabled = true",
 						"",
 					].join("\n"),
@@ -1586,7 +1586,7 @@ describe("omx setup install mode behavior", () => {
 						installMode: "plugin",
 						firstPartyMcpRemovalPrompt: async (_path, kinds) => {
 							assert.deepEqual(kinds, [
-								"config.toml [mcp_servers.omx_*]",
+								"config.toml [mcp_servers.owx_*]",
 								"plugin mcp_servers overrides",
 							]);
 							return true;
@@ -1594,8 +1594,8 @@ describe("omx setup install mode behavior", () => {
 					});
 				});
 				const config = await readFile(configPath, "utf-8");
-				assert.doesNotMatch(config, /mcp_servers\.omx_state/);
-				assert.doesNotMatch(config, /mcp_servers\.omx_memory/);
+				assert.doesNotMatch(config, /mcp_servers\.owx_state/);
+				assert.doesNotMatch(config, /mcp_servers\.owx_memory/);
 			});
 		} finally {
 			await rm(wd, { recursive: true, force: true });
@@ -1603,14 +1603,14 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves plugin-mode top-level MCP registrations without duplicating them when removal is declined", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-plugin-mcp-preserve-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-plugin-mcp-preserve-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				const configPath = join(codexHomeDir, "config.toml");
 				await writeFile(
 					configPath,
 					[
-						"[mcp_servers.omx_state]",
+						"[mcp_servers.owx_state]",
 						'command = "node"',
 						"",
 						"[mcp_servers.user_tool]",
@@ -1626,7 +1626,7 @@ describe("omx setup install mode behavior", () => {
 					});
 				});
 				const config = await readFile(configPath, "utf-8");
-				assert.equal(config.match(/^\[mcp_servers\.omx_state\]$/gm)?.length, 1);
+				assert.equal(config.match(/^\[mcp_servers\.owx_state\]$/gm)?.length, 1);
 				assert.match(config, /^\[mcp_servers\.user_tool\]$/m);
 			});
 		} finally {
@@ -1635,7 +1635,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("reports plugin marketplace registration during dry-run without mutating config", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1648,7 +1648,7 @@ describe("omx setup install mode behavior", () => {
 
 					assert.match(
 						output,
-						/Would register local Codex plugin marketplace oh-my-codex-local/,
+						/Would register local Codex plugin marketplace owen-codex-local/,
 					);
 					assert.equal(
 						await readFile(configPath, "utf-8"),
@@ -1662,7 +1662,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("uses plugin-scoped hooks when plugin mode is selected", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1704,7 +1704,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("can opt into plugin AGENTS.md and developer_instructions defaults", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1736,7 +1736,7 @@ describe("omx setup install mode behavior", () => {
 					assert.match(config, /developer_instructions\s*=/);
 					assert.match(
 						config,
-						/Registered Codex plugin marketplace surfaces supply OMX workflows and plugin-scoped companion resources/,
+						/Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources/,
 					);
 					assert.match(config, /User-installed skills may still live under ~\/.codex\/skills/);
 					assert.match(
@@ -1748,7 +1748,7 @@ describe("omx setup install mode behavior", () => {
 					assert.match(config, /^plugin_hooks = true$/m);
 					assert.doesNotMatch(config, /notify-hook/);
 					assert.doesNotMatch(config, /^\s*\[mcp_servers[.\]]/m);
-					assert.doesNotMatch(config, /mcp_servers\.omx_state/);
+					assert.doesNotMatch(config, /mcp_servers\.owx_state/);
 
 					const agentsMd = await readFile(
 						join(codexHomeDir, "AGENTS.md"),
@@ -1756,11 +1756,11 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						agentsMd,
-						/oh-my-codex - Intelligent Multi-Agent Orchestration/,
+						/owen-codex - Intelligent Multi-Agent Orchestration/,
 					);
-					assert.match(agentsMd, /<!-- omx:generated:agents-md -->/);
-					assert.match(agentsMd, /<!-- OMX:MODELS:START -->/);
-					assert.match(agentsMd, /<!-- OMX:MODELS:END -->/);
+					assert.match(agentsMd, /<!-- owx:generated:agents-md -->/);
+					assert.match(agentsMd, /<!-- OWX:MODELS:START -->/);
+					assert.match(agentsMd, /<!-- OWX:MODELS:END -->/);
 					assert.match(agentsMd, /<guidance_schema_contract>/);
 					assert.match(agentsMd, /<execution_protocols>/);
 					assert.match(
@@ -1769,7 +1769,7 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						agentsMd,
-						/Registered Codex plugin marketplace surfaces supply OMX workflows and plugin-scoped companion resources/,
+						/Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources/,
 					);
 					assert.match(agentsMd, /User-installed skills may still live under `~\/.codex\/skills`/);
 					assert.match(
@@ -1786,7 +1786,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("uses project-scoped plugin AGENTS.md wording without legacy prompt or agent paths", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
@@ -1800,7 +1800,7 @@ describe("omx setup install mode behavior", () => {
 					const agentsMd = await readFile(join(wd, "AGENTS.md"), "utf-8");
 					assert.match(
 						agentsMd,
-						/Registered Codex plugin marketplace surfaces supply OMX workflows and plugin-scoped companion resources/,
+						/Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources/,
 					);
 					assert.match(
 						agentsMd,
@@ -1817,7 +1817,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves existing developer_instructions when plugin defaults are requested", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1846,7 +1846,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("can overwrite existing developer_instructions after explicit plugin prompt approval", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1861,7 +1861,7 @@ describe("omx setup install mode behavior", () => {
 					});
 
 					const config = await readFile(configPath, "utf-8");
-					assert.match(config, /You have oh-my-codex installed/);
+					assert.match(config, /You have owen-codex installed/);
 					assert.doesNotMatch(config, /^developer_instructions = "custom"$/m);
 					assert.equal(
 						(config.match(/^developer_instructions\s*=/gm) ?? []).length,
@@ -1877,7 +1877,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("uses legacy codex_hooks only when the installed Codex reports that hook feature", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1903,7 +1903,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("removes legacy setup-managed hook wrappers when plugin-scoped hooks are supported", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1944,7 +1944,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves existing user hooks while using plugin-scoped hooks", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -1971,7 +1971,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves same-key user hook trust state in plugin-scoped setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2037,13 +2037,13 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("honors persisted project-scoped plugin mode on repeat setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withTempCwd(wd, async () => {
 				await setup({ scope: "project", installMode: "plugin" });
 
 				const persisted = JSON.parse(
-					await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+					await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 				) as { scope: string; installMode?: string };
 				assert.deepEqual(persisted, {
 					scope: "project",
@@ -2073,19 +2073,19 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("lets explicit project legacy setup clear persisted project plugin mode", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withTempCwd(wd, async () => {
-				await mkdir(join(wd, ".omx"), { recursive: true });
+				await mkdir(join(wd, ".owx"), { recursive: true });
 				await writeFile(
-					join(wd, ".omx", "setup-scope.json"),
+					join(wd, ".owx", "setup-scope.json"),
 					JSON.stringify({ scope: "project", installMode: "plugin" }),
 				);
 
 				await setup({ scope: "project", installMode: "legacy" });
 
 				const persisted = JSON.parse(
-					await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+					await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 				) as { scope: string; installMode?: string };
 				assert.deepEqual(persisted, { scope: "project", mcpMode: "none" });
 				assert.equal(
@@ -2107,20 +2107,20 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("lets explicit user legacy setup override persisted user plugin mode", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
-					await mkdir(join(wd, ".omx"), { recursive: true });
+					await mkdir(join(wd, ".owx"), { recursive: true });
 					await writeFile(
-						join(wd, ".omx", "setup-scope.json"),
+						join(wd, ".owx", "setup-scope.json"),
 						JSON.stringify({ scope: "user", installMode: "plugin" }),
 					);
 
 					await setup({ installMode: "legacy" });
 
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -2147,7 +2147,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("dedupes plugin-mode hook trust state when switching user setup back to legacy", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2159,10 +2159,10 @@ describe("omx setup install mode behavior", () => {
 						.split(/\r?\n/)
 						.filter(
 							(line) =>
-								line.trim() !== "# OMX-owned Codex hook trust state" &&
+								line.trim() !== "# OWX-owned Codex hook trust state" &&
 								line.trim() !==
 									"# Trusts only setup-managed codex-native-hook.js wrappers." &&
-								line.trim() !== "# End OMX-owned Codex hook trust state",
+								line.trim() !== "# End OWX-owned Codex hook trust state",
 						)
 						.join("\n");
 					await writeFile(configPath, staleUnfencedPluginConfig);
@@ -2185,10 +2185,10 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						legacyConfig,
-						/# OMX-owned Codex hook trust state[\s\S]*# End OMX-owned Codex hook trust state/,
+						/# OWX-owned Codex hook trust state[\s\S]*# End OWX-owned Codex hook trust state/,
 					);
 					const persisted = JSON.parse(
-						await readFile(join(wd, ".omx", "setup-scope.json"), "utf-8"),
+						await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
 					) as { scope: string; installMode?: string };
 					assert.deepEqual(persisted, {
 						scope: "user",
@@ -2203,7 +2203,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("uses project-scoped plugin hooks when plugin mode is explicitly requested", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withTempCwd(wd, async () => {
 				await setup({ scope: "project", installMode: "plugin" });
@@ -2216,7 +2216,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("honors persisted project plugin mode on repeat setup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withTempCwd(wd, async () => {
 				await setup({ scope: "project", installMode: "plugin" });
@@ -2230,7 +2230,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("prints plugin-mode next steps without legacy-only claims", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async () => {
 				await withTempCwd(wd, async () => {
@@ -2261,7 +2261,7 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						pluginOutput,
-						/Registered Codex marketplace oh-my-codex-local supplies OMX skills and workflow surfaces/,
+						/Registered Codex marketplace owen-codex-local supplies OWX skills and workflow surfaces/,
 					);
 					assert.match(
 						pluginOutput,
@@ -2303,7 +2303,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("removes legacy user components when plugin mode is selected", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2348,7 +2348,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("archives stale legacy prompts and refreshes generated native agents when plugin mode refreshes", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2363,7 +2363,7 @@ describe("omx setup install mode behavior", () => {
 					await writeFile(
 						agentPath,
 						[
-							"# oh-my-codex agent: planner",
+							"# owen-codex agent: planner",
 							'name = "planner"',
 							'description = "stale legacy generated planner"',
 							'developer_instructions = """old planner body"""',
@@ -2383,14 +2383,14 @@ describe("omx setup install mode behavior", () => {
 					);
 					assert.match(
 						output,
-						/Archived and removed .* legacy OMX-managed prompt file/,
+						/Archived and removed .* legacy OWX-managed prompt file/,
 					);
 					assert.match(
 						output,
 						/Native agent role refresh complete/,
 					);
 
-					const backupRoot = join(wd, "home", ".omx", "backups", "setup");
+					const backupRoot = join(wd, "home", ".owx", "backups", "setup");
 					const backupRuns = await readdir(backupRoot);
 					assert.ok(backupRuns.length > 0);
 					assert.equal(
@@ -2417,7 +2417,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves unmanaged native agent TOMLs with obsolete skill_ref during plugin refresh", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2443,7 +2443,7 @@ describe("omx setup install mode behavior", () => {
 					await writeFile(
 						generatedAgentPath,
 						[
-							"# oh-my-codex agent: ghost",
+							"# owen-codex agent: ghost",
 							'name = "ghost"',
 							'description = "obsolete generated reviewer"',
 							'skill_ref = "ghost"',
@@ -2463,7 +2463,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("counts plugin cleanup skill directory backups in the setup summary", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2490,7 +2490,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("removes matching legacy user skills even when plugin readiness is proven", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {
@@ -2521,7 +2521,7 @@ describe("omx setup install mode behavior", () => {
 						/skills: updated=0, unchanged=0, backed_up=\d+, skipped=0, removed=\d+/,
 					);
 
-					const backupSetupRoot = join(wd, "home", ".omx", "backups", "setup");
+					const backupSetupRoot = join(wd, "home", ".owx", "backups", "setup");
 					const backupTimestamps = await readdir(backupSetupRoot);
 					assert.equal(backupTimestamps.length, 1);
 					const backupSkillsDir = join(
@@ -2547,7 +2547,7 @@ describe("omx setup install mode behavior", () => {
 	});
 
 	it("preserves customized legacy user skills during plugin cleanup", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "omx-setup-install-mode-"));
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
 				await withTempCwd(wd, async () => {

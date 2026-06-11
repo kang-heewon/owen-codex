@@ -19,10 +19,10 @@ import {
 } from './tmux.js';
 import { resolveOmxCliEntryPath } from '../utils/paths.js';
 
-export const OMX_TMUX_HUD_OWNER_ENV = 'OMX_TMUX_HUD_OWNER';
+export const OWX_TMUX_HUD_OWNER_ENV = 'OWX_TMUX_HUD_OWNER';
 
 function isExplicitOmxOwnedTmuxEnv(env: NodeJS.ProcessEnv): boolean {
-  return env[OMX_TMUX_HUD_OWNER_ENV] === '1';
+  return env[OWX_TMUX_HUD_OWNER_ENV] === '1';
 }
 
 /**
@@ -83,7 +83,7 @@ export interface ReconcileHudForPromptSubmitResult {
   status:
     | 'skipped_not_tmux'
     | 'skipped_no_entry'
-    | 'skipped_not_omx_owned_tmux'
+    | 'skipped_not_owx_owned_tmux'
     | 'skipped_no_session_id'
     | 'skipped_window_too_cramped'
     | 'unchanged'
@@ -195,7 +195,7 @@ export async function reconcileHudForPromptSubmit(
 
   if (!isExplicitOmxOwnedTmuxEnv(env)) {
     return {
-      status: 'skipped_not_omx_owned_tmux',
+      status: 'skipped_not_owx_owned_tmux',
       paneId: null,
       desiredHeight: null,
       duplicateCount: 0,
@@ -203,8 +203,8 @@ export async function reconcileHudForPromptSubmit(
   }
 
   const resolveOmxCliEntryPathFn = deps.resolveOmxCliEntryPath ?? resolveOmxCliEntryPath;
-  const omxBin = resolveOmxCliEntryPathFn();
-  if (!omxBin) {
+  const owxBin = resolveOmxCliEntryPathFn();
+  if (!owxBin) {
     return {
       status: 'skipped_no_entry',
       paneId: null,
@@ -219,10 +219,10 @@ export async function reconcileHudForPromptSubmit(
   const resizePane = deps.resizeTmuxPane ?? ((paneId, lines) => resizeTmuxPane(paneId, lines));
 
   const currentPaneId = env.TMUX_PANE?.trim();
-  const resolvedSessionId = deps.sessionId?.trim() || env.OMX_SESSION_ID?.trim() || undefined;
+  const resolvedSessionId = deps.sessionId?.trim() || env.OWX_SESSION_ID?.trim() || undefined;
   const equivalentSessionIds = [
     resolvedSessionId,
-    env.OMX_SESSION_ID?.trim(),
+    env.OWX_SESSION_ID?.trim(),
     ...(deps.sessionIds ?? []),
   ]
     .map((sessionId) => sessionId?.trim() ?? '')
@@ -259,10 +259,10 @@ export async function reconcileHudForPromptSubmit(
   const hudState = hudConfig ? await readAllStateFn(cwd, hudConfig).catch(() => null) : null;
   const desiredHeight = hudState ? getHudRenderMaxLines(hudState) : HUD_TMUX_HEIGHT_LINES;
   const preset = hudConfig?.preset;
-  const hudCmd = buildHudWatchCommand(omxBin, preset, resolvedSessionId, env.OMX_ROOT, currentPaneId, {
-    omxStateRoot: env.OMX_STATE_ROOT,
-    omxTeamStateRoot: env.OMX_TEAM_STATE_ROOT,
-    rootSource: env.OMX_TEAM_STATE_ROOT ? 'team-env' : env.OMX_ROOT ? 'omx-root-env' : env.OMX_STATE_ROOT ? 'omx-state-root-env' : 'cwd-default',
+  const hudCmd = buildHudWatchCommand(owxBin, preset, resolvedSessionId, env.OWX_ROOT, currentPaneId, {
+    owxStateRoot: env.OWX_STATE_ROOT,
+    owxTeamStateRoot: env.OWX_TEAM_STATE_ROOT,
+    rootSource: env.OWX_TEAM_STATE_ROOT ? 'team-env' : env.OWX_ROOT ? 'owx-root-env' : env.OWX_STATE_ROOT ? 'owx-state-root-env' : 'cwd-default',
   });
 
   const singleHudPane = hudPaneIds.length === 1

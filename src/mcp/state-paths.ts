@@ -11,12 +11,12 @@ export const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const STATE_MODE_SEGMENT_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const STATE_FILE_SUFFIX = '-state.json';
 const STATE_FILE_NAME_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
-const WORKDIR_ALLOWLIST_ENV = 'OMX_MCP_WORKDIR_ROOTS';
-const OMX_ROOT_ENV = 'OMX_ROOT';
-const OMX_STATE_ROOT_ENV = 'OMX_STATE_ROOT';
-const OMX_TEAM_STATE_ROOT_ENV = 'OMX_TEAM_STATE_ROOT';
+const WORKDIR_ALLOWLIST_ENV = 'OWX_MCP_WORKDIR_ROOTS';
+const OWX_ROOT_ENV = 'OWX_ROOT';
+const OWX_STATE_ROOT_ENV = 'OWX_STATE_ROOT';
+const OWX_TEAM_STATE_ROOT_ENV = 'OWX_TEAM_STATE_ROOT';
 
-export type StateRootSource = 'team-env' | 'omx-root-env' | 'omx-state-root-env' | 'cwd-default';
+export type StateRootSource = 'team-env' | 'owx-root-env' | 'owx-state-root-env' | 'cwd-default';
 export type SessionScopeSource = 'explicit' | 'env' | 'session-json' | 'native-alias' | 'root';
 
 export interface ResolvedSessionMetadata {
@@ -227,28 +227,28 @@ function enforceWorkingDirectoryPolicy(resolvedWorkingDirectory: string): string
 }
 
 function resolveBaseStateDirWithSource(workingDirectory?: string): { baseStateDir: string; rootSource: StateRootSource } {
-  const teamStateRootOverride = process.env[OMX_TEAM_STATE_ROOT_ENV]?.trim();
+  const teamStateRootOverride = process.env[OWX_TEAM_STATE_ROOT_ENV]?.trim();
   if (typeof teamStateRootOverride === 'string' && teamStateRootOverride !== '') {
     try {
       return { baseStateDir: resolveWorkingDirectoryForState(teamStateRootOverride), rootSource: 'team-env' };
     } catch {}
   }
 
-  const omxRootOverride = process.env[OMX_ROOT_ENV]?.trim();
-  if (typeof omxRootOverride === 'string' && omxRootOverride !== '') {
+  const owxRootOverride = process.env[OWX_ROOT_ENV]?.trim();
+  if (typeof owxRootOverride === 'string' && owxRootOverride !== '') {
     try {
-      return { baseStateDir: join(resolveWorkingDirectoryForState(omxRootOverride), '.omx', 'state'), rootSource: 'omx-root-env' };
+      return { baseStateDir: join(resolveWorkingDirectoryForState(owxRootOverride), '.owx', 'state'), rootSource: 'owx-root-env' };
     } catch {}
   }
 
-  const omxStateRootOverride = process.env[OMX_STATE_ROOT_ENV]?.trim();
-  if (typeof omxStateRootOverride === 'string' && omxStateRootOverride !== '') {
+  const owxStateRootOverride = process.env[OWX_STATE_ROOT_ENV]?.trim();
+  if (typeof owxStateRootOverride === 'string' && owxStateRootOverride !== '') {
     try {
-      return { baseStateDir: join(resolveWorkingDirectoryForState(omxStateRootOverride), '.omx', 'state'), rootSource: 'omx-state-root-env' };
+      return { baseStateDir: join(resolveWorkingDirectoryForState(owxStateRootOverride), '.owx', 'state'), rootSource: 'owx-state-root-env' };
     } catch {}
   }
 
-  return { baseStateDir: join(resolveWorkingDirectoryForState(workingDirectory), '.omx', 'state'), rootSource: 'cwd-default' };
+  return { baseStateDir: join(resolveWorkingDirectoryForState(workingDirectory), '.owx', 'state'), rootSource: 'cwd-default' };
 }
 export function getBaseStateDir(workingDirectory?: string): string {
   return resolveBaseStateDirWithSource(workingDirectory).baseStateDir;
@@ -276,7 +276,7 @@ export interface ResolvedStateScope {
 }
 
 function readSessionIdFromEnvironment(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  const candidates = [env.OMX_SESSION_ID, env.CODEX_SESSION_ID, env.SESSION_ID];
+  const candidates = [env.OWX_SESSION_ID, env.CODEX_SESSION_ID, env.SESSION_ID];
   for (const candidate of candidates) {
     if (typeof candidate !== 'string') continue;
     const trimmed = candidate.trim();
@@ -323,7 +323,7 @@ function normalizeSessionMetadata(state: SessionState | null, sourcePath?: strin
     sessionId: state.session_id,
     ...(nativeSessionId ? { nativeSessionId } : {}),
     nativeSessionAliases,
-    ...(typeof raw.owner_omx_session_id === 'string' && raw.owner_omx_session_id.trim() ? { ownerOmxSessionId: raw.owner_omx_session_id.trim() } : {}),
+    ...(typeof raw.owner_owx_session_id === 'string' && raw.owner_owx_session_id.trim() ? { ownerOmxSessionId: raw.owner_owx_session_id.trim() } : {}),
     ...(typeof raw.owner_codex_session_id === 'string' && raw.owner_codex_session_id.trim() ? { ownerCodexSessionId: raw.owner_codex_session_id.trim() } : {}),
     ...(typeof raw.owner_codex_thread_id === 'string' && raw.owner_codex_thread_id.trim() ? { ownerCodexThreadId: raw.owner_codex_thread_id.trim() } : {}),
     ...(typeof raw.tmux_pane_id === 'string' && raw.tmux_pane_id.trim() ? { leaderPaneId: raw.tmux_pane_id.trim() } : {}),
@@ -352,7 +352,7 @@ export async function readCurrentSessionId(workingDirectory?: string): Promise<s
 
   if (metadata?.sessionId) return metadata.sessionId;
 
-  const localStateDir = join(cwd, '.omx', 'state');
+  const localStateDir = join(cwd, '.owx', 'state');
   if (resolvePath(baseStateDir) !== resolvePath(localStateDir)) {
     return undefined;
   }

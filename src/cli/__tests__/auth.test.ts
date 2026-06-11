@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function omxBin(): string {
+function owxBin(): string {
   const testDir = dirname(fileURLToPath(import.meta.url));
-  return join(testDir, "..", "..", "..", "dist", "cli", "omx.js");
+  return join(testDir, "..", "..", "..", "dist", "cli", "owx.js");
 }
 
 function runOmx(cwd: string, argv: string[], env: Record<string, string> = {}) {
-  const result = spawnSync(process.execPath, [omxBin(), ...argv], {
+  const result = spawnSync(process.execPath, [owxBin(), ...argv], {
     cwd,
     encoding: "utf-8",
     env: {
@@ -20,9 +20,9 @@ function runOmx(cwd: string, argv: string[], env: Record<string, string> = {}) {
       HOME: env.HOME,
       CODEX_HOME: env.CODEX_HOME ?? "",
       NODE_OPTIONS: "",
-      OMX_AUTO_UPDATE: "0",
-      OMX_NOTIFY_FALLBACK: "0",
-      OMX_HOOK_DERIVED_SIGNALS: "0",
+      OWX_AUTO_UPDATE: "0",
+      OWX_NOTIFY_FALLBACK: "0",
+      OWX_HOOK_DERIVED_SIGNALS: "0",
       ...env,
     },
   });
@@ -37,23 +37,23 @@ async function writeFakeCodex(binDir: string, script: string): Promise<string> {
   return path;
 }
 
-describe("omx auth CLI", () => {
+describe("owx auth CLI", () => {
   it("shows nested help and top-level hotswap help", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-help-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-help-"));
     try {
       const help = runOmx(wd, ["auth", "--help"], { HOME: wd });
       assert.equal(help.status, 0, help.stderr);
-      assert.match(help.stdout, /omx auth add <slot>/);
+      assert.match(help.stdout, /owx auth add <slot>/);
       const top = runOmx(wd, ["--help"], { HOME: wd });
       assert.match(top.stdout, /--hotswap/);
-      assert.match(top.stdout, /omx auth/);
+      assert.match(top.stdout, /owx auth/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
   it("adds, lists, and uses slots through the compiled CLI without leaking tokens", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-cli-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-cli-"));
     try {
       const home = join(wd, "home");
       const codexHome = join(home, ".codex");
@@ -78,7 +78,7 @@ describe("omx auth CLI", () => {
   });
 
   it("sets subscription Codex defaults when auth add sees empty config", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-defaults-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-defaults-"));
     try {
       const home = join(wd, "home");
       const codexHome = join(home, ".codex");
@@ -94,7 +94,7 @@ describe("omx auth CLI", () => {
   });
 
   it("preserves explicit model and provider when auth add succeeds", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-preserve-defaults-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-preserve-defaults-"));
     try {
       const home = join(wd, "home");
       const codexHome = join(home, ".codex");
@@ -113,12 +113,12 @@ describe("omx auth CLI", () => {
 
 
   it("adds project-scope slots from the same CODEX_HOME used by launch", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-project-add-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-project-add-"));
     try {
       const home = join(wd, "home");
       const bin = join(wd, "bin");
-      await mkdir(join(wd, ".omx"), { recursive: true });
-      await writeFile(join(wd, ".omx", "setup-scope.json"), '{"scope":"project"}\n');
+      await mkdir(join(wd, ".owx"), { recursive: true });
+      await writeFile(join(wd, ".owx", "setup-scope.json"), '{"scope":"project"}\n');
       const expectedCodexHome = join(await realpath(wd), ".codex");
       await writeFakeCodex(bin, `#!/bin/sh
 if [ "$1" = "login" ]; then case "$CODEX_HOME" in ${JSON.stringify(expectedCodexHome)}) mkdir -p "$CODEX_HOME"; printf '{"access_token":"project-secret"}\n' > "$CODEX_HOME/auth.json"; exit 0;; *) echo "wrong CODEX_HOME=$CODEX_HOME" >&2; exit 4;; esac; fi
@@ -129,14 +129,14 @@ exit 2
       const add = runOmx(wd, ["auth", "add", "project"], env);
       assert.equal(add.status, 0, add.stderr);
       assert.doesNotMatch(add.stdout + add.stderr, /project-secret/);
-      assert.equal(await readFile(join(home, ".omx", "auth", "project.json"), "utf-8"), '{"access_token":"project-secret"}\n');
+      assert.equal(await readFile(join(home, ".owx", "auth", "project.json"), "utf-8"), '{"access_token":"project-secret"}\n');
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
   it("fails soft when no slots are configured", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-noslots-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-noslots-"));
     try {
       const result = runOmx(wd, ["--hotswap", "--direct"], { HOME: join(wd, "home"), PATH: `/usr/bin:/bin` });
       assert.equal(result.status, 1);
@@ -147,11 +147,11 @@ exit 2
   });
 
   it("hotswaps on 429 and resumes the latest rollout with the next slot", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-hotswap-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-hotswap-"));
     try {
       const home = join(wd, "home");
       const codexHome = join(home, ".codex");
-      const authDir = join(home, ".omx", "auth");
+      const authDir = join(home, ".owx", "auth");
       const bin = join(wd, "bin");
       const countFile = join(wd, "count");
       const argvFile = join(wd, "argv.log");
@@ -179,11 +179,11 @@ exit 2
   });
 
   it("emits one clean error when all hotswap slots are exhausted", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-exhausted-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-exhausted-"));
     try {
       const home = join(wd, "home");
       const codexHome = join(home, ".codex");
-      const authDir = join(home, ".omx", "auth");
+      const authDir = join(home, ".owx", "auth");
       const bin = join(wd, "bin");
       await mkdir(authDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });

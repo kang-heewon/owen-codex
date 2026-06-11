@@ -1,5 +1,5 @@
 /**
- * omx uninstall - Remove oh-my-codex configuration and installed artifacts
+ * owx uninstall - Remove owen-codex configuration and installed artifacts
  */
 
 import { readFile, writeFile, readdir, rm } from "fs/promises";
@@ -29,7 +29,7 @@ import { resolveScopeDirectories, type SetupScope } from "./setup.js";
 import { resolveCodexHookFeatureFlagForCli } from "./codex-feature-probe.js";
 import { readPersistedSetupScope } from "./index.js";
 import { isOmxGeneratedAgentsMd } from "../utils/agents-md.js";
-import { OMX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/omx-first-party-mcp.js";
+import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
 
 export interface UninstallOptions {
   codexFeaturesProbe?: () => string | null;
@@ -65,7 +65,7 @@ function detectOmxConfigArtifacts(config: string): {
   hasFeatureFlags: boolean;
   hasExploreRoutingEnv: boolean;
 } {
-  const hasMcpServers = OMX_FIRST_PARTY_MCP_SERVER_NAMES.filter((name) =>
+  const hasMcpServers = OWX_FIRST_PARTY_MCP_SERVER_NAMES.filter((name) =>
     new RegExp(`\\[mcp_servers\\.${name}\\]`).test(config),
   );
 
@@ -80,12 +80,12 @@ function detectOmxConfigArtifacts(config: string): {
 
   const hasTuiSection =
     /^\[tui\]/m.test(config) &&
-    config.includes("oh-my-codex (OMX) Configuration");
+    config.includes("owen-codex (OWX) Configuration");
 
   const hasTopLevelKeys =
     /^\s*notify\s*=.*node/m.test(config) ||
     /^\s*model_reasoning_effort\s*=/m.test(config) ||
-    /^\s*developer_instructions\s*=.*oh-my-codex/m.test(config);
+    /^\s*developer_instructions\s*=.*owen-codex/m.test(config);
 
   const hasFeatureFlags =
     /^\s*multi_agent\s*=\s*true/m.test(config) ||
@@ -94,7 +94,7 @@ function detectOmxConfigArtifacts(config: string): {
     /^\s*codex_hooks\s*=\s*true/m.test(config) ||
     /^\s*goals\s*=\s*true/m.test(config) ||
     /^\s*goal\s*=\s*true/m.test(config);
-  const hasExploreRoutingEnv = /^\s*USE_OMX_EXPLORE_CMD\s*=/m.test(config);
+  const hasExploreRoutingEnv = /^\s*USE_OWX_EXPLORE_CMD\s*=/m.test(config);
 
   return {
     hasMcpServers,
@@ -164,7 +164,7 @@ async function restorePreviousNotifyIfDispatcher(
     return strippedConfig;
   }
 
-  const metadataPath = join(dirname(configPath), ".omx", "notify-dispatch.json");
+  const metadataPath = join(dirname(configPath), ".owx", "notify-dispatch.json");
   try {
     const metadata = JSON.parse(await readFile(metadataPath, "utf-8")) as {
       previousNotify?: unknown;
@@ -186,7 +186,7 @@ async function restorePreviousNotifyIfDispatcher(
       }
     }
   } catch {
-    // Missing or malformed metadata means uninstall falls back to removing OMX notify.
+    // Missing or malformed metadata means uninstall falls back to removing OWX notify.
   }
   return strippedConfig;
 }
@@ -235,17 +235,17 @@ async function cleanConfig(
   result.topLevelKeysRemoved = detected.hasTopLevelKeys;
   result.featureFlagsRemoved = detected.hasFeatureFlags;
 
-  // Strip OMX tables block (MCP servers, agents, tui)
+  // Strip OWX tables block (MCP servers, agents, tui)
   let config = original;
   const { cleaned } = stripExistingOmxBlocks(config);
   config = cleaned;
 
-  // Strip OMX top-level keys, then restore a pre-existing user notify when
-  // setup had wrapped it in the OMX dispatcher.
+  // Strip OWX top-level keys, then restore a pre-existing user notify when
+  // setup had wrapped it in the OWX dispatcher.
   config = stripOmxTopLevelKeys(config);
   config = await restorePreviousNotifyIfDispatcher(configPath, config, original);
 
-  // Strip OMX-seeded behavioral defaults only when the seeded pair is unchanged.
+  // Strip OWX-seeded behavioral defaults only when the seeded pair is unchanged.
   config = stripOmxSeededBehavioralDefaults(config);
 
   // Strip feature flags
@@ -260,7 +260,7 @@ async function cleanConfig(
     );
   }
 
-  // Strip OMX-managed env defaults
+  // Strip OWX-managed env defaults
   config = stripOmxEnvSettings(config);
 
   // Normalize trailing whitespace
@@ -277,7 +277,7 @@ async function cleanConfig(
       );
     }
   } else {
-    if (options.verbose) console.log("  No OMX config entries found.");
+    if (options.verbose) console.log("  No OWX config entries found.");
   }
 
   return result;
@@ -390,7 +390,7 @@ async function removeAgentsMd(
     const content = await readFile(agentsMdPath, "utf-8");
     if (!isOmxGeneratedAgentsMd(content)) {
       if (options.verbose)
-        console.log("  AGENTS.md is not OMX-generated, skipping.");
+        console.log("  AGENTS.md is not OWX-generated, skipping.");
       return false;
     }
   } catch {
@@ -440,14 +440,14 @@ async function removeCacheDirectory(
   projectRoot: string,
   options: Pick<UninstallOptions, "dryRun" | "verbose">,
 ): Promise<boolean> {
-  const omxDir = join(projectRoot, ".omx");
-  if (!existsSync(omxDir)) return false;
+  const owxDir = join(projectRoot, ".owx");
+  if (!existsSync(owxDir)) return false;
 
   if (!options.dryRun) {
-    await rm(omxDir, { recursive: true, force: true });
+    await rm(owxDir, { recursive: true, force: true });
   }
   if (options.verbose)
-    console.log(`  ${options.dryRun ? "Would remove" : "Removed"} ${omxDir}`);
+    console.log(`  ${options.dryRun ? "Would remove" : "Removed"} ${owxDir}`);
   return true;
 }
 
@@ -464,7 +464,7 @@ async function detectLegacySkillRootWarning(
   if (overlap.overlappingSkillNames.length === 0) {
     return (
       `legacy ~/.agents/skills still exists (${overlap.legacySkillCount} skills). ` +
-      "omx uninstall does not remove that historical root automatically; " +
+      "owx uninstall does not remove that historical root automatically; " +
       "archive or remove ~/.agents/skills if Codex still shows stale or duplicate skills"
     );
   }
@@ -476,7 +476,7 @@ async function detectLegacySkillRootWarning(
   return (
     `${overlap.overlappingSkillNames.length} overlapping skill names remain between ` +
     `${overlap.canonicalDir} and ${overlap.legacyDir}${mismatchMessage}. ` +
-    "omx uninstall only removes the active canonical skill root; " +
+    "owx uninstall only removes the active canonical skill root; " +
     "archive or remove ~/.agents/skills if Codex still shows duplicates"
   );
 }
@@ -487,7 +487,7 @@ function printSummary(summary: UninstallSummary, dryRun: boolean): void {
   console.log("\nUninstall summary:");
 
   if (summary.configCleaned) {
-    console.log(`  ${prefix} OMX configuration block from config.toml`);
+    console.log(`  ${prefix} OWX configuration block from config.toml`);
     if (summary.mcpServersRemoved.length > 0) {
       console.log(`    MCP servers: ${summary.mcpServersRemoved.join(", ")}`);
     }
@@ -508,11 +508,11 @@ function printSummary(summary: UninstallSummary, dryRun: boolean): void {
       );
     }
   } else if (!summary.configCleaned && summary.mcpServersRemoved.length === 0) {
-    console.log("  config.toml: no OMX entries found (or --keep-config used)");
+    console.log("  config.toml: no OWX entries found (or --keep-config used)");
   }
 
   if (summary.hooksFileRemoved) {
-    console.log(`  ${prefix} OMX-managed entries in .codex/hooks.json`);
+    console.log(`  ${prefix} OWX-managed entries in .codex/hooks.json`);
   }
 
   if (summary.promptsRemoved > 0) {
@@ -530,7 +530,7 @@ function printSummary(summary: UninstallSummary, dryRun: boolean): void {
     console.log(`  ${prefix} AGENTS.md`);
   }
   if (summary.cacheDirectoryRemoved) {
-    console.log(`  ${prefix} .omx/ cache directory`);
+    console.log(`  ${prefix} .owx/ cache directory`);
   }
   if (summary.legacySkillRootWarning) {
     console.log(`  Warning: ${summary.legacySkillRootWarning}`);
@@ -547,7 +547,7 @@ function printSummary(summary: UninstallSummary, dryRun: boolean): void {
 
   if (totalActions === 0) {
     console.log(
-      "  Nothing to remove. oh-my-codex does not appear to be installed.",
+      "  Nothing to remove. owen-codex does not appear to be installed.",
     );
   }
 }
@@ -567,7 +567,7 @@ export async function uninstall(options: UninstallOptions = {}): Promise<void> {
   const scope = options.scope ?? readPersistedSetupScope(projectRoot) ?? "user";
   const scopeDirs = resolveScopeDirectories(scope, projectRoot);
 
-  console.log("oh-my-codex uninstall");
+  console.log("owen-codex uninstall");
   console.log("=====================\n");
   if (dryRun) {
     console.log("[dry-run mode] No files will be modified.\n");
@@ -657,7 +657,7 @@ export async function uninstall(options: UninstallOptions = {}): Promise<void> {
   );
   console.log();
 
-  // Step 6: Remove AGENTS.md and optionally .omx/ cache directory
+  // Step 6: Remove AGENTS.md and optionally .owx/ cache directory
   console.log("[6/6] Cleaning up...");
   const agentsMdPath =
     scope === "project"
@@ -674,8 +674,8 @@ export async function uninstall(options: UninstallOptions = {}): Promise<void> {
     });
   } else {
     // Always clean up setup-scope.json and hud-config.json
-    const scopeFile = join(projectRoot, ".omx", "setup-scope.json");
-    const hudConfig = join(projectRoot, ".omx", "hud-config.json");
+    const scopeFile = join(projectRoot, ".owx", "setup-scope.json");
+    const hudConfig = join(projectRoot, ".owx", "hud-config.json");
     for (const f of [scopeFile, hudConfig]) {
       if (existsSync(f)) {
         if (!dryRun) await rm(f, { force: true });
@@ -692,7 +692,7 @@ export async function uninstall(options: UninstallOptions = {}): Promise<void> {
 
   if (!dryRun) {
     console.log(
-      '\noh-my-codex has been uninstalled. Run "omx setup" to reinstall.',
+      '\nowen-codex has been uninstalled. Run "owx setup" to reinstall.',
     );
   } else {
     console.log("\nRun without --dry-run to apply changes.");

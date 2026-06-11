@@ -8,14 +8,14 @@ import { runHudAuthorityTick } from '../authority.js';
 
 describe('runHudAuthorityTick', () => {
   it('writes a live HUD authority owner lease before ticking', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-'));
     try {
       await runHudAuthorityTick(
         { cwd, nodePath: '/node', packageRoot: '/pkg' },
         { runProcess: async () => {} },
       );
 
-      const lease = JSON.parse(await readFile(join(cwd, '.omx', 'state', 'notify-fallback-authority-owner.json'), 'utf-8'));
+      const lease = JSON.parse(await readFile(join(cwd, '.owx', 'state', 'notify-fallback-authority-owner.json'), 'utf-8'));
       assert.equal(lease.owner, 'hud');
       assert.equal(lease.pid, process.pid);
       assert.equal(lease.cwd, cwd);
@@ -26,7 +26,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('does not materialize authority state under a deleted cwd marker path', async () => {
-    const parent = mkdtempSync(join(tmpdir(), 'omx-hud-authority-deleted-marker-'));
+    const parent = mkdtempSync(join(tmpdir(), 'owx-hud-authority-deleted-marker-'));
     const deletedMarkerCwd = join(parent, 'doctor-smoke (deleted)');
     try {
       let invoked = false;
@@ -40,7 +40,7 @@ describe('runHudAuthorityTick', () => {
       );
 
       assert.equal(invoked, false);
-      assert.equal(existsSync(join(deletedMarkerCwd, '.omx', 'state')), false);
+      assert.equal(existsSync(join(deletedMarkerCwd, '.owx', 'state')), false);
       assert.equal(existsSync(deletedMarkerCwd), false);
     } finally {
       rmSync(parent, { recursive: true, force: true });
@@ -48,7 +48,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('writes authority state under a real existing cwd that literally ends with the marker text', async () => {
-    const parent = mkdtempSync(join(tmpdir(), 'omx-hud-authority-live-marker-'));
+    const parent = mkdtempSync(join(tmpdir(), 'owx-hud-authority-live-marker-'));
     const liveMarkerCwd = join(parent, 'real workspace (deleted)');
     mkdirSync(liveMarkerCwd);
     try {
@@ -63,7 +63,7 @@ describe('runHudAuthorityTick', () => {
       );
 
       assert.equal(invoked, true);
-      const lease = JSON.parse(readFileSync(join(liveMarkerCwd, '.omx', 'state', 'notify-fallback-authority-owner.json'), 'utf-8'));
+      const lease = JSON.parse(readFileSync(join(liveMarkerCwd, '.owx', 'state', 'notify-fallback-authority-owner.json'), 'utf-8'));
       assert.equal(lease.cwd, liveMarkerCwd);
     } finally {
       rmSync(parent, { recursive: true, force: true });
@@ -71,7 +71,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('invokes fallback watcher in authority-only mode with HUD env', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-env-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-env-'));
     const calls: Array<{
       nodePath: string;
       args: string[];
@@ -115,9 +115,9 @@ describe('runHudAuthorityTick', () => {
       ]);
       assert.equal(call.options.cwd, cwd);
       assert.equal(call.options.timeoutMs, 4321);
-      assert.equal(call.options.env.OMX_HUD_AUTHORITY, '1');
-      assert.equal(call.options.env.OMX_HUD_AUTHORITY_MIN_INTERVAL_MS, '5000');
-      assert.equal(call.options.env.OMX_HUD_AUTHORITY_JITTER_MS, '250');
+      assert.equal(call.options.env.OWX_HUD_AUTHORITY, '1');
+      assert.equal(call.options.env.OWX_HUD_AUTHORITY_MIN_INTERVAL_MS, '5000');
+      assert.equal(call.options.env.OWX_HUD_AUTHORITY_JITTER_MS, '250');
       assert.equal(call.options.env.CUSTOM_ENV, '1');
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -125,7 +125,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('rate-limits repeated HUD authority watcher spawns and records diagnostics', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-rate-limit-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-rate-limit-'));
     const calls: Array<string[]> = [];
     try {
       await runHudAuthorityTick(
@@ -162,7 +162,7 @@ describe('runHudAuthorityTick', () => {
       );
 
       assert.equal(calls.length, 1, 'second HUD frame should not respawn an authority-only child');
-      const state = JSON.parse(await readFile(join(cwd, '.omx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
+      const state = JSON.parse(await readFile(join(cwd, '.owx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
       assert.equal(state.last_status, 'skipped');
       assert.equal(state.last_reason, 'rate_limited');
       assert.equal(state.skip_count, 1);
@@ -174,7 +174,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('allows HUD authority watcher spawn after the rate-limit window elapses', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-rate-limit-elapsed-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-rate-limit-elapsed-'));
     let calls = 0;
     try {
       for (const now of [1_000, 7_000]) {
@@ -197,7 +197,7 @@ describe('runHudAuthorityTick', () => {
       }
 
       assert.equal(calls, 2);
-      const state = JSON.parse(await readFile(join(cwd, '.omx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
+      const state = JSON.parse(await readFile(join(cwd, '.owx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
       assert.equal(state.last_status, 'spawned');
       assert.equal(state.last_spawn_at, new Date(7_000).toISOString());
       assert.equal(state.next_allowed_at, new Date(12_000).toISOString());
@@ -207,8 +207,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('preserves cooldown when a contender observes the rate limit only after taking the lock', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-race-'));
-    const statePath = join(cwd, '.omx', 'state', 'notify-fallback-authority-state.json');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-race-'));
+    const statePath = join(cwd, '.owx', 'state', 'notify-fallback-authority-state.json');
     let calls = 0;
     try {
       await runHudAuthorityTick(
@@ -261,8 +261,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('does not let a lock loser overwrite canonical cooldown diagnostics', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-lock-loser-'));
-    const stateDir = join(cwd, '.omx', 'state');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-lock-loser-'));
+    const stateDir = join(cwd, '.owx', 'state');
     const statePath = join(stateDir, 'notify-fallback-authority-state.json');
     const ownerPath = join(stateDir, 'notify-fallback-authority-owner.json');
     const lockPath = join(stateDir, 'notify-fallback-authority.lock');
@@ -313,8 +313,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('does not release a lock that was replaced by a newer owner', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-token-release-'));
-    const lockPath = join(cwd, '.omx', 'state', 'notify-fallback-authority.lock');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-token-release-'));
+    const lockPath = join(cwd, '.owx', 'state', 'notify-fallback-authority.lock');
     let calls = 0;
     try {
       await runHudAuthorityTick(
@@ -349,8 +349,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('reaps a stale authority lock before acquiring a fresh lock', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-stale-lock-'));
-    const lockPath = join(cwd, '.omx', 'state', 'notify-fallback-authority.lock');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-stale-lock-'));
+    const lockPath = join(cwd, '.owx', 'state', 'notify-fallback-authority.lock');
     let calls = 0;
     try {
       await mkdir(lockPath, { recursive: true });
@@ -378,7 +378,7 @@ describe('runHudAuthorityTick', () => {
 
       assert.equal(calls, 1);
       assert.equal(existsSync(lockPath), false, 'fresh authority lock should be released after successful spawn');
-      const state = JSON.parse(await readFile(join(cwd, '.omx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
+      const state = JSON.parse(await readFile(join(cwd, '.owx', 'state', 'notify-fallback-authority-state.json'), 'utf-8'));
       assert.equal(state.last_status, 'spawned');
       assert.equal(state.next_allowed_at, new Date(15_000).toISOString());
     } finally {
@@ -387,7 +387,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('fails closed before spawning when the rate-limit state cannot be persisted', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-persist-failure-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-persist-failure-'));
     let calls = 0;
     try {
       await runHudAuthorityTick(
@@ -402,8 +402,8 @@ describe('runHudAuthorityTick', () => {
           nowMs: () => 1_000,
           random: () => 0,
           onLockAcquired: async () => {
-            await rm(join(cwd, '.omx', 'state'), { recursive: true, force: true });
-            await writeFile(join(cwd, '.omx', 'state'), 'not a directory');
+            await rm(join(cwd, '.owx', 'state'), { recursive: true, force: true });
+            await writeFile(join(cwd, '.owx', 'state'), 'not a directory');
           },
           runProcess: async () => {
             calls += 1;
@@ -421,8 +421,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('fails closed without spawning when the authority state is unreadable', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-invalid-state-'));
-    const stateDir = join(cwd, '.omx', 'state');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-invalid-state-'));
+    const stateDir = join(cwd, '.owx', 'state');
     const statePath = join(stateDir, 'notify-fallback-authority-state.json');
     let calls = 0;
     try {
@@ -481,8 +481,8 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('fails closed without spawning when the authority state has an invalid shape', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-hud-authority-invalid-shape-'));
-    const stateDir = join(cwd, '.omx', 'state');
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-hud-authority-invalid-shape-'));
+    const stateDir = join(cwd, '.owx', 'state');
     const statePath = join(stateDir, 'notify-fallback-authority-state.json');
     let calls = 0;
     try {
@@ -544,7 +544,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('surfaces authority child stderr on failure', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'omx-hud-authority-failure-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'owx-hud-authority-failure-'));
     try {
       mkdirSync(join(cwd, 'dist', 'scripts'), { recursive: true });
       const failingScript = join(cwd, 'dist', 'scripts', 'notify-fallback-watcher.js');
@@ -565,7 +565,7 @@ describe('runHudAuthorityTick', () => {
   });
 
   it('surfaces nonzero authority child status when the child is silent', async () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'omx-hud-authority-silent-failure-'));
+    const cwd = mkdtempSync(join(tmpdir(), 'owx-hud-authority-silent-failure-'));
     try {
       mkdirSync(join(cwd, 'dist', 'scripts'), { recursive: true });
       const failingScript = join(cwd, 'dist', 'scripts', 'notify-fallback-watcher.js');

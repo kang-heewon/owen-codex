@@ -337,14 +337,14 @@ export async function runHudAuthorityTick(
   const minIntervalMs = Math.max(
     250,
     asPositiveNumber(
-      options.minIntervalMs ?? options.env?.OMX_HUD_AUTHORITY_MIN_INTERVAL_MS ?? process.env.OMX_HUD_AUTHORITY_MIN_INTERVAL_MS,
+      options.minIntervalMs ?? options.env?.OWX_HUD_AUTHORITY_MIN_INTERVAL_MS ?? process.env.OWX_HUD_AUTHORITY_MIN_INTERVAL_MS,
       5_000,
     ),
   );
   const jitterMaxMs = Math.max(
     0,
     asNonNegativeNumber(
-      options.jitterMs ?? options.env?.OMX_HUD_AUTHORITY_JITTER_MS ?? process.env.OMX_HUD_AUTHORITY_JITTER_MS,
+      options.jitterMs ?? options.env?.OWX_HUD_AUTHORITY_JITTER_MS ?? process.env.OWX_HUD_AUTHORITY_JITTER_MS,
       250,
     ),
   );
@@ -353,7 +353,7 @@ export async function runHudAuthorityTick(
   const jitterMs = jitterMaxMs > 0 ? Math.floor(random() * (jitterMaxMs + 1)) : 0;
   const watcherScript = join(packageRoot, 'dist', 'scripts', 'notify-fallback-watcher.js');
   const notifyScript = join(packageRoot, 'dist', 'scripts', 'notify-hook.js');
-  const authorityStateDir = join(cwd, '.omx', 'state');
+  const authorityStateDir = join(cwd, '.owx', 'state');
   const authorityOwnerPath = join(authorityStateDir, 'notify-fallback-authority-owner.json');
   const authorityStatePath = join(authorityStateDir, 'notify-fallback-authority-state.json');
   const authorityLockPath = join(authorityStateDir, 'notify-fallback-authority.lock');
@@ -462,9 +462,9 @@ export async function runHudAuthorityTick(
         env: {
           ...process.env,
           ...(options.env ?? {}),
-          OMX_HUD_AUTHORITY: '1',
-          OMX_HUD_AUTHORITY_MIN_INTERVAL_MS: String(minIntervalMs),
-          OMX_HUD_AUTHORITY_JITTER_MS: String(jitterMaxMs),
+          OWX_HUD_AUTHORITY: '1',
+          OWX_HUD_AUTHORITY_MIN_INTERVAL_MS: String(minIntervalMs),
+          OWX_HUD_AUTHORITY_JITTER_MS: String(jitterMaxMs),
         },
         timeoutMs,
       },

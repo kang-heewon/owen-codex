@@ -14,7 +14,7 @@ import {
 	compareSkillMirror,
 } from "../catalog/skill-mirror.js";
 import { MANAGED_HOOK_EVENTS } from "../config/codex-hooks.js";
-import { buildOmxPluginMcpManifest } from "../config/omx-first-party-mcp.js";
+import { buildOmxPluginMcpManifest } from "../config/owx-first-party-mcp.js";
 
 export interface SyncPluginMirrorOptions {
 	root?: string;
@@ -52,15 +52,15 @@ type PackageJson = {
 	version?: string;
 };
 
-const PLUGIN_NAME = "oh-my-codex";
+const PLUGIN_NAME = "owen-codex";
 const SETUP_OWNED_PLUGIN_MANIFEST_FIELDS = [
 	"agents",
 	"prompts",
 ] as const;
-const OMX_PLUGIN_HOOK_COMMAND =
+const OWX_PLUGIN_HOOK_COMMAND =
 	'node "${PLUGIN_ROOT}/hooks/codex-native-hook.mjs"';
-const OMX_PLUGIN_HOOK_LAUNCHER_CONTRACT_MARKER =
-	"omx-plugin-hook-launcher:v1";
+const OWX_PLUGIN_HOOK_LAUNCHER_CONTRACT_MARKER =
+	"owx-plugin-hook-launcher:v1";
 // Plugin-scoped Codex hooks intentionally mirror the setup-managed lifecycle
 // roster today while using PLUGIN_ROOT-local launch commands. If plugin and
 // setup hook coverage diverge, split this alias into a plugin-owned roster.
@@ -78,7 +78,7 @@ function stringifyJson(value: unknown): string {
 function commandHook(timeout?: number): JsonValue {
 	return {
 		type: "command",
-		command: OMX_PLUGIN_HOOK_COMMAND,
+		command: OWX_PLUGIN_HOOK_COMMAND,
 		...(typeof timeout === "number" ? { timeout } : {}),
 	};
 }
@@ -128,7 +128,7 @@ function assertPluginHookLauncherContractMarkerPresent(
 	content: string,
 ): void {
 	const requiredMarkers = [
-		OMX_PLUGIN_HOOK_LAUNCHER_CONTRACT_MARKER,
+		OWX_PLUGIN_HOOK_LAUNCHER_CONTRACT_MARKER,
 	];
 	const missingMarkers = requiredMarkers.filter(
 		(marker) => !content.includes(marker),

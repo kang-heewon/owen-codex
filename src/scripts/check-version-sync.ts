@@ -6,12 +6,12 @@ import TOML from '@iarna/toml';
 const root = process.cwd();
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf-8')) as Record<string, unknown>;
 const workspace = TOML.parse(readFileSync(join(root, 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const explore = TOML.parse(readFileSync(join(root, 'crates', 'omx-explore', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const runtimeCore = TOML.parse(readFileSync(join(root, 'crates', 'omx-runtime-core', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const mux = TOML.parse(readFileSync(join(root, 'crates', 'omx-mux', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const api = TOML.parse(readFileSync(join(root, 'crates', 'omx-api', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const runtime = TOML.parse(readFileSync(join(root, 'crates', 'omx-runtime', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
-const sparkshell = TOML.parse(readFileSync(join(root, 'crates', 'omx-sparkshell', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const explore = TOML.parse(readFileSync(join(root, 'crates', 'owx-explore', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const runtimeCore = TOML.parse(readFileSync(join(root, 'crates', 'owx-runtime-core', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const mux = TOML.parse(readFileSync(join(root, 'crates', 'owx-mux', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const api = TOML.parse(readFileSync(join(root, 'crates', 'owx-api', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const runtime = TOML.parse(readFileSync(join(root, 'crates', 'owx-runtime', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
+const sparkshell = TOML.parse(readFileSync(join(root, 'crates', 'owx-sparkshell', 'Cargo.toml'), 'utf-8')) as Record<string, unknown>;
 const tagArgIndex = process.argv.indexOf('--tag');
 const tag = tagArgIndex >= 0 ? process.argv[tagArgIndex + 1] : undefined;
 
@@ -25,22 +25,22 @@ if (pkgVersion && workspaceVersion && pkgVersion !== workspaceVersion) {
   problems.push(`package.json version (${pkgVersion}) does not match workspace version (${workspaceVersion})`);
 }
 if ((api.package as Record<string, unknown>)?.version !== undefined && ((api.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-api/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-api/Cargo.toml must use version.workspace = true');
 }
 if ((explore.package as Record<string, unknown>)?.version !== undefined && ((explore.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-explore/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-explore/Cargo.toml must use version.workspace = true');
 }
 if ((runtimeCore.package as Record<string, unknown>)?.version !== undefined && ((runtimeCore.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-runtime-core/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-runtime-core/Cargo.toml must use version.workspace = true');
 }
 if ((mux.package as Record<string, unknown>)?.version !== undefined && ((mux.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-mux/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-mux/Cargo.toml must use version.workspace = true');
 }
 if ((runtime.package as Record<string, unknown>)?.version !== undefined && ((runtime.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-runtime/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-runtime/Cargo.toml must use version.workspace = true');
 }
 if ((sparkshell.package as Record<string, unknown>)?.version !== undefined && ((sparkshell.package as Record<string, unknown>).version as Record<string, unknown>)?.workspace !== true) {
-  problems.push('crates/omx-sparkshell/Cargo.toml must use version.workspace = true');
+  problems.push('crates/owx-sparkshell/Cargo.toml must use version.workspace = true');
 }
 if (tag && tag !== `v${pkgVersion}`) {
   problems.push(`release tag (${tag}) does not match package.json version (v${pkgVersion})`);

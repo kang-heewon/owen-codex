@@ -7,12 +7,12 @@ import { spawnSync } from 'node:child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..', '..');
-const nativeRoot = join(projectRoot, 'crates', 'omx-sparkshell');
-const manifestPath = process.env.OMX_SPARKSHELL_MANIFEST ?? join(nativeRoot, 'Cargo.toml');
-const binaryName = platform() === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell';
+const nativeRoot = join(projectRoot, 'crates', 'owx-sparkshell');
+const manifestPath = process.env.OWX_SPARKSHELL_MANIFEST ?? join(nativeRoot, 'Cargo.toml');
+const binaryName = platform() === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell';
 const releaseBinaryPath = join(projectRoot, 'target', 'release', binaryName);
-const stagedBinaryRoot = process.env.OMX_SPARKSHELL_STAGE_DIR
-  ? join(process.env.OMX_SPARKSHELL_STAGE_DIR, `${platform()}-${arch()}`)
+const stagedBinaryRoot = process.env.OWX_SPARKSHELL_STAGE_DIR
+  ? join(process.env.OWX_SPARKSHELL_STAGE_DIR, `${platform()}-${arch()}`)
   : join(projectRoot, 'bin', 'native', `${platform()}-${arch()}`);
 const packagedBinaryDir = stagedBinaryRoot;
 const packagedBinaryPath = join(packagedBinaryDir, binaryName);
@@ -20,7 +20,7 @@ const extraArgs = process.argv.slice(2);
 const args = ['build', '--manifest-path', manifestPath, '--release', ...extraArgs];
 
 if (!existsSync(manifestPath)) {
-  console.error(`omx sparkshell build: missing Rust manifest at ${manifestPath}`);
+  console.error(`owx sparkshell build: missing Rust manifest at ${manifestPath}`);
   process.exit(1);
 }
 
@@ -31,7 +31,7 @@ const result = spawnSync('cargo', args, {
 });
 
 if (result.error) {
-  console.error(`omx sparkshell build: failed to launch cargo: ${result.error.message}`);
+  console.error(`owx sparkshell build: failed to launch cargo: ${result.error.message}`);
   process.exit(1);
 }
 
@@ -40,7 +40,7 @@ if ((result.status ?? 1) !== 0) {
 }
 
 if (!existsSync(releaseBinaryPath)) {
-  console.error(`omx sparkshell build: expected release binary at ${releaseBinaryPath}`);
+  console.error(`owx sparkshell build: expected release binary at ${releaseBinaryPath}`);
   process.exit(1);
 }
 
@@ -49,4 +49,4 @@ copyFileSync(releaseBinaryPath, packagedBinaryPath);
 if (platform() !== 'win32') {
   chmodSync(packagedBinaryPath, 0o755);
 }
-console.log(`omx sparkshell build: staged native binary at ${packagedBinaryPath}`);
+console.log(`owx sparkshell build: staged native binary at ${packagedBinaryPath}`);

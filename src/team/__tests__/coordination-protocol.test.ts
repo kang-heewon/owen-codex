@@ -110,9 +110,9 @@ describe("team coordination protocol gating", () => {
 				filePaths: ["src/parser.ts"],
 			}),
 			task({
-				subject: "Independent docs",
-				description: "Fan-out read-only doc check",
-				filePaths: ["docs/usage.md"],
+				subject: "Independent config",
+				description: "Fan-out read-only config check",
+				filePaths: ["config/usage.json"],
 			}),
 		]);
 

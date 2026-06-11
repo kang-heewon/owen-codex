@@ -1,13 +1,13 @@
 /**
- * OMX HUD - CLI entry point
+ * OWX HUD - CLI entry point
  *
  * Usage:
- *   omx hud              Show current HUD state
- *   omx hud --watch      Poll every 1s with terminal clear
- *   omx hud --json       Output raw state as JSON
- *   omx hud --preset=X   Use preset: minimal, focused, full
- *   omx hud --tmux       Open HUD in a tmux split pane (auto-detects orientation)
- *   omx hud --reconcile-tmux
+ *   owx hud              Show current HUD state
+ *   owx hud --watch      Poll every 1s with terminal clear
+ *   owx hud --json       Output raw state as JSON
+ *   owx hud --preset=X   Use preset: minimal, focused, full
+ *   owx hud --tmux       Open HUD in a tmux split pane (auto-detects orientation)
+ *   owx hud --reconcile-tmux
  */
 
 import { execFileSync } from 'child_process';
@@ -22,22 +22,22 @@ import { resolveOmxCliEntryPath } from '../utils/paths.js';
 import {
   killTmuxPane,
   listCurrentWindowHudPaneIds,
-  OMX_TMUX_HUD_LEADER_PANE_ENV,
+  OWX_TMUX_HUD_LEADER_PANE_ENV,
   readActiveTmuxPaneId,
   registerHudResizeHook,
   resizeTmuxPane,
 } from './tmux.js';
-import { OMX_TMUX_HUD_OWNER_ENV, reconcileHudForPromptSubmit } from './reconcile.js';
+import { OWX_TMUX_HUD_OWNER_ENV, reconcileHudForPromptSubmit } from './reconcile.js';
 import { buildHudRuntimeEnv } from './tmux.js';
 
 export const HUD_USAGE = [
   'Usage:',
-  '  omx hud              Show current HUD state',
-  '  omx hud --watch      Poll every 1s with terminal clear',
-  '  omx hud --json       Output raw state as JSON',
-  '  omx hud --preset=X   Use preset: minimal, focused, full',
-  '  omx hud --tmux       Open HUD in a tmux split pane (auto-detects orientation)',
-  '  omx hud --reconcile-tmux',
+  '  owx hud              Show current HUD state',
+  '  owx hud --watch      Poll every 1s with terminal clear',
+  '  owx hud --json       Output raw state as JSON',
+  '  owx hud --preset=X   Use preset: minimal, focused, full',
+  '  owx hud --tmux       Open HUD in a tmux split pane (auto-detects orientation)',
+  '  owx hud --reconcile-tmux',
 ].join('\n');
 
 type SleepFn = (ms: number, signal?: AbortSignal) => Promise<void>;
@@ -115,7 +115,7 @@ function isDeletedCwdMarkerText(path: string | null): boolean {
  *
  * tmux launches HUD with both a real cwd and a shell PWD string. If that
  * directory is later renamed and the original pathname is reused by a fresh
- * OMX run, the old HUD process can keep reading the reused launch path and
+ * OWX run, the old HUD process can keep reading the reused launch path and
  * display the new run's state. Compare the launch path to the process' live
  * cwd inode/path each tick; when they diverge, follow the live cwd instead of
  * the stale launch path.
@@ -151,10 +151,10 @@ function reconcileRunningHudPaneHeight(
   desiredHeight: number,
   dependencies: Pick<RunWatchModeDependencies, 'env' | 'resizeTmuxPaneFn' | 'registerHudResizeHookFn'>,
 ): void {
-  if (!dependencies.env.TMUX || dependencies.env[OMX_TMUX_HUD_OWNER_ENV] !== '1') return;
+  if (!dependencies.env.TMUX || dependencies.env[OWX_TMUX_HUD_OWNER_ENV] !== '1') return;
   const hudPaneId = dependencies.env.TMUX_PANE?.trim();
   if (!hudPaneId?.startsWith('%')) return;
-  const leaderPaneId = dependencies.env[OMX_TMUX_HUD_LEADER_PANE_ENV]?.trim() || undefined;
+  const leaderPaneId = dependencies.env[OWX_TMUX_HUD_LEADER_PANE_ENV]?.trim() || undefined;
   if (dependencies.resizeTmuxPaneFn(hudPaneId, desiredHeight) && leaderPaneId) {
     dependencies.registerHudResizeHookFn(hudPaneId, leaderPaneId, desiredHeight);
   }
@@ -373,15 +373,15 @@ export function shellEscape(s: string): string {
  * Build the argument array for `execFileSync('tmux', args)`.
  *
  * By returning an argv array instead of a shell command string, `cwd` is
- * passed as a literal argument to tmux (no shell expansion).  `omxBin` is
+ * passed as a literal argument to tmux (no shell expansion).  `owxBin` is
  * shell-escaped inside the command string that tmux will execute in a shell.
  */
 export function buildTmuxSplitArgs(
   cwd: string,
-  omxBin: string,
+  owxBin: string,
   preset?: string,
   sessionId?: string,
-  omxRoot?: string,
+  owxRoot?: string,
   leaderPaneId?: string,
   heightLines?: number,
   rootEnv?: Parameters<typeof buildHudRuntimeEnv>[0],
@@ -392,11 +392,11 @@ export function buildTmuxSplitArgs(
   const envAssignments = Object.entries(buildHudRuntimeEnv({
     sessionId,
     leaderPaneId,
-    omxRoot,
-    ...(rootEnv ?? { rootSource: 'omx-root-env' }),
-  }).env).map(([key, value]) => `${key}=${key === OMX_TMUX_HUD_OWNER_ENV ? value : shellEscape(value)}`);
+    owxRoot,
+    ...(rootEnv ?? { rootSource: 'owx-root-env' }),
+  }).env).map(([key, value]) => `${key}=${key === OWX_TMUX_HUD_OWNER_ENV ? value : shellEscape(value)}`);
   const envPrefix = envAssignments.length > 0 ? `env ${envAssignments.join(' ')} ` : '';
-  const cmd = `exec ${envPrefix}${shellEscape(process.execPath)} ${shellEscape(omxBin)} hud --watch${presetArg}`;
+  const cmd = `exec ${envPrefix}${shellEscape(process.execPath)} ${shellEscape(owxBin)} hud --watch${presetArg}`;
   const height = Number.isFinite(heightLines) && (heightLines ?? 0) > 0
     ? Math.floor(heightLines ?? HUD_TMUX_HEIGHT_LINES)
     : HUD_TMUX_HEIGHT_LINES;
@@ -415,19 +415,19 @@ export function buildTmuxSplitArgs(
 async function launchTmuxPane(cwd: string, flags: HudFlags): Promise<void> {
   // Check if we're inside tmux
   if (!process.env.TMUX) {
-    console.error('Not inside a tmux session. Start tmux first, then run: omx hud --tmux');
+    console.error('Not inside a tmux session. Start tmux first, then run: owx hud --tmux');
     process.exit(1);
   }
 
-  const omxBin = resolveOmxCliEntryPath();
-  if (!omxBin) {
-    console.error('Failed to resolve OMX launcher path for tmux HUD startup.');
+  const owxBin = resolveOmxCliEntryPath();
+  if (!owxBin) {
+    console.error('Failed to resolve OWX launcher path for tmux HUD startup.');
     process.exit(1);
   }
   const envPaneId = process.env.TMUX_PANE?.trim();
   const currentPaneId = envPaneId || readActiveTmuxPaneId() || undefined;
   const leaderPaneId = currentPaneId;
-  const sessionId = process.env.OMX_SESSION_ID?.trim() || undefined;
+  const sessionId = process.env.OWX_SESSION_ID?.trim() || undefined;
   const existingHudPaneIds = leaderPaneId || sessionId
     ? listCurrentWindowHudPaneIds(leaderPaneId, undefined, {
         sessionId,
@@ -454,22 +454,22 @@ async function launchTmuxPane(cwd: string, flags: HudFlags): Promise<void> {
   const ctx = await readAllState(cwd, config);
   const args = buildTmuxSplitArgs(
     cwd,
-    omxBin,
+    owxBin,
     flags.preset,
-    process.env.OMX_SESSION_ID,
-    process.env.OMX_ROOT,
+    process.env.OWX_SESSION_ID,
+    process.env.OWX_ROOT,
     currentPaneId,
     getHudRenderMaxLines(ctx),
     {
-      omxStateRoot: process.env.OMX_STATE_ROOT,
-      omxTeamStateRoot: process.env.OMX_TEAM_STATE_ROOT,
-      rootSource: process.env.OMX_TEAM_STATE_ROOT ? 'team-env' : process.env.OMX_ROOT ? 'omx-root-env' : process.env.OMX_STATE_ROOT ? 'omx-state-root-env' : 'cwd-default',
+      owxStateRoot: process.env.OWX_STATE_ROOT,
+      owxTeamStateRoot: process.env.OWX_TEAM_STATE_ROOT,
+      rootSource: process.env.OWX_TEAM_STATE_ROOT ? 'team-env' : process.env.OWX_ROOT ? 'owx-root-env' : process.env.OWX_STATE_ROOT ? 'owx-state-root-env' : 'cwd-default',
     },
   );
 
   try {
-    // Split bottom pane at the shared HUD height, running omx hud --watch.
-    // execFileSync bypasses the shell – cwd and omxBin cannot inject commands.
+    // Split bottom pane at the shared HUD height, running owx hud --watch.
+    // execFileSync bypasses the shell – cwd and owxBin cannot inject commands.
     execFileSync('tmux', args, { stdio: 'inherit' });
     console.log('HUD launched in tmux pane below. Close with: Ctrl+C in that pane, or `tmux kill-pane -t bottom`');
   } catch {

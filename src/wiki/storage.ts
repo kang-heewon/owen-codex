@@ -1,7 +1,7 @@
 /**
  * Wiki Storage
  *
- * File I/O layer for the OMX wiki knowledge base.
+ * File I/O layer for the OWX wiki knowledge base.
  */
 
 import {
@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { dirname, join, resolve, sep } from 'path';
-import { omxLegacyWikiDir, omxWikiDir } from '../utils/paths.js';
+import { owxLegacyWikiDir, owxWikiDir } from '../utils/paths.js';
 import {
   type WikiLogEntry,
   type WikiPage,
@@ -74,11 +74,11 @@ function withFileLockSync<T>(
 }
 
 export function getWikiDir(root: string): string {
-  return omxWikiDir(root);
+  return owxWikiDir(root);
 }
 
 export function getLegacyWikiDir(root: string): string {
-  return omxLegacyWikiDir(root);
+  return owxLegacyWikiDir(root);
 }
 
 export function isLegacyWikiFallbackActive(root: string): boolean {

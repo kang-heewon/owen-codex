@@ -45,7 +45,7 @@ function isPaneId(value: string | null | undefined): value is string {
 }
 
 function hasExplicitQuestionPaneTarget(env: NodeJS.ProcessEnv): boolean {
-  return isPaneId(safeString(env.OMX_QUESTION_RETURN_PANE || env.OMX_LEADER_PANE_ID).trim());
+  return isPaneId(safeString(env.OWX_QUESTION_RETURN_PANE || env.OWX_LEADER_PANE_ID).trim());
 }
 
 function hasInteractiveQuestionTty(options?: {
@@ -82,7 +82,7 @@ export function resolveQuestionRendererStrategy(
   },
 ): QuestionRendererStrategy {
   const platform = options?.platform ?? process.platform;
-  if (safeString(env.OMX_QUESTION_TEST_RENDERER).trim() === 'noop') return 'test-noop';
+  if (safeString(env.OWX_QUESTION_TEST_RENDERER).trim() === 'noop') return 'test-noop';
   if (hasWindowsPsmuxReturnBridge(env, platform)) return 'windows-console';
   if (safeString(env.TMUX).trim() !== '') return 'inside-tmux';
   if (hasExplicitQuestionPaneTarget(env)) return 'inside-tmux';
@@ -325,13 +325,13 @@ function resolveQuestionUiProcessArgs(
     env?: NodeJS.ProcessEnv;
   },
 ): string[] {
-  const omxBin = resolveOmxCliEntryPath({
+  const owxBin = resolveOmxCliEntryPath({
     argv1: process.argv[1],
     cwd: options.cwd,
     env: options.env,
   }) || process.argv[1];
-  if (!omxBin) throw new Error('Unable to resolve OMX CLI entry path for question UI launch.');
-  return [omxBin, 'question', '--ui', '--state-path', recordPath];
+  if (!owxBin) throw new Error('Unable to resolve OWX CLI entry path for question UI launch.');
+  return [owxBin, 'question', '--ui', '--state-path', recordPath];
 }
 
 export function buildQuestionUiTmuxArgs(
@@ -345,10 +345,10 @@ export function buildQuestionUiTmuxArgs(
   },
 ): string[] {
   const envEntries: Array<[string, string]> = [];
-  if (options.sessionId) envEntries.push(['OMX_SESSION_ID', options.sessionId]);
+  if (options.sessionId) envEntries.push(['OWX_SESSION_ID', options.sessionId]);
   if (options.returnTarget) {
-    envEntries.push(['OMX_QUESTION_RETURN_TARGET', options.returnTarget]);
-    envEntries.push(['OMX_QUESTION_RETURN_TRANSPORT', 'tmux-send-keys']);
+    envEntries.push(['OWX_QUESTION_RETURN_TARGET', options.returnTarget]);
+    envEntries.push(['OWX_QUESTION_RETURN_TRANSPORT', 'tmux-send-keys']);
   }
   const command = [process.execPath, ...resolveQuestionUiProcessArgs(recordPath, options)];
 
@@ -391,10 +391,10 @@ function buildQuestionUiProcessEnv(
 ): NodeJS.ProcessEnv {
   return {
     ...baseEnv,
-    ...(options.sessionId ? { OMX_SESSION_ID: options.sessionId } : {}),
+    ...(options.sessionId ? { OWX_SESSION_ID: options.sessionId } : {}),
     ...(options.returnTarget ? {
-      OMX_QUESTION_RETURN_TARGET: options.returnTarget,
-      OMX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
+      OWX_QUESTION_RETURN_TARGET: options.returnTarget,
+      OWX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
     } : {}),
   };
 }
@@ -406,7 +406,7 @@ function quoteCmdArg(value: string): string {
 function buildWindowsConsoleStartCommand(command: string, args: string[]): string {
   return [
     'start',
-    '"OMX Question"',
+    '"OWX Question"',
     '/wait',
     quoteCmdArg(command),
     ...args.map(quoteCmdArg),
@@ -419,7 +419,7 @@ function defaultSpawnDetachedRenderer(command: string, args: string[], options: 
 
 function defaultExecTmux(args: string[]): string {
   const tmux = resolveTmuxBinaryForPlatform();
-  if (!tmux) throw new Error('tmux is unavailable; omx question requires tmux for OMX-owned question UI rendering.');
+  if (!tmux) throw new Error('tmux is unavailable; owx question requires tmux for OWX-owned question UI rendering.');
   return execFileSync(tmux, args, {
     encoding: 'utf-8',
     ...(process.platform === 'win32' ? { windowsHide: true } : {}),
@@ -479,7 +479,7 @@ function resolveReturnTarget(options: {
   sessionId?: string;
 }): string | undefined {
   const env = options.env ?? process.env;
-  const explicitPane = safeString(env.OMX_QUESTION_RETURN_PANE || env.OMX_LEADER_PANE_ID).trim();
+  const explicitPane = safeString(env.OWX_QUESTION_RETURN_PANE || env.OWX_LEADER_PANE_ID).trim();
   if (isPaneId(explicitPane)) return explicitPane;
 
   const envPane = safeString(env.TMUX_PANE).trim();
@@ -588,7 +588,7 @@ export function closeQuestionRenderer(
 }
 
 export function formatQuestionAnswerForInjection(answer: QuestionAnswer): string {
-  const prefix = '[omx question answered]';
+  const prefix = '[owx question answered]';
   if (answer.kind === 'other') {
     return sanitizeReplyInput(`${prefix} ${answer.other_text ?? String(answer.value)}`);
   }
@@ -600,7 +600,7 @@ export function formatQuestionAnswerForInjection(answer: QuestionAnswer): string
 }
 
 export function formatQuestionAnswersForInjection(answers: Array<{ question_id: string; answer: QuestionAnswer }>): string {
-  const prefix = '[omx question answered]';
+  const prefix = '[owx question answered]';
   const body = answers
     .map((entry) => {
       const value = Array.isArray(entry.answer.value) ? entry.answer.value.join(', ') : String(entry.answer.value);
@@ -665,7 +665,7 @@ function isQuestionRecord(value: unknown): value is QuestionRecord {
   return Boolean(
     value
       && typeof value === 'object'
-      && (value as { kind?: unknown }).kind === 'omx.question/v1'
+      && (value as { kind?: unknown }).kind === 'owx.question/v1'
       && typeof (value as { question_id?: unknown }).question_id === 'string',
   );
 }
@@ -714,7 +714,7 @@ export function supersedeLiveQuestionsForSession(
       updated_at: nowIso,
       error: {
         code: 'question_superseded',
-        message: 'Question was superseded by a newer omx question launch for the same session.',
+        message: 'Question was superseded by a newer owx question launch for the same session.',
         at: nowIso,
       },
     });
@@ -747,7 +747,7 @@ export function launchQuestionRenderer(
 
   if (strategy === 'unsupported') {
     throw new Error(
-      'omx question cannot open a visible renderer because this process is outside an attached tmux pane and has no explicit tmux return bridge. Codex App/outside-tmux sessions need an attached tmux OMX CLI session or OMX_QUESTION_RETURN_PANE bridge. Run omx question from inside tmux.',
+      'owx question cannot open a visible renderer because this process is outside an attached tmux pane and has no explicit tmux return bridge. Codex App/outside-tmux sessions need an attached tmux OWX CLI session or OWX_QUESTION_RETURN_PANE bridge. Run owx question from inside tmux.',
     );
   }
 
@@ -771,7 +771,7 @@ export function launchQuestionRenderer(
       : undefined;
     if (safeString(env.TMUX).trim() && !isCurrentTmuxSessionAttached(execTmux, env, attachedCheckTarget)) {
       throw new Error(
-        'omx question cannot open a visible renderer because this tmux session has no attached client. Run omx question from an attached tmux pane.',
+        'owx question cannot open a visible renderer because this tmux session has no attached client. Run owx question from an attached tmux pane.',
       );
     }
 
@@ -791,7 +791,7 @@ export function launchQuestionRenderer(
         [
           'new-window',
           '-n',
-          'OMX Question',
+          'OWX Question',
           ...newWindowTargetArgs,
           '-P',
           '-F',
@@ -826,7 +826,7 @@ export function launchQuestionRenderer(
         ? [
             'new-window',
             '-n',
-            'OMX Question',
+            'OWX Question',
             ...newWindowTargetArgs,
             '-P',
             '-F',
@@ -890,7 +890,7 @@ export function launchQuestionRenderer(
       nowIso: launchedAt,
     });
     const baseName = basename(options.recordPath, '.json').replace(/[^A-Za-z0-9_-]+/g, '-').slice(0, 32) || 'question';
-    const sessionName = `omx-question-${baseName}`;
+    const sessionName = `owx-question-${baseName}`;
     const output = execTmux([
       'new-session',
       '-d',
@@ -924,5 +924,5 @@ export function launchQuestionRenderer(
   }
 
   const exhaustiveStrategy: never = strategy;
-  throw new Error(`Unsupported omx question renderer strategy: ${exhaustiveStrategy}`);
+  throw new Error(`Unsupported owx question renderer strategy: ${exhaustiveStrategy}`);
 }

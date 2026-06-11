@@ -45,10 +45,10 @@ test('packed install smoke covers every installed native hook event with minimal
   ]);
 
   for (const eventName of PACKED_INSTALL_NATIVE_HOOK_SMOKE_EVENTS) {
-    const payload = buildNativeHookSmokePayload(eventName, '/tmp/omx-packed-hook-smoke');
+    const payload = buildNativeHookSmokePayload(eventName, '/tmp/owx-packed-hook-smoke');
     assert.equal(payload.hook_event_name, eventName);
     assert.equal(typeof payload.session_id, 'string');
-    assert.equal(payload.cwd, '/tmp/omx-packed-hook-smoke');
+    assert.equal(payload.cwd, '/tmp/owx-packed-hook-smoke');
   }
 });
 
@@ -66,13 +66,13 @@ test('parseNpmPackJsonOutput ignores prepack logs before npm pack JSON', () => {
     '[sync-plugin-mirror] synced 29 canonical skill directories and plugin metadata',
     '[',
     '  {',
-    '    "filename": "oh-my-codex-0.15.0.tgz"',
+    '    "filename": "owen-codex-0.15.0.tgz"',
     '  }',
     ']',
     '',
   ].join('\n'));
 
-  assert.deepEqual(parsed, [{ filename: 'oh-my-codex-0.15.0.tgz' }]);
+  assert.deepEqual(parsed, [{ filename: 'owen-codex-0.15.0.tgz' }]);
 });
 
 test('resolveGitCommonDir resolves relative git common dir output against the repo root', () => {
@@ -85,7 +85,7 @@ test('resolveGitCommonDir resolves relative git common dir output against the re
 });
 
 test('hasUsableNodeModules requires the packaged build dependencies', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'omx-smoke-node-modules-'));
+  const root = await mkdtemp(join(tmpdir(), 'owx-smoke-node-modules-'));
   try {
     const nodeModules = join(root, 'node_modules');
     await mkdir(join(nodeModules, 'typescript'), { recursive: true });
@@ -107,7 +107,7 @@ test('hasUsableNodeModules requires the packaged build dependencies', async () =
 });
 
 test('resolveReusableNodeModulesSource reuses primary worktree node_modules when available', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'omx-smoke-reuse-node-modules-'));
+  const root = await mkdtemp(join(tmpdir(), 'owx-smoke-reuse-node-modules-'));
   try {
     const primaryRepo = join(root, 'primary');
     const worktreeRepo = join(root, 'worktree');
@@ -134,7 +134,7 @@ test('resolveReusableNodeModulesSource reuses primary worktree node_modules when
 });
 
 test('ensureRepoDependencies symlinks a reusable primary worktree node_modules', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'omx-smoke-symlink-node-modules-'));
+  const root = await mkdtemp(join(tmpdir(), 'owx-smoke-symlink-node-modules-'));
   try {
     const primaryRepo = join(root, 'primary');
     const worktreeRepo = join(root, 'worktree');
@@ -170,7 +170,7 @@ test('ensureRepoDependencies symlinks a reusable primary worktree node_modules',
 });
 
 test('ensureRepoDependencies falls back to npm ci when no reusable node_modules source exists', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'omx-smoke-install-node-modules-'));
+  const root = await mkdtemp(join(tmpdir(), 'owx-smoke-install-node-modules-'));
   try {
     const installs: string[] = [];
     const result = ensureRepoDependencies(root, {

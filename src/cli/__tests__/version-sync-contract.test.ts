@@ -20,33 +20,33 @@ describe('version sync contract', () => {
     const workspace = TOML.parse(readFileSync(join(process.cwd(), 'Cargo.toml'), 'utf-8')) as {
       workspace?: { package?: WorkspacePackageMetadata; members?: string[] };
     };
-    const api = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'omx-api', 'Cargo.toml'), 'utf-8')) as {
+    const api = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-api', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
-    const explore = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'omx-explore', 'Cargo.toml'), 'utf-8')) as {
+    const explore = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-explore', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
     const runtimeCore = TOML.parse(
-      readFileSync(join(process.cwd(), 'crates', 'omx-runtime-core', 'Cargo.toml'), 'utf-8'),
+      readFileSync(join(process.cwd(), 'crates', 'owx-runtime-core', 'Cargo.toml'), 'utf-8'),
     ) as { package?: WorkspaceMemberPackageMetadata };
-    const mux = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'omx-mux', 'Cargo.toml'), 'utf-8')) as {
+    const mux = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-mux', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
-    const runtime = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'omx-runtime', 'Cargo.toml'), 'utf-8')) as {
+    const runtime = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-runtime', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
-    const sparkshell = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'omx-sparkshell', 'Cargo.toml'), 'utf-8')) as {
+    const sparkshell = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-sparkshell', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
 
     assert.equal(workspace.workspace?.package?.version, pkg.version);
     assert.deepEqual(workspace.workspace?.members, [
-      'crates/omx-api',
-      'crates/omx-explore',
-      'crates/omx-mux',
-      'crates/omx-runtime-core',
-      'crates/omx-runtime',
-      'crates/omx-sparkshell',
+      'crates/owx-api',
+      'crates/owx-explore',
+      'crates/owx-mux',
+      'crates/owx-runtime-core',
+      'crates/owx-runtime',
+      'crates/owx-sparkshell',
     ]);
     assert.equal(workspace.workspace?.package?.['rust-version'], '1.73');
     assert.deepEqual(api.package?.version, { workspace: true });
@@ -66,6 +66,6 @@ describe('version sync contract', () => {
   it('keeps Cargo.lock readable by the packaged fallback Rust toolchain floor', () => {
     const lockfile = readFileSync(join(process.cwd(), 'Cargo.lock'), 'utf-8');
     assert.match(lockfile, /^version = 3$/m);
-    assert.doesNotMatch(lockfile, /^version = 4$/m, 'Cargo.lock v4 breaks cargo 1.73 fallback builds used by omx explore');
+    assert.doesNotMatch(lockfile, /^version = 4$/m, 'Cargo.lock v4 breaks cargo 1.73 fallback builds used by owx explore');
   });
 });

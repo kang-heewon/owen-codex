@@ -40,7 +40,7 @@ describe("codex hooks helpers", () => {
     assert.match(
       sessionStart?.matcher ?? "",
       /(?:^|\|)clear(?:\||$)/,
-      "Codex emits SessionStart source=clear after /clear replacement threads; OMX must keep beginning-of-session hooks active",
+      "Codex emits SessionStart source=clear after /clear replacement threads; OWX must keep beginning-of-session hooks active",
     );
     assert.match(
       sessionStart?.matcher ?? "",
@@ -51,7 +51,7 @@ describe("codex hooks helpers", () => {
 
   it("uses a PowerShell ProcessStartInfo shim for Windows managed hook commands", () => {
     const config = buildManagedCodexHooksConfig(
-      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\oh-my-codex",
+      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\owen-codex",
       { platform: "win32", codexHomeDir: "C:\\Users\\Ada Lovelace\\.codex" },
     );
     const command = (config.hooks.SessionStart[0] as {
@@ -60,7 +60,7 @@ describe("codex hooks helpers", () => {
 
     assert.equal(
       command,
-      'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada Lovelace\\.codex\\hooks\\omx-native-hook-windows-shim.ps1"',
+      'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada Lovelace\\.codex\\hooks\\owx-native-hook-windows-shim.ps1"',
     );
     assert.doesNotMatch(command ?? "", /codex-native-hook\.js/);
   });
@@ -78,7 +78,7 @@ describe("codex hooks helpers", () => {
             ],
           },
         }),
-        "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\oh-my-codex",
+        "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\owen-codex",
         "C:\\Users\\Ada Lovelace\\.codex\\hooks.json",
         { platform: "win32", codexHomeDir: "C:\\Users\\Ada Lovelace\\.codex" },
       ),
@@ -90,18 +90,18 @@ describe("codex hooks helpers", () => {
 
     assert.ok(commands.includes("echo keep-me"));
     assert.ok(commands.includes(
-      'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada Lovelace\\.codex\\hooks\\omx-native-hook-windows-shim.ps1"',
+      'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada Lovelace\\.codex\\hooks\\owx-native-hook-windows-shim.ps1"',
     ));
   });
 
   it("builds deterministic Windows shim paths and PowerShell 5.1-compatible ProcessStartInfo content", () => {
     assert.equal(
       buildManagedCodexNativeHookWindowsShimPath("C:\\Users\\Ada Lovelace\\.codex"),
-      "C:\\Users\\Ada Lovelace\\.codex\\hooks\\omx-native-hook-windows-shim.ps1",
+      "C:\\Users\\Ada Lovelace\\.codex\\hooks\\owx-native-hook-windows-shim.ps1",
     );
 
     const content = buildManagedCodexNativeHookWindowsShimContent(
-      "D:\\Program Files\\O'Malley\\oh-my-codex",
+      "D:\\Program Files\\O'Malley\\owen-codex",
       { nodePath: "C:\\Program Files\\nodejs\\node.exe" },
     );
 
@@ -120,7 +120,7 @@ describe("codex hooks helpers", () => {
     assert.match(content, /\$startInfo\.FileName = 'C:\\Program Files\\nodejs\\node\.exe'/);
     assert.match(
       content,
-      /\$startInfo\.Arguments = '"D:\\Program Files\\O''Malley\\oh-my-codex\\dist\\scripts\\codex-native-hook\.js"'/,
+      /\$startInfo\.Arguments = '"D:\\Program Files\\O''Malley\\owen-codex\\dist\\scripts\\codex-native-hook\.js"'/,
     );
   });
 
@@ -133,7 +133,7 @@ describe("codex hooks helpers", () => {
     });
     if (!shell) return;
 
-    const wd = await mkdtemp(join(tmpdir(), "omx-windows-hook-shim-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-windows-hook-shim-"));
     try {
       const pkgRoot = join(wd, "pkg root");
       const hookPath = join(pkgRoot, "dist", "scripts", "codex-native-hook.js");
@@ -168,7 +168,7 @@ describe("codex hooks helpers", () => {
         {
           input: JSON.stringify({
             hook_event_name: "Stop",
-            last_user_message: "这是 oh-my-codex PowerShell shim 回归测试，用长中文多字节 stdin JSON 验证不会触发截断。".repeat(600),
+            last_user_message: "这是 owen-codex PowerShell shim 回归测试，用长中文多字节 stdin JSON 验证不会触发截断。".repeat(600),
           }),
           encoding: "utf-8",
           maxBuffer: 1024 * 1024 * 10,
@@ -176,7 +176,7 @@ describe("codex hooks helpers", () => {
       );
 
       assert.equal(result.status, 17);
-      const expectedMessage = "这是 oh-my-codex PowerShell shim 回归测试，用长中文多字节 stdin JSON 验证不会触发截断。".repeat(600);
+      const expectedMessage = "这是 owen-codex PowerShell shim 回归测试，用长中文多字节 stdin JSON 验证不会触发截断。".repeat(600);
       assert.equal(result.stdout, `stdout:${expectedMessage.length}:这是`);
       assert.equal(result.stderr, "stderr:会触发截断。");
     } finally {
@@ -215,10 +215,10 @@ describe("codex hooks helpers", () => {
     );
     assert.match(JSON.stringify(sessionStart), /echo keep-me/);
     assert.match(JSON.stringify(sessionStart), /echo standalone-user/);
-    assert.doesNotMatch(JSON.stringify(sessionStart), /Loading OMX session context/);
+    assert.doesNotMatch(JSON.stringify(sessionStart), /Loading OWX session context/);
   });
 
-  it("builds trust state only for generated OMX hook handlers", () => {
+  it("builds trust state only for generated OWX hook handlers", () => {
     const state = buildManagedCodexHookTrustState("/home/me/.codex/hooks.json", "/repo");
     const keys = Object.keys(state).sort();
 
@@ -270,7 +270,7 @@ describe("codex hooks helpers", () => {
 
   it("matches Codex's normalized command hook hash identity for Windows shim commands", async () => {
     const hooksPath = "C:\\Users\\Ada Lovelace\\.codex\\hooks.json";
-    const pkgRoot = "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\oh-my-codex";
+    const pkgRoot = "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\owen-codex";
     const state = buildManagedCodexHookTrustState(hooksPath, pkgRoot, {
       platform: "win32",
       codexHomeDir: "C:\\Users\\Ada Lovelace\\.codex",
@@ -456,7 +456,7 @@ describe("codex hooks helpers", () => {
             hooks: [
               {
                 type: "command",
-                command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada\\.codex\\hooks\\omx-native-hook-windows-shim.ps1"',
+                command: 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Ada\\.codex\\hooks\\owx-native-hook-windows-shim.ps1"',
               },
             ],
           },
@@ -469,13 +469,13 @@ describe("codex hooks helpers", () => {
     };
     const first = mergeManagedCodexHooksConfig(
       stale,
-      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\oh-my-codex",
+      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\owen-codex",
       "C:\\Users\\Ada Lovelace\\.codex\\hooks.json",
       options,
     );
     const second = mergeManagedCodexHooksConfig(
       first,
-      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\oh-my-codex",
+      "D:\\Program Files\\nvm\\v24.12.0\\node_modules\\owen-codex",
       "C:\\Users\\Ada Lovelace\\.codex\\hooks.json",
       options,
     );
@@ -486,12 +486,12 @@ describe("codex hooks helpers", () => {
     };
     const commands = merged.hooks.SessionStart.flatMap((entry) => entry.hooks ?? [])
       .map((hook) => hook.command ?? "");
-    assert.equal(commands.filter((command) => /omx-native-hook-windows-shim\.ps1/.test(command)).length, 1);
+    assert.equal(commands.filter((command) => /owx-native-hook-windows-shim\.ps1/.test(command)).length, 1);
     assert.equal(commands.filter((command) => /codex-native-hook\.js/.test(command)).length, 0);
     assert.ok(commands.includes("echo keep-me"));
   });
 
-  it("removes only OMX-managed wrappers during uninstall cleanup", () => {
+  it("removes only OWX-managed wrappers during uninstall cleanup", () => {
     const managedOnly = JSON.stringify(buildManagedCodexHooksConfig("/repo"));
     const preserved = JSON.stringify({
       hooks: {
@@ -622,12 +622,12 @@ describe("codex hooks helpers", () => {
   });
 
   it("ignores runtime codex-home hook mirrors before hook loading", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "omx-hook-dedupe-"));
+    const cwd = await mkdtemp(join(tmpdir(), "owx-hook-dedupe-"));
     try {
       const canonicalPath = join(cwd, ".codex", "hooks.json");
-      const mirrorPath = join(cwd, ".omx", "runtime", "codex-home", "session-1", "hooks.json");
+      const mirrorPath = join(cwd, ".owx", "runtime", "codex-home", "session-1", "hooks.json");
       await mkdir(join(cwd, ".codex"), { recursive: true });
-      await mkdir(join(cwd, ".omx", "runtime", "codex-home", "session-1"), { recursive: true });
+      await mkdir(join(cwd, ".owx", "runtime", "codex-home", "session-1"), { recursive: true });
       await writeFile(canonicalPath, JSON.stringify(buildManagedCodexHooksConfig("/repo")));
       await symlink(canonicalPath, mirrorPath);
 
@@ -642,7 +642,7 @@ describe("codex hooks helpers", () => {
   });
 
   it("de-dupes hook config paths by realpath outside runtime mirrors", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "omx-hook-realpath-dedupe-"));
+    const cwd = await mkdtemp(join(tmpdir(), "owx-hook-realpath-dedupe-"));
     try {
       const canonicalPath = join(cwd, ".codex", "hooks.json");
       const aliasPath = join(cwd, "alias-hooks.json");
@@ -659,12 +659,12 @@ describe("codex hooks helpers", () => {
   });
 
   it("discovers canonical hook configs while skipping runtime codex-home mirrors", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "omx-hook-discover-"));
+    const cwd = await mkdtemp(join(tmpdir(), "owx-hook-discover-"));
     try {
       const canonicalPath = join(cwd, ".codex", "hooks.json");
-      const mirrorPath = join(cwd, ".omx", "runtime", "codex-home", "session-1", "hooks.json");
+      const mirrorPath = join(cwd, ".owx", "runtime", "codex-home", "session-1", "hooks.json");
       await mkdir(join(cwd, ".codex"), { recursive: true });
-      await mkdir(join(cwd, ".omx", "runtime", "codex-home", "session-1"), { recursive: true });
+      await mkdir(join(cwd, ".owx", "runtime", "codex-home", "session-1"), { recursive: true });
       await writeFile(canonicalPath, JSON.stringify(buildManagedCodexHooksConfig("/repo")));
       await writeFile(mirrorPath, JSON.stringify(buildManagedCodexHooksConfig("/repo")));
 

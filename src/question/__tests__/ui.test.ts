@@ -48,7 +48,7 @@ class FakeTtyOutput {
 
 function makeRecord(overrides: Partial<QuestionRecord> = {}): QuestionRecord {
   return {
-    kind: 'omx.question/v1',
+    kind: 'owx.question/v1',
     question_id: 'question-1',
     created_at: '2026-04-19T00:00:00.000Z',
     updated_at: '2026-04-19T00:00:00.000Z',
@@ -68,7 +68,7 @@ function makeRecord(overrides: Partial<QuestionRecord> = {}): QuestionRecord {
 
 describe('question ui injection metadata', () => {
   it('persists return-target metadata for answered questions', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-'));
     try {
       const { recordPath } = await createQuestionRecord(cwd, {
         question: 'Pick one',
@@ -98,7 +98,7 @@ describe('question ui injection metadata', () => {
           selected_values: ['hello can you hear me'],
           other_text: 'hello can you hear me',
         }),
-        '[omx question answered] hello can you hear me',
+        '[owx question answered] hello can you hear me',
       );
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -196,7 +196,7 @@ describe('question ui arrow navigation', () => {
   });
 
   it('writes answered state from arrow-key interaction', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-run-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-run-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -235,7 +235,7 @@ describe('question ui arrow navigation', () => {
   });
 
   it('renders option descriptions in number-prompt mode', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-number-mode-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-number-mode-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -277,7 +277,7 @@ describe('question ui arrow navigation', () => {
   });
 
   it('answers and injects through persisted renderer metadata when it races the UI answer', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-stale-record-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-stale-record-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -333,7 +333,7 @@ describe('question ui arrow navigation', () => {
   });
 
   it('does not use launcher return-target env as an answer transport', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-env-return-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-env-return-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -355,8 +355,8 @@ describe('question ui arrow navigation', () => {
         input,
         output,
         env: {
-          OMX_QUESTION_RETURN_TARGET: '%11',
-          OMX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
+          OWX_QUESTION_RETURN_TARGET: '%11',
+          OWX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
         } as NodeJS.ProcessEnv,
         injectAnswersToPane: (paneId, answers) => {
           injected.push({ paneId, value: answers[0]!.answer.value });
@@ -377,7 +377,7 @@ describe('question ui arrow navigation', () => {
   });
 
   it('persists multi-answerable checkbox selections without return-pane injection', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-multi-env-return-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-multi-env-return-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -402,8 +402,8 @@ describe('question ui arrow navigation', () => {
         input,
         output,
         env: {
-          OMX_QUESTION_RETURN_TARGET: '%11',
-          OMX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
+          OWX_QUESTION_RETURN_TARGET: '%11',
+          OWX_QUESTION_RETURN_TRANSPORT: 'tmux-send-keys',
         } as NodeJS.ProcessEnv,
         injectAnswersToPane: (paneId, answers) => {
           injected.push({ paneId, value: answers[0]!.answer.value });
@@ -491,7 +491,7 @@ describe('question ui batch wizard', () => {
   });
 
   it('submits a batch after navigating back and editing an earlier answer', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-batch-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-batch-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,
@@ -533,7 +533,7 @@ describe('question ui batch wizard', () => {
   });
 
   it('persists every batch answer and injects through return-pane metadata', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-question-ui-batch-inject-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-question-ui-batch-inject-'));
     try {
       const { recordPath } = await createQuestionRecord(
         cwd,

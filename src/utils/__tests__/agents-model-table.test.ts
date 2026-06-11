@@ -2,52 +2,52 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAgentsModelTable,
-  OMX_MODELS_END_MARKER,
-  OMX_MODELS_START_MARKER,
+  OWX_MODELS_END_MARKER,
+  OWX_MODELS_START_MARKER,
   resolveAgentsModelTableContext,
   upsertAgentsModelTable,
 } from '../agents-model-table.js';
 
-const originalFrontierEnv = process.env.OMX_DEFAULT_FRONTIER_MODEL;
-const originalStandardEnv = process.env.OMX_DEFAULT_STANDARD_MODEL;
-const originalSparkEnv = process.env.OMX_DEFAULT_SPARK_MODEL;
-const originalLegacySparkEnv = process.env.OMX_SPARK_MODEL;
+const originalFrontierEnv = process.env.OWX_DEFAULT_FRONTIER_MODEL;
+const originalStandardEnv = process.env.OWX_DEFAULT_STANDARD_MODEL;
+const originalSparkEnv = process.env.OWX_DEFAULT_SPARK_MODEL;
+const originalLegacySparkEnv = process.env.OWX_SPARK_MODEL;
 
 beforeEach(() => {
-  delete process.env.OMX_DEFAULT_FRONTIER_MODEL;
-  delete process.env.OMX_DEFAULT_STANDARD_MODEL;
-  delete process.env.OMX_DEFAULT_SPARK_MODEL;
-  delete process.env.OMX_SPARK_MODEL;
+  delete process.env.OWX_DEFAULT_FRONTIER_MODEL;
+  delete process.env.OWX_DEFAULT_STANDARD_MODEL;
+  delete process.env.OWX_DEFAULT_SPARK_MODEL;
+  delete process.env.OWX_SPARK_MODEL;
 });
 
 afterEach(() => {
   if (typeof originalFrontierEnv === 'string') {
-    process.env.OMX_DEFAULT_FRONTIER_MODEL = originalFrontierEnv;
+    process.env.OWX_DEFAULT_FRONTIER_MODEL = originalFrontierEnv;
   } else {
-    delete process.env.OMX_DEFAULT_FRONTIER_MODEL;
+    delete process.env.OWX_DEFAULT_FRONTIER_MODEL;
   }
   if (typeof originalStandardEnv === 'string') {
-    process.env.OMX_DEFAULT_STANDARD_MODEL = originalStandardEnv;
+    process.env.OWX_DEFAULT_STANDARD_MODEL = originalStandardEnv;
   } else {
-    delete process.env.OMX_DEFAULT_STANDARD_MODEL;
+    delete process.env.OWX_DEFAULT_STANDARD_MODEL;
   }
   if (typeof originalSparkEnv === 'string') {
-    process.env.OMX_DEFAULT_SPARK_MODEL = originalSparkEnv;
+    process.env.OWX_DEFAULT_SPARK_MODEL = originalSparkEnv;
   } else {
-    delete process.env.OMX_DEFAULT_SPARK_MODEL;
+    delete process.env.OWX_DEFAULT_SPARK_MODEL;
   }
   if (typeof originalLegacySparkEnv === 'string') {
-    process.env.OMX_SPARK_MODEL = originalLegacySparkEnv;
+    process.env.OWX_SPARK_MODEL = originalLegacySparkEnv;
   } else {
-    delete process.env.OMX_SPARK_MODEL;
+    delete process.env.OWX_SPARK_MODEL;
   }
 });
 
 describe('agents model table', () => {
   it('resolves frontier from config.toml, standard from environment, and spark from environment', () => {
-    process.env.OMX_DEFAULT_FRONTIER_MODEL = 'frontier-env';
-    process.env.OMX_DEFAULT_STANDARD_MODEL = 'standard-env';
-    process.env.OMX_DEFAULT_SPARK_MODEL = 'spark-env';
+    process.env.OWX_DEFAULT_FRONTIER_MODEL = 'frontier-env';
+    process.env.OWX_DEFAULT_STANDARD_MODEL = 'standard-env';
+    process.env.OWX_DEFAULT_SPARK_MODEL = 'spark-env';
 
     const context = resolveAgentsModelTableContext('model = "frontier-config"\n');
 
@@ -98,9 +98,9 @@ describe('agents model table', () => {
 
     const withMarkers = [
       'before',
-      OMX_MODELS_START_MARKER,
+      OWX_MODELS_START_MARKER,
       'stale',
-      OMX_MODELS_END_MARKER,
+      OWX_MODELS_END_MARKER,
       'after',
     ].join('\n');
     const replaced = upsertAgentsModelTable(withMarkers, context);
@@ -119,7 +119,7 @@ describe('agents model table', () => {
     const inserted = upsertAgentsModelTable(withoutMarkers, context);
     assert.match(
       inserted,
-      /<\/team_model_resolution>\n\n<!-- OMX:MODELS:START -->[\s\S]*<!-- OMX:MODELS:END -->\n\n---/,
+      /<\/team_model_resolution>\n\n<!-- OWX:MODELS:START -->[\s\S]*<!-- OWX:MODELS:END -->\n\n---/,
     );
   });
 });

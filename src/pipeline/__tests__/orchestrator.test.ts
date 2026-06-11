@@ -63,23 +63,23 @@ function makeThrowingStage(name: string, message: string): PipelineStage {
 }
 
 let tempDir: string;
-let savedOmxEnv: Pick<NodeJS.ProcessEnv, 'OMX_ROOT' | 'OMX_STATE_ROOT' | 'OMX_TEAM_STATE_ROOT' | 'OMX_SESSION_ID'>;
+let savedOmxEnv: Pick<NodeJS.ProcessEnv, 'OWX_ROOT' | 'OWX_STATE_ROOT' | 'OWX_TEAM_STATE_ROOT' | 'OWX_SESSION_ID'>;
 
 function clearAmbientOmxEnv(): void {
   savedOmxEnv = {
-    OMX_ROOT: process.env.OMX_ROOT,
-    OMX_STATE_ROOT: process.env.OMX_STATE_ROOT,
-    OMX_TEAM_STATE_ROOT: process.env.OMX_TEAM_STATE_ROOT,
-    OMX_SESSION_ID: process.env.OMX_SESSION_ID,
+    OWX_ROOT: process.env.OWX_ROOT,
+    OWX_STATE_ROOT: process.env.OWX_STATE_ROOT,
+    OWX_TEAM_STATE_ROOT: process.env.OWX_TEAM_STATE_ROOT,
+    OWX_SESSION_ID: process.env.OWX_SESSION_ID,
   };
-  delete process.env.OMX_ROOT;
-  delete process.env.OMX_STATE_ROOT;
-  delete process.env.OMX_TEAM_STATE_ROOT;
-  delete process.env.OMX_SESSION_ID;
+  delete process.env.OWX_ROOT;
+  delete process.env.OWX_STATE_ROOT;
+  delete process.env.OWX_TEAM_STATE_ROOT;
+  delete process.env.OWX_SESSION_ID;
 }
 
 function restoreAmbientOmxEnv(): void {
-  for (const key of ['OMX_ROOT', 'OMX_STATE_ROOT', 'OMX_TEAM_STATE_ROOT', 'OMX_SESSION_ID'] as const) {
+  for (const key of ['OWX_ROOT', 'OWX_STATE_ROOT', 'OWX_TEAM_STATE_ROOT', 'OWX_SESSION_ID'] as const) {
     const value = savedOmxEnv[key];
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -87,7 +87,7 @@ function restoreAmbientOmxEnv(): void {
 }
 
 async function setup(): Promise<string> {
-  tempDir = await mkdtemp(join(tmpdir(), 'omx-pipeline-test-'));
+  tempDir = await mkdtemp(join(tmpdir(), 'owx-pipeline-test-'));
   return tempDir;
 }
 
@@ -415,8 +415,8 @@ describe('Pipeline Orchestrator', () => {
     });
 
     it('materializes ralplan consensus handoff artifacts when ralplan is skipped', async () => {
-      const plansDir = join(tempDir, '.omx', 'plans');
-      const stateDir = join(tempDir, '.omx', 'state');
+      const plansDir = join(tempDir, '.owx', 'plans');
+      const stateDir = join(tempDir, '.owx', 'state');
       await mkdir(plansDir, { recursive: true });
       await mkdir(stateDir, { recursive: true });
       await writeFile(join(plansDir, 'prd-skip.md'), '# Plan\n');
@@ -450,7 +450,7 @@ describe('Pipeline Orchestrator', () => {
         sequence: ['architect-review', 'critic-review'],
         ralplan_architect_review: { agent_role: 'architect', verdict: 'approve', summary: 'architect ok' },
         ralplan_critic_review: { agent_role: 'critic', verdict: 'approve', summary: 'critic ok' },
-        source: join(tempDir, '.omx', 'state', 'ralplan-state.json'),
+        source: join(tempDir, '.owx', 'state', 'ralplan-state.json'),
         blockedReason: null,
       });
     });
@@ -539,7 +539,7 @@ describe('Pipeline Orchestrator', () => {
         cwd: tempDir,
       });
 
-      const statePath = join(tempDir, '.omx', 'state', 'autopilot-state.json');
+      const statePath = join(tempDir, '.owx', 'state', 'autopilot-state.json');
       assert.ok(existsSync(statePath), 'pipeline state file should exist');
 
       const raw = await readFile(statePath, 'utf-8');
@@ -557,7 +557,7 @@ describe('Pipeline Orchestrator', () => {
         cwd: tempDir,
       });
 
-      const statePath = join(tempDir, '.omx', 'state', 'autopilot-state.json');
+      const statePath = join(tempDir, '.owx', 'state', 'autopilot-state.json');
       const raw = await readFile(statePath, 'utf-8');
       const state = JSON.parse(raw);
       assert.equal(state.active, false);
@@ -655,7 +655,7 @@ describe('Pipeline Orchestrator', () => {
     it('returns true when pipeline state is active and in-progress', async () => {
       // Manually write an in-progress pipeline state
       const { mkdir: mkdirFs, writeFile: writeFileFs } = await import('fs/promises');
-      const stateDir = join(tempDir, '.omx', 'state');
+      const stateDir = join(tempDir, '.owx', 'state');
       await mkdirFs(stateDir, { recursive: true });
       await writeFileFs(
         join(stateDir, 'autopilot-state.json'),

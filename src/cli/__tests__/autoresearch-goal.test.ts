@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { autoresearchGoalCommand, AUTORESEARCH_GOAL_HELP } from '../autoresearch-goal.js';
 
 async function withCwd<T>(run: (cwd: string) => Promise<T>): Promise<T> {
-  const cwd = await mkdtemp(join(tmpdir(), 'omx-autoresearch-goal-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'owx-autoresearch-goal-'));
   const previous = process.cwd();
   try {
     process.chdir(cwd);
@@ -37,7 +37,7 @@ async function capture(run: () => Promise<void>): Promise<{ stdout: string[]; st
 describe('cli/autoresearch-goal', () => {
   it('prints help with goal-mode and deprecated-command boundaries', () => {
     assert.match(AUTORESEARCH_GOAL_HELP, /professor-critic/i);
-    assert.match(AUTORESEARCH_GOAL_HELP, /does not revive deprecated omx autoresearch/i);
+    assert.match(AUTORESEARCH_GOAL_HELP, /does not revive deprecated owx autoresearch/i);
     assert.match(AUTORESEARCH_GOAL_HELP, /get_goal\/create_goal\/update_goal/i);
     assert.match(AUTORESEARCH_GOAL_HELP, /blocked until professor-critic validation records verdict=pass/i);
   });
@@ -60,9 +60,9 @@ describe('cli/autoresearch-goal', () => {
       assert.match(output, /First call get_goal/);
       assert.match(output, /call create_goal with the payload below/);
       assert.match(output, /Do not call update_goal\(\{status: "complete"\}\) until the professor-critic verdict is pass/);
-      assert.match(output, /do not revive deprecated omx autoresearch/i);
+      assert.match(output, /do not revive deprecated owx autoresearch/i);
 
-      const mission = JSON.parse(await readFile(join(cwd, '.omx/goals/autoresearch/map-migration-risk/mission.json'), 'utf-8')) as { status: string; critic_command: string };
+      const mission = JSON.parse(await readFile(join(cwd, '.owx/goals/autoresearch/map-migration-risk/mission.json'), 'utf-8')) as { status: string; critic_command: string };
       assert.equal(mission.status, 'in_progress');
       assert.equal(mission.critic_command, 'node scripts/critic.js');
     });
@@ -109,7 +109,7 @@ describe('cli/autoresearch-goal', () => {
         '--slug', 'research-flaky-tests',
         '--verdict', 'pass',
         '--evidence', 'critic approved report.md with reproduction logs and citations',
-        '--artifact', '.omx/specs/autoresearch-flaky-tests/report.md',
+        '--artifact', '.owx/specs/autoresearch-flaky-tests/report.md',
       ]));
       const expectedObjective = [
         'Autoresearch goal: Research flaky tests',
@@ -117,7 +117,7 @@ describe('cli/autoresearch-goal', () => {
         'Research methodology / professor-critic rubric:',
         'Professor critic requires reproduction evidence and a cited root cause.',
         '',
-        'Completion gate: record a passing professor-critic verdict with omx autoresearch-goal verdict --slug research-flaky-tests --verdict pass --evidence "<critic artifact/evidence>". After the objective audit passes, call update_goal({status: "complete"}), call get_goal again, then run omx autoresearch-goal complete --slug research-flaky-tests --codex-goal-json "<fresh get_goal JSON or path>".',
+        'Completion gate: record a passing professor-critic verdict with owx autoresearch-goal verdict --slug research-flaky-tests --verdict pass --evidence "<critic artifact/evidence>". After the objective audit passes, call update_goal({status: "complete"}), call get_goal again, then run owx autoresearch-goal complete --slug research-flaky-tests --codex-goal-json "<fresh get_goal JSON or path>".',
       ].join('\n');
       const completed = await capture(() => autoresearchGoalCommand([
         'complete',
@@ -128,11 +128,11 @@ describe('cli/autoresearch-goal', () => {
       assert.match(completed.stdout.join('\n'), /autoresearch-goal complete: research-flaky-tests/);
       assert.match(completed.stdout.join('\n'), /matched a fresh complete get_goal snapshot/);
 
-      const completion = JSON.parse(await readFile(join(cwd, '.omx/goals/autoresearch/research-flaky-tests/completion.json'), 'utf-8')) as { verdict: string; passed: boolean };
+      const completion = JSON.parse(await readFile(join(cwd, '.owx/goals/autoresearch/research-flaky-tests/completion.json'), 'utf-8')) as { verdict: string; passed: boolean };
       assert.equal(completion.verdict, 'pass');
       assert.equal(completion.passed, true);
 
-      const mission = JSON.parse(await readFile(join(cwd, '.omx/goals/autoresearch/research-flaky-tests/mission.json'), 'utf-8')) as { status: string; completed_at?: string };
+      const mission = JSON.parse(await readFile(join(cwd, '.owx/goals/autoresearch/research-flaky-tests/mission.json'), 'utf-8')) as { status: string; completed_at?: string };
       assert.equal(mission.status, 'complete');
       assert.match(mission.completed_at ?? '', /^\d{4}-\d{2}-\d{2}T/);
 
@@ -169,7 +169,7 @@ describe('cli/autoresearch-goal', () => {
         'Research methodology / professor-critic rubric:',
         'Professor critic requires old handoff compatibility.',
         '',
-        'Completion gate: record a passing professor-critic verdict with omx autoresearch-goal verdict --slug research-legacy-handoff --verdict pass --evidence "<critic artifact/evidence>", then run omx autoresearch-goal complete --slug research-legacy-handoff.',
+        'Completion gate: record a passing professor-critic verdict with owx autoresearch-goal verdict --slug research-legacy-handoff --verdict pass --evidence "<critic artifact/evidence>", then run owx autoresearch-goal complete --slug research-legacy-handoff.',
       ].join('\n');
 
       const completed = await capture(() => autoresearchGoalCommand([
@@ -220,7 +220,7 @@ describe('cli/autoresearch-goal', () => {
       assert.match(mismatched.stderr.join('\n'), /objective mismatch/);
 
       const completion = JSON.parse(
-        await readFile(join(cwd, '.omx/goals/autoresearch/research-goal-snapshots/completion.json'), 'utf-8'),
+        await readFile(join(cwd, '.owx/goals/autoresearch/research-goal-snapshots/completion.json'), 'utf-8'),
       ) as {
         verdict: string;
         passed: boolean;
@@ -231,7 +231,7 @@ describe('cli/autoresearch-goal', () => {
       assert.equal(completion.codex_goal_reconciliation, undefined);
 
       const mission = JSON.parse(
-        await readFile(join(cwd, '.omx/goals/autoresearch/research-goal-snapshots/mission.json'), 'utf-8'),
+        await readFile(join(cwd, '.owx/goals/autoresearch/research-goal-snapshots/mission.json'), 'utf-8'),
       ) as { status: string };
       assert.equal(mission.status, 'passed');
     });

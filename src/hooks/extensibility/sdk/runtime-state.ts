@@ -7,7 +7,7 @@ import type {
   HookPluginOmxUpdateCheckState,
   HookPluginSdk,
 } from '../types.js';
-import { omxRootStateFilePath } from './paths.js';
+import { owxRootStateFilePath } from './paths.js';
 import { getReadScopedStateFilePaths } from '../../../mcp/state-paths.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -34,11 +34,11 @@ function normalizeSessionState(value: Record<string, unknown>): HookPluginOmxSes
     : null;
 }
 
-export function createHookPluginOmxApi(cwd: string): HookPluginSdk['omx'] {
+export function createHookPluginOmxApi(cwd: string): HookPluginSdk['owx'] {
   return {
     session: {
       read: () => readOmxStateFile<HookPluginOmxSessionState>(
-        omxRootStateFilePath(cwd, 'session.json'),
+        owxRootStateFilePath(cwd, 'session.json'),
         normalizeSessionState,
       ),
     },
@@ -52,12 +52,12 @@ export function createHookPluginOmxApi(cwd: string): HookPluginSdk['omx'] {
     },
     notifyFallback: {
       read: () => readOmxStateFile<HookPluginOmxNotifyFallbackState>(
-        omxRootStateFilePath(cwd, 'notify-fallback-state.json'),
+        owxRootStateFilePath(cwd, 'notify-fallback-state.json'),
       ),
     },
     updateCheck: {
       read: () => readOmxStateFile<HookPluginOmxUpdateCheckState>(
-        omxRootStateFilePath(cwd, 'update-check.json'),
+        owxRootStateFilePath(cwd, 'update-check.json'),
       ),
     },
   };

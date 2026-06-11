@@ -28,9 +28,9 @@ describe('Wiki lifecycle hooks', () => {
     await fsp.rm(tempDir, { recursive: true, force: true });
   });
 
-  it('respects autoCapture=false from project .omx-config.json', () => {
+  it('respects autoCapture=false from project .owx-config.json', () => {
     fs.writeFileSync(
-      path.join(tempDir, '.omx-config.json'),
+      path.join(tempDir, '.owx-config.json'),
       JSON.stringify({ wiki: { autoCapture: false } }),
     );
 
@@ -57,8 +57,8 @@ describe('Wiki lifecycle hooks', () => {
     const now = new Date().toISOString();
     const legacyDir = getLegacyWikiDir(tempDir);
     fs.mkdirSync(legacyDir, { recursive: true });
-    fs.mkdirSync(path.join(tempDir, '.omx'), { recursive: true });
-    fs.writeFileSync(path.join(tempDir, '.omx', 'project-memory.json'), JSON.stringify({
+    fs.mkdirSync(path.join(tempDir, '.owx'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, '.owx', 'project-memory.json'), JSON.stringify({
       techStack: 'Do not sync this into canonical storage during legacy fallback.',
     }));
     fs.writeFileSync(path.join(legacyDir, 'legacy.md'), serializePage({
@@ -79,7 +79,7 @@ describe('Wiki lifecycle hooks', () => {
 
     const result = onSessionStart({ cwd: tempDir });
 
-    expect(result.additionalContext).toContain('legacy pages at .omx/wiki/');
+    expect(result.additionalContext).toContain('legacy pages at .owx/wiki/');
     expect(fs.existsSync(getWikiDir(tempDir))).toBe(false);
   });
 });

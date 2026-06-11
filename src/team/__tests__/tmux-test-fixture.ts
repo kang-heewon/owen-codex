@@ -111,9 +111,9 @@ export async function withTempTmuxSession<T>(
   }
 
   const previousEnv = snapshotTmuxEnv(process.env);
-  const fixtureCwd = await mkdtemp(join(tmpdir(), 'omx-tmux-fixture-'));
-  const sessionName = uniqueTmuxIdentifier('omx-test');
-  const serverName = options.useAmbientServer ? '' : uniqueTmuxIdentifier('omx-fixture');
+  const fixtureCwd = await mkdtemp(join(tmpdir(), 'owx-tmux-fixture-'));
+  const sessionName = uniqueTmuxIdentifier('owx-test');
+  const serverName = options.useAmbientServer ? '' : uniqueTmuxIdentifier('owx-fixture');
   const serverKind: TempTmuxSessionFixture['serverKind'] = options.useAmbientServer ? 'ambient' : 'synthetic';
   const tmuxOptions = {
     ignoreTmuxEnv: true,

@@ -1,4 +1,4 @@
-export const OMX_EXPLORE_CMD_ENV = 'USE_OMX_EXPLORE_CMD';
+export const OWX_EXPLORE_CMD_ENV = 'USE_OWX_EXPLORE_CMD';
 
 const DISABLED_VALUES = new Set(['0', 'false', 'no', 'off']);
 
@@ -19,7 +19,7 @@ const NON_EXPLORATION_PATTERNS: RegExp[] = [
 ];
 
 export function isExploreCommandRoutingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env[OMX_EXPLORE_CMD_ENV];
+  const raw = env[OWX_EXPLORE_CMD_ENV];
   if (typeof raw !== 'string') return false;
   return !DISABLED_VALUES.has(raw.trim().toLowerCase());
 }
@@ -34,6 +34,6 @@ export function isSimpleExplorationPrompt(text: string): boolean {
 export function buildExploreRoutingGuidance(): string {
   return [
     '**Repository Lookup Routing:** use normal Codex repository inspection tools/subagents as the default surface for simple read-only repository lookup and implementation context.',
-    '- Use `omx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries; it does not replace raw evidence capture.',
+    '- Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries; it does not replace raw evidence capture.',
   ].join("\n");
 }

@@ -2,12 +2,12 @@ import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from 'child_
 import { readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveOmxFirstPartyMcpEntrypointForPluginTarget } from '../config/omx-first-party-mcp.js';
+import { resolveOmxFirstPartyMcpEntrypointForPluginTarget } from '../config/owx-first-party-mcp.js';
 
 const HELP = [
-  'Usage: omx cleanup [--dry-run]',
+  'Usage: owx cleanup [--dry-run]',
   '',
-  'Kill orphaned OMX MCP server processes and remove stale OMX /tmp directories left behind by previous Codex App sessions.',
+  'Kill orphaned OWX MCP server processes and remove stale OWX /tmp directories left behind by previous Codex App sessions.',
   '',
   'Options:',
   '  --dry-run  List matching orphaned processes and stale /tmp directories without removing them',
@@ -17,11 +17,11 @@ const HELP = [
 const PROCESS_EXIT_POLL_MS = 100;
 const SIGTERM_GRACE_MS = 5_000;
 const STALE_TMP_MAX_AGE_MS = 60 * 60 * 1000;
-const OMX_MCP_ENTRYPOINT_PATTERN = /(?:^|[\\/])dist[\\/]mcp[\\/]((?:state|memory|code-intel|trace|wiki)-server\.(?:[cm]?js|ts))\b/i;
-const OMX_MCP_SERVE_TARGET_PATTERN = /(?:^|\s)mcp-serve\s+([^\s]+)/i;
+const OWX_MCP_ENTRYPOINT_PATTERN = /(?:^|[\\/])dist[\\/]mcp[\\/]((?:state|memory|code-intel|trace|wiki)-server\.(?:[cm]?js|ts))\b/i;
+const OWX_MCP_SERVE_TARGET_PATTERN = /(?:^|\s)mcp-serve\s+([^\s]+)/i;
 const CODEX_PROCESS_PATTERN = /(?:^|[\\/\s])codex(?:\.js)?(?:\s|$)|@openai[\\/]codex/i;
-const OMX_LAUNCH_PROCESS_PATTERN = /(?:^|[\\/\s])omx(?:\.js)?(?:\s|$)|(?:^|[\\/])(?:bin|dist[\\/]cli)[\\/]omx\.js(?:\s|$)|oh-my-codex[\\/]dist[\\/]cli[\\/]omx\.js/i;
-const OMX_TMP_DIRECTORY_PATTERN = /^(omc|omx|oh-my-codex)-/;
+const OWX_LAUNCH_PROCESS_PATTERN = /(?:^|[\\/\s])owx(?:\.js)?(?:\s|$)|(?:^|[\\/])(?:bin|dist[\\/]cli)[\\/]owx\.js(?:\s|$)|owen-codex[\\/]dist[\\/]cli[\\/]owx\.js/i;
+const OWX_TMP_DIRECTORY_PATTERN = /^(omc|owx|owen-codex)-/;
 const PROCESS_LIST_COMMAND_OPTIONS: ExecFileSyncOptionsWithStringEncoding = {
   encoding: 'utf-8',
   windowsHide: true,
@@ -107,10 +107,10 @@ export function isOmxMcpProcess(command: string): boolean {
 
 export function extractOmxMcpEntrypoint(command: string): string | null {
   const normalized = normalizeCommand(command);
-  const directEntrypoint = normalized.match(OMX_MCP_ENTRYPOINT_PATTERN)?.[1]?.toLowerCase();
+  const directEntrypoint = normalized.match(OWX_MCP_ENTRYPOINT_PATTERN)?.[1]?.toLowerCase();
   if (directEntrypoint) return directEntrypoint;
 
-  const mcpServeTarget = normalized.match(OMX_MCP_SERVE_TARGET_PATTERN)?.[1];
+  const mcpServeTarget = normalized.match(OWX_MCP_SERVE_TARGET_PATTERN)?.[1];
   return resolveOmxFirstPartyMcpEntrypointForPluginTarget(mcpServeTarget);
 }
 
@@ -208,7 +208,7 @@ function isCodexSessionProcess(command: string): boolean {
 }
 
 function isOmxLaunchProcess(command: string): boolean {
-  return OMX_LAUNCH_PROCESS_PATTERN.test(normalizeCommand(command));
+  return OWX_LAUNCH_PROCESS_PATTERN.test(normalizeCommand(command));
 }
 
 function hasAncestorMatching(
@@ -345,8 +345,8 @@ export function findLaunchSafeCleanupCandidates(
   return findCleanupCandidates(processes, currentPid).filter((candidate) => {
     if (candidate.ppid <= 1) return true;
 
-    // Launch-safe cleanup runs automatically before starting Codex/OMX work.
-    // Preserve every MCP process still attached to a live Codex or OMX launch
+    // Launch-safe cleanup runs automatically before starting Codex/OWX work.
+    // Preserve every MCP process still attached to a live Codex or OWX launch
     // ancestor, including older same-parent duplicate siblings. Destructive
     // duplicate-sibling reaping remains available through manual cleanup via
     // findCleanupCandidates/default cleanupOmxMcpProcesses selection.
@@ -427,8 +427,8 @@ export async function cleanupOmxMcpProcesses(
   const candidates = selectCandidates(listProcessesImpl(), currentPid);
   if (candidates.length === 0) {
     writeLine(dryRun
-      ? 'Dry run: no orphaned OMX MCP server processes found.'
-      : 'No orphaned OMX MCP server processes found.');
+      ? 'Dry run: no orphaned OWX MCP server processes found.'
+      : 'No orphaned OWX MCP server processes found.');
     return {
       dryRun,
       candidates,
@@ -439,7 +439,7 @@ export async function cleanupOmxMcpProcesses(
   }
 
   if (dryRun) {
-    writeLine(`Dry run: would terminate ${candidates.length} orphaned OMX MCP server process(es):`);
+    writeLine(`Dry run: would terminate ${candidates.length} orphaned OWX MCP server process(es):`);
     for (const candidate of candidates) writeLine(`  ${formatCandidate(candidate)}`);
     return {
       dryRun: true,
@@ -450,7 +450,7 @@ export async function cleanupOmxMcpProcesses(
     };
   }
 
-  writeLine(`Found ${candidates.length} orphaned OMX MCP server process(es). Sending SIGTERM...`);
+  writeLine(`Found ${candidates.length} orphaned OWX MCP server process(es). Sending SIGTERM...`);
   for (const candidate of candidates) {
     try {
       sendSignal(candidate.pid, 'SIGTERM');
@@ -499,7 +499,7 @@ export async function cleanupOmxMcpProcesses(
     failedPids.push(...remainingAfterKill);
   }
 
-  writeLine(`Killed ${terminatedCount} orphaned OMX MCP server process(es)${forceKilledCount > 0 ? ` (${forceKilledCount} required SIGKILL)` : ''}.`);
+  writeLine(`Killed ${terminatedCount} orphaned OWX MCP server process(es)${forceKilledCount > 0 ? ` (${forceKilledCount} required SIGKILL)` : ''}.`);
   if (failedPids.length > 0) {
     writeLine(`Warning: ${failedPids.length} process(es) still appear alive: ${failedPids.join(', ')}`);
   }
@@ -527,7 +527,7 @@ export async function cleanupStaleTmpDirectories(
 
   const staleDirectories: string[] = [];
   for (const entry of await listTmpEntries(tmpRoot)) {
-    if (!entry.isDirectory() || !OMX_TMP_DIRECTORY_PATTERN.test(entry.name)) continue;
+    if (!entry.isDirectory() || !OWX_TMP_DIRECTORY_PATTERN.test(entry.name)) continue;
 
     const entryPath = join(tmpRoot, entry.name);
     let entryStat: { mtimeMs: number };
@@ -545,15 +545,15 @@ export async function cleanupStaleTmpDirectories(
 
   if (staleDirectories.length === 0) {
     writeLine(dryRun
-      ? 'Dry run: no stale OMX /tmp directories found.'
-      : 'No stale OMX /tmp directories found.');
+      ? 'Dry run: no stale OWX /tmp directories found.'
+      : 'No stale OWX /tmp directories found.');
     return 0;
   }
 
   const summaryTarget = formatPlural(
     staleDirectories.length,
-    'stale OMX /tmp directory',
-    'stale OMX /tmp directories',
+    'stale OWX /tmp directory',
+    'stale OWX /tmp directories',
   );
   if (dryRun) {
     writeLine(`Dry run: would remove ${summaryTarget}:`);
@@ -578,8 +578,8 @@ export async function cleanupStaleTmpDirectories(
   writeLine(
     `Removed ${formatPlural(
       removedCount,
-      'stale OMX /tmp directory',
-      'stale OMX /tmp directories',
+      'stale OWX /tmp directory',
+      'stale OWX /tmp directories',
     )}.`,
   );
   return removedCount;

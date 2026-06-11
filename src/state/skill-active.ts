@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
-import { omxStateDir } from '../utils/paths.js';
+import { owxStateDir } from '../utils/paths.js';
 import {
   assertWorkflowTransitionAllowed,
   isTrackedWorkflowMode,
@@ -157,7 +157,7 @@ function sanitizeWriterBaseForSession(
     delete inherited.test_spec_path;
     delete inherited.task_slug;
     delete inherited.task_description;
-    delete inherited.owner_omx_session_id;
+    delete inherited.owner_owx_session_id;
     delete inherited.owner_codex_session_id;
     delete inherited.owner_codex_thread_id;
     delete inherited.tmux_pane_id;
@@ -225,7 +225,7 @@ export function getSkillActiveStatePaths(cwd: string, sessionId?: string): {
   rootPath: string;
   sessionPath?: string;
 } {
-  return getSkillActiveStatePathsForStateDir(omxStateDir(cwd), sessionId);
+  return getSkillActiveStatePathsForStateDir(owxStateDir(cwd), sessionId);
 }
 
 export function getSkillActiveStatePathsForStateDir(stateDir: string, sessionId?: string): {
@@ -324,7 +324,7 @@ export function tracksCanonicalWorkflowSkill(mode: string): mode is CanonicalWor
 export async function syncCanonicalSkillStateForMode(options: SyncCanonicalSkillStateOptions): Promise<void> {
   const {
     cwd,
-    baseStateDir = omxStateDir(cwd),
+    baseStateDir = owxStateDir(cwd),
     mode,
     active,
     currentPhase,

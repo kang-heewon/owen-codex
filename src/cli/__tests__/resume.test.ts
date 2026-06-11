@@ -13,8 +13,8 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: {
@@ -30,9 +30,9 @@ function runOmx(
   };
 }
 
-describe('omx resume', () => {
+describe('owx resume', () => {
   it('exposes project-local Codex history artifacts to codex resume', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-resume-project-history-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-resume-project-history-'));
     try {
       const home = join(wd, 'home');
       const projectCodexHome = join(wd, '.codex');
@@ -44,9 +44,9 @@ describe('omx resume', () => {
 
       await mkdir(home, { recursive: true });
       await mkdir(fakeBin, { recursive: true });
-      await mkdir(join(wd, '.omx'), { recursive: true });
+      await mkdir(join(wd, '.owx'), { recursive: true });
       await mkdir(dirname(rolloutPath), { recursive: true });
-      await writeFile(join(wd, '.omx', 'setup-scope.json'), JSON.stringify({ scope: 'project' }));
+      await writeFile(join(wd, '.owx', 'setup-scope.json'), JSON.stringify({ scope: 'project' }));
       await writeFile(join(projectCodexHome, 'config.toml'), 'model = "gpt-5.5"\n');
       await writeFile(join(projectCodexHome, 'state_5.sqlite'), 'state db placeholder');
       await writeFile(join(projectCodexHome, 'state_5.sqlite-wal'), 'state db wal placeholder');
@@ -67,15 +67,15 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
       const result = runOmx(wd, ['resume'], {
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
-        OMX_AUTO_UPDATE: '0',
-        OMX_NOTIFY_FALLBACK: '0',
-        OMX_HOOK_DERIVED_SIGNALS: '0',
+        OWX_AUTO_UPDATE: '0',
+        OWX_NOTIFY_FALLBACK: '0',
+        OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);
       assert.match(result.stdout, /fake-codex:resume\b/);
       assert.match(result.stdout, new RegExp(`sqlite-home:${canonicalProjectCodexHome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-      assert.match(result.stdout, /codex-home:.*\.omx\/runtime\/codex-home\//);
+      assert.match(result.stdout, /codex-home:.*\.owx\/runtime\/codex-home\//);
       assert.match(result.stdout, /state-present=yes/);
       assert.match(result.stdout, /wal-present=yes/);
       assert.match(result.stdout, /rollout-present=yes/);
@@ -85,7 +85,7 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
   });
 
   it('forwards --last to codex resume through the normal launch wrapper', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-resume-cli-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-resume-cli-'));
     try {
       const home = join(wd, 'home');
       const fakeBin = join(wd, 'bin');
@@ -102,9 +102,9 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
       const result = runOmx(wd, ['resume', '--last'], {
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
-        OMX_AUTO_UPDATE: '0',
-        OMX_NOTIFY_FALLBACK: '0',
-        OMX_HOOK_DERIVED_SIGNALS: '0',
+        OWX_AUTO_UPDATE: '0',
+        OWX_NOTIFY_FALLBACK: '0',
+        OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);
@@ -114,8 +114,8 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
     }
   });
 
-  it('passes resume --help through to codex instead of printing top-level omx help', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-resume-cli-'));
+  it('passes resume --help through to codex instead of printing top-level owx help', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-resume-cli-'));
     try {
       const home = join(wd, 'home');
       const fakeBin = join(wd, 'bin');
@@ -132,9 +132,9 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
       const result = runOmx(wd, ['resume', '--help'], {
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
-        OMX_AUTO_UPDATE: '0',
-        OMX_NOTIFY_FALLBACK: '0',
-        OMX_HOOK_DERIVED_SIGNALS: '0',
+        OWX_AUTO_UPDATE: '0',
+        OWX_NOTIFY_FALLBACK: '0',
+        OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);

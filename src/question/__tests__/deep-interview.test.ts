@@ -15,24 +15,24 @@ import {
 } from '../deep-interview.js';
 
 const tempDirs: string[] = [];
-const originalOmxRoot = process.env.OMX_ROOT;
-const originalOmxStateRoot = process.env.OMX_STATE_ROOT;
-const originalOmxTeamStateRoot = process.env.OMX_TEAM_STATE_ROOT;
-const originalQuestionWaitLockTimeout = process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
+const originalOmxRoot = process.env.OWX_ROOT;
+const originalOmxStateRoot = process.env.OWX_STATE_ROOT;
+const originalOmxTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+const originalQuestionWaitLockTimeout = process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
 
 async function makeRepo(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'omx-deep-interview-question-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'owx-deep-interview-question-'));
   tempDirs.push(cwd);
-  process.env.OMX_ROOT = cwd;
-  delete process.env.OMX_STATE_ROOT;
-  delete process.env.OMX_TEAM_STATE_ROOT;
-  await mkdir(join(cwd, '.omx', 'state', 'sessions', 'sess-di'), { recursive: true });
+  process.env.OWX_ROOT = cwd;
+  delete process.env.OWX_STATE_ROOT;
+  delete process.env.OWX_TEAM_STATE_ROOT;
+  await mkdir(join(cwd, '.owx', 'state', 'sessions', 'sess-di'), { recursive: true });
   await writeFile(
-    join(cwd, '.omx', 'state', 'session.json'),
+    join(cwd, '.owx', 'state', 'session.json'),
     JSON.stringify({ session_id: 'sess-di' }, null, 2),
   );
   await writeFile(
-    join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json'),
+    join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json'),
     JSON.stringify({
       active: true,
       mode: 'deep-interview',
@@ -46,21 +46,21 @@ async function makeRepo(): Promise<string> {
 }
 
 after(async () => {
-  if (originalOmxRoot === undefined) delete process.env.OMX_ROOT;
-  else process.env.OMX_ROOT = originalOmxRoot;
-  if (originalOmxStateRoot === undefined) delete process.env.OMX_STATE_ROOT;
-  else process.env.OMX_STATE_ROOT = originalOmxStateRoot;
-  if (originalOmxTeamStateRoot === undefined) delete process.env.OMX_TEAM_STATE_ROOT;
-  else process.env.OMX_TEAM_STATE_ROOT = originalOmxTeamStateRoot;
-  if (originalQuestionWaitLockTimeout === undefined) delete process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
-  else process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = originalQuestionWaitLockTimeout;
+  if (originalOmxRoot === undefined) delete process.env.OWX_ROOT;
+  else process.env.OWX_ROOT = originalOmxRoot;
+  if (originalOmxStateRoot === undefined) delete process.env.OWX_STATE_ROOT;
+  else process.env.OWX_STATE_ROOT = originalOmxStateRoot;
+  if (originalOmxTeamStateRoot === undefined) delete process.env.OWX_TEAM_STATE_ROOT;
+  else process.env.OWX_TEAM_STATE_ROOT = originalOmxTeamStateRoot;
+  if (originalQuestionWaitLockTimeout === undefined) delete process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
+  else process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = originalQuestionWaitLockTimeout;
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
 describe('runDeepInterviewQuestion', { concurrency: false }, () => {
-  it('tracks a pending obligation before omx question returns and satisfies it afterward', { concurrency: false }, async () => {
+  it('tracks a pending obligation before owx question returns and satisfies it afterward', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const statePath = join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
+    const statePath = join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
     let inFlightQuestionStatus = '';
 
     const runner: OmxQuestionProcessRunner = async () => {
@@ -109,7 +109,7 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
       },
       {
         cwd,
-        argv1: '/repo/dist/cli/omx.js',
+        argv1: '/repo/dist/cli/owx.js',
         runner,
       },
     );
@@ -137,9 +137,9 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
     assert.equal(finalState.run_outcome, undefined);
   });
 
-  it('clears the pending obligation when omx question fails after being attempted', { concurrency: false }, async () => {
+  it('clears the pending obligation when owx question fails after being attempted', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const statePath = join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
+    const statePath = join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
 
     await assert.rejects(
       runDeepInterviewQuestion(
@@ -151,14 +151,14 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
         },
         {
           cwd,
-          argv1: '/repo/dist/cli/omx.js',
+          argv1: '/repo/dist/cli/owx.js',
           runner: async () => ({
             code: 1,
             stdout: JSON.stringify({
               ok: false,
               error: {
                 code: 'team_blocked',
-                message: 'omx question is unavailable while this session owns active team mode.',
+                message: 'owx question is unavailable while this session owns active team mode.',
               },
             }),
             stderr: '',
@@ -192,7 +192,7 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
 
   it('clears the pending obligation when question renderer launch fails', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const statePath = join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
+    const statePath = join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
 
     await assert.rejects(
       runDeepInterviewQuestion(
@@ -204,14 +204,14 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
         },
         {
           cwd,
-          argv1: '/repo/dist/cli/omx.js',
+          argv1: '/repo/dist/cli/owx.js',
           runner: async () => ({
             code: 1,
             stdout: JSON.stringify({
               ok: false,
               error: {
                 code: 'question_runtime_failed',
-                message: 'omx question cannot open a visible renderer because this process is outside an attached tmux pane and has no explicit tmux return bridge.',
+                message: 'owx question cannot open a visible renderer because this process is outside an attached tmux pane and has no explicit tmux return bridge.',
               },
             }),
             stderr: '',
@@ -245,8 +245,8 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
 
   it('reconciles a pending obligation from an already-answered same-session question record', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const statePath = join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
-    const questionsDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di', 'questions');
+    const statePath = join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'deep-interview-state.json');
+    const questionsDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di', 'questions');
     await mkdir(questionsDir, { recursive: true });
     await writeFile(
       statePath,
@@ -262,7 +262,7 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
         run_outcome: 'blocked_on_user',
         question_enforcement: {
           obligation_id: 'obligation-answered-record',
-          source: 'omx-question',
+          source: 'owx-question',
           status: 'pending',
           lifecycle_outcome: 'askuserQuestion',
           requested_at: '2026-04-19T00:00:10.000Z',
@@ -272,7 +272,7 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
     await writeFile(
       join(questionsDir, 'question-answered.json'),
       JSON.stringify({
-        kind: 'omx.question/v1',
+        kind: 'owx.question/v1',
         question_id: 'question-answered',
         session_id: 'sess-di',
         created_at: '2026-04-19T00:00:12.000Z',
@@ -326,7 +326,7 @@ describe('runDeepInterviewQuestion', { concurrency: false }, () => {
 describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false }, () => {
   it('does not overwrite an already pending Autopilot deep-interview question', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const sessionDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di');
+    const sessionDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di');
     const autopilotPath = join(sessionDir, 'autopilot-state.json');
     await writeFile(autopilotPath, JSON.stringify({
       active: true,
@@ -338,7 +338,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
       state: {
         deep_interview_question: {
           status: 'waiting_for_user',
-          source: 'omx-question',
+          source: 'owx-question',
           obligation_id: 'obligation-original',
           previous_phase: 'deep-interview',
           requested_at: '2026-04-19T00:00:00.000Z',
@@ -348,7 +348,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
 
     const started = await markAutopilotDeepInterviewQuestionWaiting(cwd, 'sess-di', {
       obligation_id: 'obligation-new',
-      source: 'omx-question',
+      source: 'owx-question',
       status: 'pending',
       lifecycle_outcome: 'askuserQuestion',
       requested_at: '2026-04-19T00:01:00.000Z',
@@ -364,7 +364,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
 
   it('serializes concurrent Autopilot deep-interview question ownership claims', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const sessionDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di');
+    const sessionDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di');
     const autopilotPath = join(sessionDir, 'autopilot-state.json');
     await writeFile(autopilotPath, JSON.stringify({
       active: true,
@@ -376,7 +376,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
 
     const obligations = Array.from({ length: 24 }, (_, index) => ({
       obligation_id: `obligation-${index}`,
-      source: 'omx-question' as const,
+      source: 'owx-question' as const,
       status: 'pending' as const,
       lifecycle_outcome: 'askuserQuestion' as const,
       requested_at: `2026-04-19T00:00:${String(index).padStart(2, '0')}.000Z`,
@@ -413,11 +413,11 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
   });
 
   it('blocks instead of prompting when the Autopilot wait claim cannot acquire its lock', { concurrency: false }, async () => {
-    const previousTimeout = process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
-    process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = '1';
+    const previousTimeout = process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
+    process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = '1';
     try {
       const cwd = await makeRepo();
-      const sessionDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di');
+      const sessionDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di');
       const autopilotPath = join(sessionDir, 'autopilot-state.json');
       await writeFile(autopilotPath, JSON.stringify({
         active: true,
@@ -434,7 +434,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
           { session_id: 'sess-di', question: 'Clarify?', allow_other: true },
           {
             cwd,
-            argv1: '/repo/dist/cli/omx.js',
+            argv1: '/repo/dist/cli/owx.js',
             runner: async () => {
               runnerCalled = true;
               return { code: 1, stdout: '', stderr: '' };
@@ -453,14 +453,14 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
       )) as { question_enforcement?: unknown };
       assert.equal(deepInterviewState.question_enforcement, undefined);
     } finally {
-      if (previousTimeout === undefined) delete process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
-      else process.env.OMX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = previousTimeout;
+      if (previousTimeout === undefined) delete process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS;
+      else process.env.OWX_AUTOPILOT_QUESTION_WAIT_LOCK_TIMEOUT_MS = previousTimeout;
     }
   });
 
   it('fails terminally instead of replacing another pending Autopilot question owner', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const sessionDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di');
+    const sessionDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di');
     const autopilotPath = join(sessionDir, 'autopilot-state.json');
     const deepInterviewPath = join(sessionDir, 'deep-interview-state.json');
     await writeFile(autopilotPath, JSON.stringify({
@@ -473,7 +473,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
       state: {
         deep_interview_question: {
           status: 'waiting_for_user',
-          source: 'omx-question',
+          source: 'owx-question',
           obligation_id: 'obligation-original',
           previous_phase: 'deep-interview',
           requested_at: '2026-04-19T00:00:00.000Z',
@@ -486,7 +486,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
       session_id: 'sess-di',
       question_enforcement: {
         obligation_id: 'obligation-original',
-        source: 'omx-question',
+        source: 'owx-question',
         status: 'pending',
         lifecycle_outcome: 'askuserQuestion',
         requested_at: '2026-04-19T00:00:00.000Z',
@@ -499,7 +499,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
         { session_id: 'sess-di', question: 'Clarify?', allow_other: true },
         {
           cwd,
-          argv1: '/repo/dist/cli/omx.js',
+          argv1: '/repo/dist/cli/owx.js',
           runner: async () => {
             runnerCalled = true;
             return { code: 1, stdout: '', stderr: '' };
@@ -518,9 +518,9 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
     assert.equal(deepInterviewState.question_enforcement?.status, 'pending');
   });
 
-  it('persists readable autopilot waiting-for-user state while omx question is in flight and restores it after answer', { concurrency: false }, async () => {
+  it('persists readable autopilot waiting-for-user state while owx question is in flight and restores it after answer', { concurrency: false }, async () => {
     const cwd = await makeRepo();
-    const sessionDir = join(cwd, '.omx', 'state', 'sessions', 'sess-di');
+    const sessionDir = join(cwd, '.owx', 'state', 'sessions', 'sess-di');
     const autopilotPath = join(sessionDir, 'autopilot-state.json');
     await writeFile(autopilotPath, JSON.stringify({
       active: true,
@@ -571,7 +571,7 @@ describe('runDeepInterviewQuestion autopilot wait bridge', { concurrency: false 
 
     await runDeepInterviewQuestion(
       { session_id: 'sess-di', question: 'Clarify?', allow_other: true },
-      { cwd, argv1: '/repo/dist/cli/omx.js', runner },
+      { cwd, argv1: '/repo/dist/cli/owx.js', runner },
     );
 
     assert.equal(observedWait, true);

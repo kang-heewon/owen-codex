@@ -64,7 +64,7 @@ export function teamModeEnabled(mode: SetupTeamMode | undefined): boolean {
 }
 
 export function readTeamModeConfig(cwd = process.cwd()): TeamModeConfig {
-	const env = process.env.OMX_TEAM_MODE?.trim().toLowerCase();
+	const env = process.env.OWX_TEAM_MODE?.trim().toLowerCase();
 	if (env === "enabled" || env === "1" || env === "true") {
 		return { enabled: true, status: "enabled", source: "env" };
 	}
@@ -72,7 +72,7 @@ export function readTeamModeConfig(cwd = process.cwd()): TeamModeConfig {
 		return { enabled: false, status: "disabled", source: "env" };
 	}
 
-	const setupPath = join(cwd, ".omx", "setup-scope.json");
+	const setupPath = join(cwd, ".owx", "setup-scope.json");
 	try {
 		const enabled = readBooleanFromJson(setupPath);
 		if (enabled !== undefined) {
@@ -87,7 +87,7 @@ export function readTeamModeConfig(cwd = process.cwd()): TeamModeConfig {
 		return { enabled: true, status: "invalid", source: "invalid", path: setupPath };
 	}
 
-	const userConfigPath = join(codexHome(), ".omx-config.json");
+	const userConfigPath = join(codexHome(), ".owx-config.json");
 	try {
 		const enabled = readBooleanFromJson(userConfigPath);
 		if (enabled !== undefined) {

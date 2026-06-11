@@ -4,7 +4,7 @@ import { delimiter, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const requiredDistFiles = [
-  join(process.cwd(), 'dist', 'cli', 'omx.js'),
+  join(process.cwd(), 'dist', 'cli', 'owx.js'),
   join(process.cwd(), 'dist', 'scripts', 'postinstall.js'),
 ];
 
@@ -28,7 +28,7 @@ function runNpm(args, env = process.env) {
 
 function exitOnFailure(result, label) {
   if (result.error) {
-    console.error(`omx prepare: failed to launch ${label}: ${result.error.message}`);
+    console.error(`owx prepare: failed to launch ${label}: ${result.error.message}`);
     process.exit(1);
   }
 
@@ -78,6 +78,6 @@ if (shouldCleanupBootstrappedDependencies) {
     rmSync(nodeModulesDir, { recursive: true, force: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[omx:prepare] Warning: could not remove bootstrapped node_modules: ${message}`);
+    console.warn(`[owx:prepare] Warning: could not remove bootstrapped node_modules: ${message}`);
   }
 }

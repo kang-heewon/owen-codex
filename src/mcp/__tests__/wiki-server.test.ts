@@ -43,7 +43,7 @@ describe('mcp/wiki-server module contract', () => {
   });
 
   it('wiki_add writes canonical pages even when the same legacy slug exists', async () => {
-    process.env.OMX_WIKI_SERVER_DISABLE_AUTO_START = '1';
+    process.env.OWX_WIKI_SERVER_DISABLE_AUTO_START = '1';
     const { handleWikiToolCall } = await import('../wiki-server.js');
     const root = await mkdtemp(join(tmpdir(), 'wiki-mcp-legacy-add-'));
     try {
@@ -69,7 +69,7 @@ describe('mcp/wiki-server module contract', () => {
   });
 
   it('wiki_delete does not create canonical storage when deleting from legacy-only fallback', async () => {
-    process.env.OMX_WIKI_SERVER_DISABLE_AUTO_START = '1';
+    process.env.OWX_WIKI_SERVER_DISABLE_AUTO_START = '1';
     const { handleWikiToolCall } = await import('../wiki-server.js');
     const root = await mkdtemp(join(tmpdir(), 'wiki-mcp-legacy-delete-'));
     try {
@@ -96,7 +96,7 @@ describe('mcp/wiki-server module contract', () => {
   });
 
   it('wiki_refresh leaves legacy-only fallback read-only and does not create canonical storage', async () => {
-    process.env.OMX_WIKI_SERVER_DISABLE_AUTO_START = '1';
+    process.env.OWX_WIKI_SERVER_DISABLE_AUTO_START = '1';
     const { handleWikiToolCall } = await import('../wiki-server.js');
     const root = await mkdtemp(join(tmpdir(), 'wiki-mcp-legacy-refresh-'));
     try {

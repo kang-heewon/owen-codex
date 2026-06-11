@@ -1,5 +1,5 @@
 /**
- * omx doctor - Validate oh-my-codex installation
+ * owx doctor - Validate owen-codex installation
  */
 
 import { existsSync, readFileSync } from "fs";
@@ -13,7 +13,7 @@ import {
 	codexPromptsDir,
 	userSkillsDir,
 	projectSkillsDir,
-	omxStateDir,
+	owxStateDir,
 	detectLegacySkillRootOverlap,
 	codexAgentsDir,
 } from "../utils/paths.js";
@@ -40,14 +40,14 @@ import {
 	getManagedCodexHookCommandsForEvent,
 	getMissingManagedCodexHookEvents,
 } from "../config/codex-hooks.js";
-import { OMX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/omx-first-party-mcp.js";
+import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
 import { getDefaultBridge, isBridgeEnabled } from "../runtime/bridge.js";
 import {
-	OMX_EXPLORE_CMD_ENV,
+	OWX_EXPLORE_CMD_ENV,
 	isExploreCommandRoutingEnabled,
 } from "../hooks/explore-routing.js";
 import {
-	OMX_LORE_COMMIT_GUARD_ENV,
+	OWX_LORE_COMMIT_GUARD_ENV,
 	isLoreCommitGuardEnabled,
 } from "../config/commit-lore-guard.js";
 import { isLeaderRuntimeStale } from "../team/leader-activity.js";
@@ -59,8 +59,8 @@ import {
 	type SetupMcpMode,
 } from "./setup-preferences.js";
 import {
-	OMX_LOCAL_MARKETPLACE_NAME,
-	OMX_LOCAL_PLUGIN_CONFIG_KEY,
+	OWX_LOCAL_MARKETPLACE_NAME,
+	OWX_LOCAL_PLUGIN_CONFIG_KEY,
 	discoverOmxPluginCacheDirs,
 	expectedPackagedOmxSkillNames,
 	packagedOmxPluginVersion,
@@ -70,8 +70,8 @@ import {
 } from "./plugin-marketplace.js";
 import { hasOmxAgentsContract } from "../utils/agents-md.js";
 import {
-	OMX_DEFAULT_SPARK_MODEL_ENV,
-	OMX_SPARK_MODEL_ENV,
+	OWX_DEFAULT_SPARK_MODEL_ENV,
+	OWX_SPARK_MODEL_ENV,
 	getCodexConfigRootModelProvider,
 	getEnvConfiguredSparkDefaultModel,
 	getMainDefaultModel,
@@ -144,7 +144,7 @@ function resolveDoctorPaths(cwd: string, scope: DoctorSetupScope): DoctorPaths {
 			promptsDir: join(codexHomeDir, "prompts"),
 			skillsDir: projectSkillsDir(cwd),
 			agentsDir: codexAgentsDir(codexHomeDir),
-			stateDir: omxStateDir(cwd),
+			stateDir: owxStateDir(cwd),
 		};
 	}
 
@@ -155,7 +155,7 @@ function resolveDoctorPaths(cwd: string, scope: DoctorSetupScope): DoctorPaths {
 		promptsDir: codexPromptsDir(),
 		skillsDir: userSkillsDir(),
 		agentsDir: codexAgentsDir(),
-		stateDir: omxStateDir(cwd),
+		stateDir: owxStateDir(cwd),
 	};
 }
 
@@ -170,10 +170,10 @@ export async function doctor(options: DoctorOptions = {}): Promise<void> {
 	const paths = resolveDoctorPaths(cwd, scopeResolution.scope);
 	const scopeSourceMessage =
 		scopeResolution.source === "persisted"
-			? " (from .omx/setup-scope.json)"
+			? " (from .owx/setup-scope.json)"
 			: "";
 
-	console.log("oh-my-codex doctor");
+	console.log("owen-codex doctor");
 	console.log("==================\n");
 	console.log(
 		`Resolved setup scope: ${scopeResolution.scope}${scopeSourceMessage}`,
@@ -308,13 +308,13 @@ export async function doctor(options: DoctorOptions = {}): Promise<void> {
 	);
 
 	if (failCount > 0) {
-		console.log('\nRun "omx setup" to fix installation issues.');
+		console.log('\nRun "owx setup" to fix installation issues.');
 	} else if (warnCount > 0) {
 		console.log(
-			'\nReview warnings above. Use "omx setup --force" only when a warning recommends full replacement; for AGENTS.md preservation prefer "omx setup --merge-agents".',
+			'\nReview warnings above. Use "owx setup --force" only when a warning recommends full replacement; for AGENTS.md preservation prefer "owx setup --merge-agents".',
 		);
 	} else {
-		console.log("\nAll checks passed! oh-my-codex is ready.");
+		console.log("\nAll checks passed! owen-codex is ready.");
 	}
 }
 
@@ -331,7 +331,7 @@ interface TeamDoctorIssue {
 }
 
 async function doctorTeam(): Promise<void> {
-	console.log("oh-my-codex doctor --team");
+	console.log("owen-codex doctor --team");
 	console.log("=========================\n");
 
 	const issues = await collectTeamDoctorIssues(process.cwd());
@@ -352,7 +352,7 @@ async function doctorTeam(): Promise<void> {
 	}
 
 	console.log(`\nResults: ${warningCount} warnings, ${failureCount} failed`);
-	// Ensure non-zero exit for `omx doctor --team` failures.
+	// Ensure non-zero exit for `owx doctor --team` failures.
 	if (failureCount > 0) process.exitCode = 1;
 }
 
@@ -360,7 +360,7 @@ async function collectTeamDoctorIssues(
 	cwd: string,
 ): Promise<TeamDoctorIssue[]> {
 	const issues: TeamDoctorIssue[] = [];
-	const stateDir = omxStateDir(cwd);
+	const stateDir = owxStateDir(cwd);
 	const teamsRoot = join(stateDir, "team");
 	const nowMs = Date.now();
 	const lagThresholdMs = 60_000;
@@ -408,7 +408,7 @@ async function collectTeamDoctorIssues(
 		const manifestPath = join(teamDir, "manifest.v2.json");
 		const configPath = join(teamDir, "config.json");
 
-		let tmuxSession = `omx-team-${teamName}`;
+		let tmuxSession = `owx-team-${teamName}`;
 		let workerLaunchMode: "interactive" | "prompt" = "interactive";
 		let promptWorkers: Array<{ name?: string; pid?: number }> = [];
 		if (existsSync(manifestPath)) {
@@ -552,8 +552,8 @@ async function collectTeamDoctorIssues(
 			if (leaderIsStale && !tmuxUnavailable) {
 				// Check if any team tmux session has live worker panes
 				for (const teamName of teamDirs) {
-					const session = knownTeamSessions.has(`omx-team-${teamName}`)
-						? `omx-team-${teamName}`
+					const session = knownTeamSessions.has(`owx-team-${teamName}`)
+						? `owx-team-${teamName}`
 						: [...knownTeamSessions].find((s) => s.includes(teamName));
 					if (!session || !tmuxSessions.has(session)) continue;
 					issues.push({
@@ -633,7 +633,7 @@ function listTeamTmuxSessions(): Set<string> | null {
 	const sessions = (res.stdout || "")
 		.split("\n")
 		.map((s) => s.trim())
-		.filter((s) => s.startsWith("omx-team-"));
+		.filter((s) => s.startsWith("owx-team-"));
 	return new Set(sessions);
 }
 
@@ -712,13 +712,13 @@ export function checkExploreHarness(
 	env: NodeJS.ProcessEnv = process.env,
 ): Check {
 	const packageRoot = getPackageRoot();
-	const manifestPath = join(packageRoot, "crates", "omx-explore", "Cargo.toml");
+	const manifestPath = join(packageRoot, "crates", "owx-explore", "Cargo.toml");
 	if (!existsSync(manifestPath)) {
 		return {
 			name: "Explore Harness",
 			status: "warn",
 			message:
-				"Rust harness sources not found in this install (omx explore unavailable until packaged or OMX_EXPLORE_BIN is set)",
+				"Rust harness sources not found in this install (owx explore unavailable until packaged or OWX_EXPLORE_BIN is set)",
 		};
 	}
 
@@ -735,7 +735,7 @@ export function checkExploreHarness(
 		return {
 			name: "Explore Harness",
 			status: "warn",
-			message: `OMX_EXPLORE_BIN is set but path was not found (${override})`,
+			message: `OWX_EXPLORE_BIN is set but path was not found (${override})`,
 		};
 	}
 
@@ -770,7 +770,7 @@ export function checkExploreHarness(
 			return {
 				name: "Explore Harness",
 				status: "warn",
-				message: `Rust harness sources are packaged, but no compatible packaged prebuilt or cargo was found (install Rust or set ${EXPLORE_BIN_ENV} for omx explore)`,
+				message: `Rust harness sources are packaged, but no compatible packaged prebuilt or cargo was found (install Rust or set ${EXPLORE_BIN_ENV} for owx explore)`,
 			};
 		}
 		return {
@@ -844,16 +844,16 @@ async function checkConfig(configPath: string): Promise<Check> {
 				name: "Config",
 				status: "warn",
 				message:
-					'retired [mcp_servers.omx_team_run] table still present; run "omx setup --force" to repair the config',
+					'retired [mcp_servers.owx_team_run] table still present; run "owx setup --force" to repair the config',
 			};
 		}
 
-		const hasOmx = content.includes("omx_") || content.includes("oh-my-codex");
+		const hasOmx = content.includes("owx_") || content.includes("owen-codex");
 		if (hasOmx) {
 			return {
 				name: "Config",
 				status: "pass",
-				message: "config.toml has OMX entries",
+				message: "config.toml has OWX entries",
 			};
 		}
 
@@ -861,7 +861,7 @@ async function checkConfig(configPath: string): Promise<Check> {
 			name: "Config",
 			status: "warn",
 			message:
-				'config.toml exists but no OMX entries yet (expected before first setup; run "omx setup --force" once)',
+				'config.toml exists but no OWX entries yet (expected before first setup; run "owx setup --force" once)',
 		};
 	} catch {
 		return {
@@ -879,7 +879,7 @@ function formatContextRecommendationWarning(
 ): string {
 	return `${configuredValues.join(
 		", ",
-	)} exceeds the OMX setup recommendation for gpt-5.5 (${recommendedContextWindow} / ${recommendedAutoCompactLimit}); doctor does not rewrite user config, so lower these values or verify your active Codex runtime/provider behavior if this customization is intentional`;
+	)} exceeds the OWX setup recommendation for gpt-5.5 (${recommendedContextWindow} / ${recommendedAutoCompactLimit}); doctor does not rewrite user config, so lower these values or verify your active Codex runtime/provider behavior if this customization is intentional`;
 }
 
 async function checkModelContextRecommendation(
@@ -932,14 +932,14 @@ async function checkModelContextRecommendation(
 }
 
 async function checkExploreRouting(configPath: string): Promise<Check> {
-	const envValue = process.env[OMX_EXPLORE_CMD_ENV];
+	const envValue = process.env[OWX_EXPLORE_CMD_ENV];
 	if (typeof envValue === "string") {
 		if (isExploreCommandRoutingEnabled(process.env)) {
 			return {
 				name: "Explore routing",
 				status: "warn",
 				message:
-					"deprecated compatibility routing enabled by environment override; remove USE_OMX_EXPLORE_CMD or set it to 0 and use normal Codex repo inspection or omx sparkshell instead",
+					"deprecated compatibility routing enabled by environment override; remove USE_OWX_EXPLORE_CMD or set it to 0 and use normal Codex repo inspection or owx sparkshell instead",
 			};
 		}
 		return {
@@ -965,18 +965,18 @@ async function checkExploreRouting(configPath: string): Promise<Check> {
 			shell_environment_policy?: { set?: Record<string, unknown> };
 		};
 		const configuredValue =
-			parsed?.shell_environment_policy?.set?.USE_OMX_EXPLORE_CMD ??
-			parsed?.env?.USE_OMX_EXPLORE_CMD;
+			parsed?.shell_environment_policy?.set?.USE_OWX_EXPLORE_CMD ??
+			parsed?.env?.USE_OWX_EXPLORE_CMD;
 
 		if (typeof configuredValue === "string") {
 			if (isExploreCommandRoutingEnabled({
-				USE_OMX_EXPLORE_CMD: configuredValue,
+				USE_OWX_EXPLORE_CMD: configuredValue,
 			})) {
 				return {
 					name: "Explore routing",
 					status: "warn",
 					message:
-						'deprecated compatibility routing enabled in config.toml; set USE_OMX_EXPLORE_CMD = "0" under [shell_environment_policy.set] and use normal Codex repo inspection or omx sparkshell instead',
+						'deprecated compatibility routing enabled in config.toml; set USE_OWX_EXPLORE_CMD = "0" under [shell_environment_policy.set] and use normal Codex repo inspection or owx sparkshell instead',
 				};
 			}
 			return {
@@ -1008,7 +1008,7 @@ const LORE_COMMIT_GUARD_EXPLICIT_OPT_OUT_VALUES = new Set([
 ]);
 
 async function checkLoreCommitGuard(configPath: string): Promise<Check> {
-	const envValue = process.env[OMX_LORE_COMMIT_GUARD_ENV];
+	const envValue = process.env[OWX_LORE_COMMIT_GUARD_ENV];
 	if (typeof envValue === "string") {
 		if (isLoreCommitGuardEnabled(process.env)) {
 			return {
@@ -1022,13 +1022,13 @@ async function checkLoreCommitGuard(configPath: string): Promise<Check> {
 				name: "Lore commit guard",
 				status: "warn",
 				message:
-					"invalid environment value; Lore commit enforcement is disabled until OMX_LORE_COMMIT_GUARD is set to 1, true, yes, or on",
+					"invalid environment value; Lore commit enforcement is disabled until OWX_LORE_COMMIT_GUARD is set to 1, true, yes, or on",
 			};
 		}
 		return {
 			name: "Lore commit guard",
 			status: "pass",
-			message: "disabled by environment/default opt-out; enable with OMX_LORE_COMMIT_GUARD=1",
+			message: "disabled by environment/default opt-out; enable with OWX_LORE_COMMIT_GUARD=1",
 		};
 	}
 
@@ -1047,12 +1047,12 @@ async function checkLoreCommitGuard(configPath: string): Promise<Check> {
 			shell_environment_policy?: { set?: Record<string, unknown> };
 		};
 		const configuredValue =
-			parsed?.shell_environment_policy?.set?.[OMX_LORE_COMMIT_GUARD_ENV] ??
-			parsed?.env?.[OMX_LORE_COMMIT_GUARD_ENV];
+			parsed?.shell_environment_policy?.set?.[OWX_LORE_COMMIT_GUARD_ENV] ??
+			parsed?.env?.[OWX_LORE_COMMIT_GUARD_ENV];
 
 		if (typeof configuredValue === "string") {
 			if (isLoreCommitGuardEnabled({
-				[OMX_LORE_COMMIT_GUARD_ENV]: configuredValue,
+				[OWX_LORE_COMMIT_GUARD_ENV]: configuredValue,
 			})) {
 				return {
 					name: "Lore commit guard",
@@ -1065,14 +1065,14 @@ async function checkLoreCommitGuard(configPath: string): Promise<Check> {
 					name: "Lore commit guard",
 					status: "warn",
 					message:
-						'invalid config.toml value; Lore commit enforcement is disabled until OMX_LORE_COMMIT_GUARD = "1" (or true/yes/on) is set under [shell_environment_policy.set]',
+						'invalid config.toml value; Lore commit enforcement is disabled until OWX_LORE_COMMIT_GUARD = "1" (or true/yes/on) is set under [shell_environment_policy.set]',
 				};
 			}
 			return {
 				name: "Lore commit guard",
 				status: "pass",
 				message:
-					'disabled in config.toml/default opt-out; set OMX_LORE_COMMIT_GUARD = "1" under [shell_environment_policy.set] to enable Lore commit enforcement',
+					'disabled in config.toml/default opt-out; set OWX_LORE_COMMIT_GUARD = "1" under [shell_environment_policy.set] to enable Lore commit enforcement',
 			};
 		}
 
@@ -1106,7 +1106,7 @@ function isEnabledTomlValue(value: unknown): boolean {
 }
 
 function configHasOmxEntries(configContent: string): boolean {
-	return configContent.includes("omx_") || configContent.includes("oh-my-codex");
+	return configContent.includes("owx_") || configContent.includes("owen-codex");
 }
 
 function configEnablesPluginScopedHooks(configContent: string): boolean {
@@ -1159,17 +1159,17 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks are enabled and ${setupHooksPathDescription}, but packaged ${OMX_LOCAL_MARKETPLACE_NAME} metadata was not found`,
+				`plugin-scoped hooks are enabled and ${setupHooksPathDescription}, but packaged ${OWX_LOCAL_MARKETPLACE_NAME} metadata was not found`,
 		};
 	}
 
 	const version = await packagedOmxPluginVersion(packagedMarketplace);
 	const expectedCacheDir = version
-		? join(codexHomeDir, "plugins", "cache", OMX_LOCAL_MARKETPLACE_NAME, "oh-my-codex", version)
-		: join(codexHomeDir, "plugins", "cache", OMX_LOCAL_MARKETPLACE_NAME, "oh-my-codex", "<version>");
+		? join(codexHomeDir, "plugins", "cache", OWX_LOCAL_MARKETPLACE_NAME, "owen-codex", version)
+		: join(codexHomeDir, "plugins", "cache", OWX_LOCAL_MARKETPLACE_NAME, "owen-codex", "<version>");
 	const expectedHooksPath = join(expectedCacheDir, "hooks", "hooks.json");
 	const expectedHookLauncherPath = join(expectedCacheDir, "hooks", "codex-native-hook.mjs");
-	const expectedPinnedLauncherPath = join(expectedCacheDir, "hooks", "omx-command.json");
+	const expectedPinnedLauncherPath = join(expectedCacheDir, "hooks", "owx-command.json");
 	const state = await readOmxPluginCacheState(expectedCacheDir);
 
 	if (!state) {
@@ -1177,7 +1177,7 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks are enabled, but the expected Codex plugin cache manifest is missing at ${join(expectedCacheDir, ".codex-plugin", "plugin.json")}; ${setupHooksPathDescription}; run "omx setup --plugin --force" to refresh the plugin cache`,
+				`plugin-scoped hooks are enabled, but the expected Codex plugin cache manifest is missing at ${join(expectedCacheDir, ".codex-plugin", "plugin.json")}; ${setupHooksPathDescription}; run "owx setup --plugin --force" to refresh the plugin cache`,
 		};
 	}
 
@@ -1186,7 +1186,7 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks are enabled, but the Codex plugin cache manifest points hooks to ${String(state.hooksPointer)} instead of ./hooks/hooks.json at ${expectedHooksPath}; run "omx setup --plugin --force" to refresh the plugin cache`,
+				`plugin-scoped hooks are enabled, but the Codex plugin cache manifest points hooks to ${String(state.hooksPointer)} instead of ./hooks/hooks.json at ${expectedHooksPath}; run "owx setup --plugin --force" to refresh the plugin cache`,
 		};
 	}
 
@@ -1196,7 +1196,7 @@ async function checkPluginScopedNativeHooks(
 				name: "Native hooks",
 				status: "warn",
 				message:
-					`plugin-scoped hooks are enabled, but expected plugin hook file is missing at ${expectedPath}; ${setupHooksPathDescription}; run "omx setup --plugin --force" to refresh the plugin cache`,
+					`plugin-scoped hooks are enabled, but expected plugin hook file is missing at ${expectedPath}; ${setupHooksPathDescription}; run "owx setup --plugin --force" to refresh the plugin cache`,
 			};
 		}
 	}
@@ -1206,7 +1206,7 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks are enabled, but cached plugin hook files or pinned hook launcher in ${expectedCacheDir} do not match the packaged plugin; ${setupHooksPathDescription}; run "omx setup --plugin --force" to refresh the plugin cache`,
+				`plugin-scoped hooks are enabled, but cached plugin hook files or pinned hook launcher in ${expectedCacheDir} do not match the packaged plugin; ${setupHooksPathDescription}; run "owx setup --plugin --force" to refresh the plugin cache`,
 		};
 	}
 
@@ -1234,15 +1234,15 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks.json at ${expectedHooksPath} is missing OMX native coverage for one or more events; run "omx setup --plugin --force" to refresh the plugin cache`,
+				`plugin-scoped hooks.json at ${expectedHooksPath} is missing OWX native coverage for one or more events; run "owx setup --plugin --force" to refresh the plugin cache`,
 		};
 	}
 
-	const smokeCwd = await mkdtemp(join(tmpdir(), "omx-doctor-plugin-hook-"));
+	const smokeCwd = await mkdtemp(join(tmpdir(), "owx-doctor-plugin-hook-"));
 	try {
 		const payload = JSON.stringify({
 			hook_event_name: "UserPromptSubmit",
-			session_id: "omx-doctor-plugin-hook-smoke",
+			session_id: "owx-doctor-plugin-hook-smoke",
 			transcript_path: join(smokeCwd, "nonexistent-transcript.jsonl"),
 			cwd: smokeCwd,
 			prompt: "doctor plugin hook smoke test",
@@ -1252,11 +1252,11 @@ async function checkPluginScopedNativeHooks(
 			encoding: "utf-8",
 			env: {
 				...process.env,
-				OMX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
-				OMX_ROOT: join(smokeCwd, ".omx-doctor-root"),
-				OMX_SESSION_ID: "omx-doctor-plugin-hook-smoke",
-				OMX_SOURCE_CWD: smokeCwd,
-				OMX_STARTUP_CWD: smokeCwd,
+				OWX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
+				OWX_ROOT: join(smokeCwd, ".owx-doctor-root"),
+				OWX_SESSION_ID: "owx-doctor-plugin-hook-smoke",
+				OWX_SOURCE_CWD: smokeCwd,
+				OWX_STARTUP_CWD: smokeCwd,
 			},
 			input: payload,
 			timeout: 5_000,
@@ -1315,7 +1315,7 @@ async function checkNativeHooks(
 							name: "Native hooks",
 							status: "warn",
 							message:
-								`plugin mode is using legacy native hook fallback, but expected setup-owned hooks.json is missing at ${hooksPath}; run "omx setup --plugin --force" to restore the fallback hook file, or upgrade Codex to plugin_hooks support so setup can use plugin-scoped hooks`,
+								`plugin mode is using legacy native hook fallback, but expected setup-owned hooks.json is missing at ${hooksPath}; run "owx setup --plugin --force" to restore the fallback hook file, or upgrade Codex to plugin_hooks support so setup can use plugin-scoped hooks`,
 						};
 					}
 				}
@@ -1325,7 +1325,7 @@ async function checkNativeHooks(
 						name: "Native hooks",
 						status: "warn",
 						message:
-							`expected setup-owned hooks.json is missing at ${hooksPath} even though config.toml has OMX entries; run "omx setup --force" to restore native hook coverage`,
+							`expected setup-owned hooks.json is missing at ${hooksPath} even though config.toml has OWX entries; run "owx setup --force" to restore native hook coverage`,
 					};
 				}
 			} catch {
@@ -1349,7 +1349,7 @@ async function checkNativeHooks(
 				name: "Native hooks",
 				status: "fail",
 				message:
-					'invalid hooks.json; Codex may skip OMX hook coverage until "omx setup --force" repairs it',
+					'invalid hooks.json; Codex may skip OWX hook coverage until "owx setup --force" repairs it',
 			};
 		}
 
@@ -1357,7 +1357,7 @@ async function checkNativeHooks(
 			return {
 				name: "Native hooks",
 				status: "warn",
-				message: `hooks.json is missing OMX-managed coverage for ${missingEvents.join(", ")}; run "omx setup --force" to restore native hooks`,
+				message: `hooks.json is missing OWX-managed coverage for ${missingEvents.join(", ")}; run "owx setup --force" to restore native hooks`,
 			};
 		}
 
@@ -1365,7 +1365,7 @@ async function checkNativeHooks(
 			name: "Native hooks",
 			status: "pass",
 			message:
-				"hooks.json includes OMX-managed coverage for all native hook events",
+				"hooks.json includes OWX-managed coverage for all native hook events",
 		};
 	} catch {
 		return {
@@ -1398,15 +1398,15 @@ export async function checkNativeHookDistSmoke(
 		return {
 			name: "Native hook dist smoke",
 			status: "fail",
-			message: `installed native hook script is missing at ${scriptPath}; reinstall oh-my-codex and run "omx setup --force"`,
+			message: `installed native hook script is missing at ${scriptPath}; reinstall owen-codex and run "owx setup --force"`,
 		};
 	}
 
-	const smokeCwd = await mkdtemp(join(tmpdir(), "omx-doctor-native-hook-dist-"));
+	const smokeCwd = await mkdtemp(join(tmpdir(), "owx-doctor-native-hook-dist-"));
 	try {
 		const payload = JSON.stringify({
 			hook_event_name: "UserPromptSubmit",
-			session_id: "omx-doctor-native-hook-dist-smoke",
+			session_id: "owx-doctor-native-hook-dist-smoke",
 			transcript_path: join(smokeCwd, "nonexistent-transcript.jsonl"),
 			cwd: smokeCwd,
 			prompt: "doctor smoke test",
@@ -1416,11 +1416,11 @@ export async function checkNativeHookDistSmoke(
 			encoding: "utf-8",
 			env: {
 				...process.env,
-				OMX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
-				OMX_ROOT: join(smokeCwd, ".omx-doctor-root"),
-				OMX_SESSION_ID: "omx-doctor-native-hook-dist-smoke",
-				OMX_SOURCE_CWD: smokeCwd,
-				OMX_STARTUP_CWD: smokeCwd,
+				OWX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
+				OWX_ROOT: join(smokeCwd, ".owx-doctor-root"),
+				OWX_SESSION_ID: "owx-doctor-native-hook-dist-smoke",
+				OWX_SOURCE_CWD: smokeCwd,
+				OWX_STARTUP_CWD: smokeCwd,
 			},
 			input: payload,
 			timeout: 5_000,
@@ -1430,7 +1430,7 @@ export async function checkNativeHookDistSmoke(
 			return {
 				name: "Native hook dist smoke",
 				status: "fail",
-				message: `installed native hook dist smoke failed to run (${result.error.message}); reinstall oh-my-codex and run "omx setup --force"`,
+				message: `installed native hook dist smoke failed to run (${result.error.message}); reinstall owen-codex and run "owx setup --force"`,
 			};
 		}
 		if (result.status !== 0) {
@@ -1440,7 +1440,7 @@ export async function checkNativeHookDistSmoke(
 			return {
 				name: "Native hook dist smoke",
 				status: "fail",
-				message: `installed native hook dist failed a minimal UserPromptSubmit smoke (${detail}); reinstall with "npm install -g oh-my-codex@${packageVersion} --force --min-release-age=0 --before=" and then run "omx setup --force"`,
+				message: `installed native hook dist failed a minimal UserPromptSubmit smoke (${detail}); reinstall with "npm install -g owen-codex@${packageVersion} --force --min-release-age=0 --before=" and then run "owx setup --force"`,
 			};
 		}
 
@@ -1465,13 +1465,13 @@ export function classifyPostCompactHookStdout(stdout: string): Check | null {
 			name: "Native PostCompact hook",
 			status: "fail",
 			message:
-				"PostCompact hook emitted JSON stdout, but OMX PostCompact must emit no stdout until Codex defines a supported PostCompact output contract; run \"omx setup --force\" after upgrading",
+				"PostCompact hook emitted JSON stdout, but OWX PostCompact must emit no stdout until Codex defines a supported PostCompact output contract; run \"owx setup --force\" after upgrading",
 		};
 	} catch (error) {
 		return {
 			name: "Native PostCompact hook",
 			status: "fail",
-			message: `PostCompact hook emitted invalid JSON stdout (${error instanceof Error ? error.message : String(error)}); run "omx setup --force" after upgrading`,
+			message: `PostCompact hook emitted invalid JSON stdout (${error instanceof Error ? error.message : String(error)}); run "owx setup --force" after upgrading`,
 		};
 	}
 }
@@ -1507,23 +1507,23 @@ async function checkNativePostCompactHookRuntime(
 			name: "Native PostCompact hook",
 			status: "warn",
 			message:
-				"effective PostCompact OMX command does not match this installation's managed hook command; doctor skipped execution for safety, and \"omx setup --force\" should refresh stale hooks.json entries",
+				"effective PostCompact OWX command does not match this installation's managed hook command; doctor skipped execution for safety, and \"owx setup --force\" should refresh stale hooks.json entries",
 		};
 	}
 
-	const smokeCwd = await mkdtemp(join(tmpdir(), "omx-doctor-postcompact-"));
+	const smokeCwd = await mkdtemp(join(tmpdir(), "owx-doctor-postcompact-"));
 	try {
 		const payload = JSON.stringify({
 			hook_event_name: "PostCompact",
 			cwd: smokeCwd,
-			session_id: "omx-doctor-postcompact-smoke",
+			session_id: "owx-doctor-postcompact-smoke",
 		});
 		const result = spawnSync(expectedCommand, {
 			cwd,
 			encoding: "utf-8",
 			env: {
 				...process.env,
-				OMX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
+				OWX_NATIVE_HOOK_DOCTOR_SMOKE: "1",
 			},
 			input: payload,
 			shell: true,
@@ -1576,7 +1576,7 @@ async function checkNativeHookRuntimeMirrors(
 		name: "Native hook runtime mirrors",
 		status: "warn",
 		message:
-			`.omx/runtime/codex-home contains ${runtimeMirrorCount} hooks.json runtime mirror${runtimeMirrorCount === 1 ? "" : "s"} skipped by hook discovery; cleanup or relaunch so external hook review tools do not see duplicate native hook surfaces`,
+			`.owx/runtime/codex-home contains ${runtimeMirrorCount} hooks.json runtime mirror${runtimeMirrorCount === 1 ? "" : "s"} skipped by hook discovery; cleanup or relaunch so external hook review tools do not see duplicate native hook surfaces`,
 	};
 }
 
@@ -1671,8 +1671,8 @@ function getParsedPluginMarketplaceConfig(content: string): {
 		plugins?: Record<string, { enabled?: unknown }>;
 	};
 	return {
-		marketplace: parsed.marketplaces?.[OMX_LOCAL_MARKETPLACE_NAME] ?? null,
-		plugin: parsed.plugins?.[OMX_LOCAL_PLUGIN_CONFIG_KEY] ?? null,
+		marketplace: parsed.marketplaces?.[OWX_LOCAL_MARKETPLACE_NAME] ?? null,
+		plugin: parsed.plugins?.[OWX_LOCAL_PLUGIN_CONFIG_KEY] ?? null,
 	};
 }
 
@@ -1687,7 +1687,7 @@ async function checkPluginMarketplaceRegistration(
 		return {
 			name: "Skills",
 			status: "warn",
-			message: `plugin mode selected, but packaged ${OMX_LOCAL_MARKETPLACE_NAME} metadata was not found; reinstall oh-my-codex or run from a package that includes plugins/`,
+			message: `plugin mode selected, but packaged ${OWX_LOCAL_MARKETPLACE_NAME} metadata was not found; reinstall owen-codex or run from a package that includes plugins/`,
 		};
 	}
 
@@ -1695,7 +1695,7 @@ async function checkPluginMarketplaceRegistration(
 		return {
 			name: "Skills",
 			status: "warn",
-			message: `plugin mode selected, but ${OMX_LOCAL_MARKETPLACE_NAME} is not registered because config.toml is missing; run "omx setup --plugin --force"`,
+			message: `plugin mode selected, but ${OWX_LOCAL_MARKETPLACE_NAME} is not registered because config.toml is missing; run "owx setup --plugin --force"`,
 		};
 	}
 
@@ -1707,28 +1707,28 @@ async function checkPluginMarketplaceRegistration(
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `plugin mode selected, but Codex marketplace ${OMX_LOCAL_MARKETPLACE_NAME} is not registered; run "omx setup --plugin --force"`,
+				message: `plugin mode selected, but Codex marketplace ${OWX_LOCAL_MARKETPLACE_NAME} is not registered; run "owx setup --plugin --force"`,
 			};
 		}
 		if (registration.source_type !== "local") {
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `Codex marketplace ${OMX_LOCAL_MARKETPLACE_NAME} has source_type=${String(registration.source_type)} (expected local); run "omx setup --plugin --force"`,
+				message: `Codex marketplace ${OWX_LOCAL_MARKETPLACE_NAME} has source_type=${String(registration.source_type)} (expected local); run "owx setup --plugin --force"`,
 			};
 		}
 		if (registration.source !== getPackageRoot()) {
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `Codex marketplace ${OMX_LOCAL_MARKETPLACE_NAME} points to ${String(registration.source)} (expected ${getPackageRoot()}); run "omx setup --plugin --force"`,
+				message: `Codex marketplace ${OWX_LOCAL_MARKETPLACE_NAME} points to ${String(registration.source)} (expected ${getPackageRoot()}); run "owx setup --plugin --force"`,
 			};
 		}
 		if (plugin?.enabled !== true) {
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `Codex plugin ${OMX_LOCAL_PLUGIN_CONFIG_KEY} is not enabled; run "omx setup --plugin --force"`,
+				message: `Codex plugin ${OWX_LOCAL_PLUGIN_CONFIG_KEY} is not enabled; run "owx setup --plugin --force"`,
 			};
 		}
 
@@ -1742,14 +1742,14 @@ async function checkPluginMarketplaceRegistration(
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `packaged ${OMX_LOCAL_MARKETPLACE_NAME} plugin has no manifest version; reinstall oh-my-codex`,
+				message: `packaged ${OWX_LOCAL_MARKETPLACE_NAME} plugin has no manifest version; reinstall owen-codex`,
 			};
 		}
 		if (!expectedSkillNames || expectedSkillNames.length === 0) {
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `packaged ${OMX_LOCAL_MARKETPLACE_NAME} plugin has no skills mirror; reinstall oh-my-codex`,
+				message: `packaged ${OWX_LOCAL_MARKETPLACE_NAME} plugin has no skills mirror; reinstall owen-codex`,
 			};
 		}
 		const cacheStates = (
@@ -1782,14 +1782,14 @@ async function checkPluginMarketplaceRegistration(
 			return {
 				name: "Skills",
 				status: "warn",
-				message: `plugin marketplace ${OMX_LOCAL_MARKETPLACE_NAME} is registered, but ${detail}; run "omx setup --plugin --force" so /skills can discover OMX plugin skills`,
+				message: `plugin marketplace ${OWX_LOCAL_MARKETPLACE_NAME} is registered, but ${detail}; run "owx setup --plugin --force" so /skills can discover OWX plugin skills`,
 			};
 		}
 
 		return {
 			name: "Skills",
 			status: "pass",
-			message: `plugin marketplace ${OMX_LOCAL_MARKETPLACE_NAME} registered; OMX skills are supplied by ${readyCache.cacheDir}`,
+			message: `plugin marketplace ${OWX_LOCAL_MARKETPLACE_NAME} registered; OWX skills are supplied by ${readyCache.cacheDir}`,
 		};
 	} catch {
 		return {
@@ -1939,13 +1939,13 @@ function readInstalledAgentModelInfo(tomlPath: string): InstalledAgentModelInfo 
 }
 
 function resolveSparkModelSource(codexHomeOverride?: string): string {
-	const envDefault = process.env[OMX_DEFAULT_SPARK_MODEL_ENV];
+	const envDefault = process.env[OWX_DEFAULT_SPARK_MODEL_ENV];
 	if (typeof envDefault === "string" && envDefault.trim() !== "") {
-		return `${OMX_DEFAULT_SPARK_MODEL_ENV} env`;
+		return `${OWX_DEFAULT_SPARK_MODEL_ENV} env`;
 	}
-	const envLegacy = process.env[OMX_SPARK_MODEL_ENV];
+	const envLegacy = process.env[OWX_SPARK_MODEL_ENV];
 	if (typeof envLegacy === "string" && envLegacy.trim() !== "") {
-		return `${OMX_SPARK_MODEL_ENV} env`;
+		return `${OWX_SPARK_MODEL_ENV} env`;
 	}
 	if (getEnvConfiguredSparkDefaultModel(process.env, codexHomeOverride)) {
 		return "config.toml env";
@@ -2011,25 +2011,25 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 		);
 		if (!info.exists) {
 			problems.push(
-				`${agentName}.toml is missing under ${paths.agentsDir} (run \`omx setup --force\`)`,
+				`${agentName}.toml is missing under ${paths.agentsDir} (run \`owx setup --force\`)`,
 			);
 			continue;
 		}
 		if (!info.model) {
 			problems.push(
-				`${agentName}.toml has no model field (stale install; run \`omx setup --force\`)`,
+				`${agentName}.toml has no model field (stale install; run \`owx setup --force\`)`,
 			);
 			continue;
 		}
 		if (info.model !== sparkModel) {
 			problems.push(
-				`${agentName}.toml model is \`${info.model}\` but the resolved Spark model is \`${sparkModel}\` (stale install; run \`omx setup --force\`)`,
+				`${agentName}.toml model is \`${info.model}\` but the resolved Spark model is \`${sparkModel}\` (stale install; run \`owx setup --force\`)`,
 			);
 			continue;
 		}
 		if (info.modelProvider && rootProvider && info.modelProvider !== rootProvider) {
 			problems.push(
-				`${agentName}.toml model_provider \`${info.modelProvider}\` differs from the config root provider \`${rootProvider}\` (stale install; run \`omx setup --force\`)`,
+				`${agentName}.toml model_provider \`${info.modelProvider}\` differs from the config root provider \`${rootProvider}\` (stale install; run \`owx setup --force\`)`,
 			);
 			continue;
 		}
@@ -2113,9 +2113,9 @@ function checkAgentsMd(
 ): Check {
 	const scopeFlag = scope === "project" ? "--scope project" : "--scope user";
 	const repairMessage =
-		`OMX AGENTS contract markers missing; file may have been overwritten by another tool. ` +
-		`Run "omx setup ${scopeFlag} --merge-agents" to preserve local guidance while restoring OMX-managed sections, ` +
-		`or "omx setup ${scopeFlag} --force" to replace it after backup.`;
+		`OWX AGENTS contract markers missing; file may have been overwritten by another tool. ` +
+		`Run "owx setup ${scopeFlag} --merge-agents" to preserve local guidance while restoring OWX-managed sections, ` +
+		`or "owx setup ${scopeFlag} --force" to replace it after backup.`;
 
 	if (scope === "user") {
 		const userAgentsMd = join(codexHomeDir, "AGENTS.md");
@@ -2138,7 +2138,7 @@ function checkAgentsMd(
 			return {
 				name: "AGENTS.md",
 				status: "pass",
-				message: `found OMX contract in ${userAgentsMd}`,
+				message: `found OWX contract in ${userAgentsMd}`,
 			};
 		}
 		if (installMode === "plugin") {
@@ -2151,7 +2151,7 @@ function checkAgentsMd(
 		return {
 			name: "AGENTS.md",
 			status: "warn",
-			message: `not found in ${userAgentsMd} (run omx setup --scope user)`,
+			message: `not found in ${userAgentsMd} (run owx setup --scope user)`,
 		};
 	}
 
@@ -2176,7 +2176,7 @@ function checkAgentsMd(
 		return {
 			name: "AGENTS.md",
 			status: "pass",
-			message: "found OMX contract in project root",
+			message: "found OWX contract in project root",
 		};
 	}
 	if (installMode === "plugin") {
@@ -2191,7 +2191,7 @@ function checkAgentsMd(
 		name: "AGENTS.md",
 		status: "warn",
 		message:
-			"not found in project root (run omx agents-init . or omx setup --scope project)",
+			"not found in project root (run owx agents-init . or owx setup --scope project)",
 	};
 }
 
@@ -2253,7 +2253,7 @@ function escapeRegExp(value: string): string {
 
 function pluginMcpServerEnabled(content: string, serverName: string): boolean | null {
 	const headerPattern = new RegExp(
-		`^\\s*\\[plugins\\.${escapeRegExp(JSON.stringify(OMX_LOCAL_PLUGIN_CONFIG_KEY))}\\.mcp_servers\\.${escapeRegExp(serverName)}\\]\\s*$`,
+		`^\\s*\\[plugins\\.${escapeRegExp(JSON.stringify(OWX_LOCAL_PLUGIN_CONFIG_KEY))}\\.mcp_servers\\.${escapeRegExp(serverName)}\\]\\s*$`,
 	);
 	const lines = content.split(/\r?\n/);
 	const start = lines.findIndex((line) => headerPattern.test(line));
@@ -2268,7 +2268,7 @@ function pluginMcpServerEnabled(content: string, serverName: string): boolean | 
 }
 
 function describePluginMcpState(content: string, mcpMode?: SetupMcpMode): Check {
-	const states = OMX_FIRST_PARTY_MCP_SERVER_NAMES.map((serverName) =>
+	const states = OWX_FIRST_PARTY_MCP_SERVER_NAMES.map((serverName) =>
 		pluginMcpServerEnabled(content, serverName),
 	);
 	const enabledCount = states.filter((state) => state === true).length;
@@ -2295,7 +2295,7 @@ function describePluginMcpState(content: string, mcpMode?: SetupMcpMode): Check 
 	return {
 		name: "MCP Servers",
 		status: "warn",
-		message: `plugin MCP compatibility overrides are incomplete or mixed (enabled=${enabledCount}, disabled=${disabledCount}, missing=${missingCount}); run "omx setup --plugin --force --mcp ${mcpMode ?? "none"}" to repair`,
+		message: `plugin MCP compatibility overrides are incomplete or mixed (enabled=${enabledCount}, disabled=${disabledCount}, missing=${missingCount}); run "owx setup --plugin --force --mcp ${mcpMode ?? "none"}" to repair`,
 	};
 }
 
@@ -2310,7 +2310,7 @@ async function checkMcpServers(
 				name: "MCP Servers",
 				status: "warn",
 				message:
-					'plugin mode selected, but config.toml is missing; run "omx setup --plugin --force" to register plugin discovery',
+					'plugin mode selected, but config.toml is missing; run "owx setup --plugin --force" to register plugin discovery',
 			};
 		}
 		return {
@@ -2326,33 +2326,33 @@ async function checkMcpServers(
 			return {
 				name: "MCP Servers",
 				status: "warn",
-				message: `${mcpCount} servers configured, but retired [mcp_servers.omx_team_run] is not supported; run "omx setup --force" to repair the config`,
+				message: `${mcpCount} servers configured, but retired [mcp_servers.owx_team_run] is not supported; run "owx setup --force" to repair the config`,
 			};
 		}
 		if (installMode === "plugin") {
 			return describePluginMcpState(content, mcpMode);
 		}
 		if (mcpCount > 0) {
-			const hasOmx = OMX_FIRST_PARTY_MCP_SERVER_NAMES.some((name) =>
+			const hasOmx = OWX_FIRST_PARTY_MCP_SERVER_NAMES.some((name) =>
 				content.includes(`[mcp_servers.${name}]`),
 			);
 			if (hasOmx) {
 				return {
 					name: "MCP Servers",
 					status: "pass",
-					message: `${mcpCount} servers configured; first-party OMX MCP compatibility is explicitly present`,
+					message: `${mcpCount} servers configured; first-party OWX MCP compatibility is explicitly present`,
 				};
 			}
 			return {
 				name: "MCP Servers",
 				status: "pass",
-				message: `${mcpCount} user-managed MCP server(s) preserved; first-party OMX MCP omitted by default`,
+				message: `${mcpCount} user-managed MCP server(s) preserved; first-party OWX MCP omitted by default`,
 			};
 		}
 		return {
 			name: "MCP Servers",
 			status: "pass",
-			message: "CLI-first default: no first-party OMX MCP servers configured",
+			message: "CLI-first default: no first-party OWX MCP servers configured",
 		};
 	} catch {
 		return {

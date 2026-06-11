@@ -20,17 +20,17 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: {
       ...process.env,
       CODEX_HOME: '',
-      OMX_MODEL_INSTRUCTIONS_FILE: '',
-      OMX_TEAM_WORKER: '',
-      OMX_TEAM_STATE_ROOT: '',
-      OMX_TEAM_LEADER_CWD: '',
+      OWX_MODEL_INSTRUCTIONS_FILE: '',
+      OWX_TEAM_WORKER: '',
+      OWX_TEAM_STATE_ROOT: '',
+      OWX_TEAM_LEADER_CWD: '',
       ...envOverrides,
     },
   });
@@ -42,11 +42,11 @@ function runOmx(
   };
 }
 
-describe('omx exec', () => {
+describe('owx exec', () => {
   it('persists audited follow-up prompts for the active exec session without pane input', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-followup-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-followup-'));
     try {
-      const session = await writeSessionStart(wd, 'omx-test-followup');
+      const session = await writeSessionStart(wd, 'owx-test-followup');
       const result = await injectExecFollowup({
         cwd: wd,
         sessionId: session.session_id,
@@ -55,7 +55,7 @@ describe('omx exec', () => {
         nowIso: '2026-04-27T10:00:00.000Z',
       });
 
-      assert.equal(result.queued.session_id, 'omx-test-followup');
+      assert.equal(result.queued.session_id, 'owx-test-followup');
       assert.equal(result.queued.actor, 'test-operator');
       assert.equal(result.queued.prompt, 'Please include the new migration note before finishing.');
       assert.match(result.queuePath, /exec-followups\.json$/);
@@ -66,7 +66,7 @@ describe('omx exec', () => {
       assert.equal(persisted.records.length, 1);
       assert.equal(persisted.records[0]?.delivered_at, undefined);
 
-      const auditPath = join(wd, '.omx', 'logs', 'exec-followups-2026-04-27.jsonl');
+      const auditPath = join(wd, '.owx', 'logs', 'exec-followups-2026-04-27.jsonl');
       assert.match(await readFile(auditPath, 'utf-8'), /exec_followup_queued/);
       assert.match(await readFile(auditPath, 'utf-8'), /Please include the new migration note/);
     } finally {
@@ -75,9 +75,9 @@ describe('omx exec', () => {
   });
 
   it('preserves all follow-up prompts from concurrent injections', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-followup-concurrent-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-followup-concurrent-'));
     try {
-      const session = await writeSessionStart(wd, 'omx-test-concurrent-followup');
+      const session = await writeSessionStart(wd, 'owx-test-concurrent-followup');
       const count = 25;
       const results = await Promise.all(Array.from({ length: count }, async (_, index) => (
         injectExecFollowup({
@@ -105,9 +105,9 @@ describe('omx exec', () => {
   });
 
   it('delivers queued follow-ups through Stop hook output and marks them delivered', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-followup-stop-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-followup-stop-'));
     try {
-      const session = await writeSessionStart(wd, 'omx-test-stop-followup');
+      const session = await writeSessionStart(wd, 'owx-test-stop-followup');
       const queued = await injectExecFollowup({
         cwd: wd,
         sessionId: session.session_id,
@@ -135,10 +135,10 @@ describe('omx exec', () => {
   });
 
   it('quarantines malformed follow-up queue JSON instead of crashing Stop delivery', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-followup-corrupt-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-followup-corrupt-'));
     try {
-      const session = await writeSessionStart(wd, 'omx-test-corrupt-followup');
-      const queuePath = join(wd, '.omx', 'state', 'sessions', session.session_id, 'exec-followups.json');
+      const session = await writeSessionStart(wd, 'owx-test-corrupt-followup');
+      const queuePath = join(wd, '.owx', 'state', 'sessions', session.session_id, 'exec-followups.json');
       await mkdir(dirname(queuePath), { recursive: true });
       await writeFile(queuePath, '{"version":1,"records":[', 'utf-8');
 
@@ -155,7 +155,7 @@ describe('omx exec', () => {
         queueDirEntries.some((entry) => entry.startsWith('exec-followups.json.corrupt-')),
         'malformed queue should be quarantined beside the recovered queue',
       );
-      const auditPath = join(wd, '.omx', 'logs', `exec-followups-${new Date().toISOString().slice(0, 10)}.jsonl`);
+      const auditPath = join(wd, '.owx', 'logs', `exec-followups-${new Date().toISOString().slice(0, 10)}.jsonl`);
       assert.match(await readFile(auditPath, 'utf-8'), /exec_followup_queue_corrupt_recovered/);
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -163,7 +163,7 @@ describe('omx exec', () => {
   });
 
   it('runs codex exec with session-scoped instructions that preserve AGENTS and overlay content', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-cli-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-cli-'));
     try {
       const home = join(wd, 'home');
       const fakeBin = join(wd, 'bin');
@@ -200,31 +200,31 @@ describe('omx exec', () => {
         HOME: home,
         NODE_OPTIONS: '',
         PATH: `${fakeBin}:/usr/bin:/bin`,
-        OMX_AUTO_UPDATE: '0',
-        OMX_NOTIFY_FALLBACK: '0',
-        OMX_HOOK_DERIVED_SIGNALS: '0',
+        OWX_AUTO_UPDATE: '0',
+        OWX_NOTIFY_FALLBACK: '0',
+        OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);
       assert.match(result.stdout, /fake-codex:exec --model gpt-5 say hi /);
-      assert.match(result.stdout, /instructions-path:.*\/\.omx\/state\/sessions\/omx-.*\/AGENTS\.md/);
+      assert.match(result.stdout, /instructions-path:.*\/\.owx\/state\/sessions\/owx-.*\/AGENTS\.md/);
       assert.match(result.stdout, /# User Instructions/);
       assert.match(result.stdout, /# Project Instructions/);
-      assert.match(result.stdout, /<!-- OMX:RUNTIME:START -->/);
+      assert.match(result.stdout, /<!-- OWX:RUNTIME:START -->/);
 
-      const sessionRoot = join(wd, '.omx', 'state', 'sessions');
+      const sessionRoot = join(wd, '.owx', 'state', 'sessions');
       const sessionEntries = await readdir(sessionRoot);
       assert.equal(sessionEntries.length, 1);
       const sessionFiles = await readdir(join(sessionRoot, sessionEntries[0]));
       assert.equal(sessionFiles.includes('AGENTS.md'), false, 'session-scoped AGENTS file should be cleaned up after exec exits');
-      assert.equal(existsSync(join(wd, '.omx', 'state', 'session.json')), false);
+      assert.equal(existsSync(join(wd, '.owx', 'state', 'session.json')), false);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
   it('passes exec --help through to codex exec', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-exec-help-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-exec-help-'));
     try {
       const home = join(wd, 'home');
       const fakeBin = join(wd, 'bin');
@@ -242,14 +242,14 @@ describe('omx exec', () => {
         HOME: home,
         NODE_OPTIONS: '',
         PATH: `${fakeBin}:/usr/bin:/bin`,
-        OMX_AUTO_UPDATE: '0',
-        OMX_NOTIFY_FALLBACK: '0',
-        OMX_HOOK_DERIVED_SIGNALS: '0',
+        OWX_AUTO_UPDATE: '0',
+        OWX_NOTIFY_FALLBACK: '0',
+        OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);
       assert.match(result.stdout, /fake-codex:exec --help\b/);
-      assert.doesNotMatch(result.stdout, /oh-my-codex \(omx\) - Multi-agent orchestration for Codex CLI/i);
+      assert.doesNotMatch(result.stdout, /owen-codex \(owx\) - Multi-agent orchestration for Codex CLI/i);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

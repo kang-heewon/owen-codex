@@ -16,10 +16,10 @@ import {
   resolveLinuxNativeLibcPreference,
 } from './native-assets.js';
 
-const OMX_API_BIN_ENV = API_BIN_ENV_SHARED;
+const OWX_API_BIN_ENV = API_BIN_ENV_SHARED;
 
 export const API_USAGE = [
-  'Usage: omx api <command> [args...]',
+  'Usage: owx api <command> [args...]',
   '',
   'Commands:',
   '  serve [--host 127.0.0.1] [--port N] [--daemon] [--system] [--dry-run]',
@@ -28,9 +28,9 @@ export const API_USAGE = [
   '  generate text <prompt...> [--state-file path]',
   '  generate image <prompt...> [--state-file path]',
   '',
-  'Runs the native omx-api localhost gateway sidecar and forwards arguments unchanged.',
+  'Runs the native owx-api localhost gateway sidecar and forwards arguments unchanged.',
   'Note: real-private backend mode is experimental and requires local bearer auth.',
-  `Set ${OMX_API_BIN_ENV} to override the native binary path.`,
+  `Set ${OWX_API_BIN_ENV} to override the native binary path.`,
 ].join('\n');
 
 export interface ResolveApiBinaryPathOptions {
@@ -57,7 +57,7 @@ function resolveSignalExitCode(signal: NodeJS.Signals | null): number {
 }
 
 export function apiBinaryName(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'omx-api.exe' : 'omx-api';
+  return platform === 'win32' ? 'owx-api.exe' : 'owx-api';
 }
 
 export function packagedApiBinaryPath(
@@ -98,7 +98,7 @@ export function nestedRepoLocalApiBinaryPath(
   packageRoot = getPackageRoot(),
   platform: NodeJS.Platform = process.platform,
 ): string {
-  return join(packageRoot, 'native', 'omx-api', 'target', 'release', apiBinaryName(platform));
+  return join(packageRoot, 'native', 'owx-api', 'target', 'release', apiBinaryName(platform));
 }
 
 export function resolveApiBinaryPath(options: ResolveApiBinaryPathOptions = {}): string {
@@ -112,7 +112,7 @@ export function resolveApiBinaryPath(options: ResolveApiBinaryPathOptions = {}):
     exists = existsSync,
   } = options;
 
-  const override = env[OMX_API_BIN_ENV]?.trim();
+  const override = env[OWX_API_BIN_ENV]?.trim();
   if (override) return isAbsolute(override) ? override : resolve(cwd, override);
 
   for (const packaged of packagedApiBinaryCandidatePaths(packageRoot, platform, arch, env, linuxLibcPreference)) {
@@ -128,7 +128,7 @@ export function resolveApiBinaryPath(options: ResolveApiBinaryPathOptions = {}):
   const packagedCandidates = packagedApiBinaryCandidatePaths(packageRoot, platform, arch, env, linuxLibcPreference);
   throw new Error(
     `[api] native binary not found. Checked ${packagedCandidates.join(', ')}, ${repoLocal}, and ${nestedRepoLocal}. `
-      + `Set ${OMX_API_BIN_ENV} to override the path.`,
+      + `Set ${OWX_API_BIN_ENV} to override the path.`,
   );
 }
 
@@ -145,11 +145,11 @@ export async function resolveApiBinaryPathWithHydration(
     exists = existsSync,
   } = options;
 
-  const override = env[OMX_API_BIN_ENV]?.trim();
+  const override = env[OWX_API_BIN_ENV]?.trim();
   if (override) return isAbsolute(override) ? override : resolve(cwd, override);
 
   const version = await getPackageVersion(packageRoot);
-  for (const cached of resolveCachedNativeBinaryCandidatePaths('omx-api', version, platform, arch, env, {
+  for (const cached of resolveCachedNativeBinaryCandidatePaths('owx-api', version, platform, arch, env, {
     linuxLibcPreference: platform === 'linux'
       ? (linuxLibcPreference ?? resolveLinuxNativeLibcPreference({ env }))
       : undefined,
@@ -167,12 +167,12 @@ export async function resolveApiBinaryPathWithHydration(
   const nestedRepoLocal = nestedRepoLocalApiBinaryPath(packageRoot, platform);
   if (exists(nestedRepoLocal)) return nestedRepoLocal;
 
-  const hydrated = await hydrateNativeBinary('omx-api', { packageRoot, env, platform, arch });
+  const hydrated = await hydrateNativeBinary('owx-api', { packageRoot, env, platform, arch });
   if (hydrated) return hydrated;
 
   throw new Error(
     `[api] native binary not found. Checked cached/native candidates under ${packageRoot}, ${repoLocal}, and ${nestedRepoLocal}. `
-      + `Reconnect to the network so OMX can fetch the release asset, or set ${OMX_API_BIN_ENV} to override the path.`,
+      + `Reconnect to the network so OWX can fetch the release asset, or set ${OWX_API_BIN_ENV} to override the path.`,
   );
 }
 

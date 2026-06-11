@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * oh-my-codex Notification Hook
+ * owen-codex Notification Hook
  * Codex CLI fires this after each agent turn via the `notify` config.
  * Receives JSON payload as the last argv argument.
  *
@@ -112,7 +112,7 @@ function hasOmxRuntimeStateMarker(value: Record<string, unknown> | null): boolea
 }
 
 async function hasManagedTeamStateTree(cwd: string): Promise<boolean> {
-  const teamStateRoot = join(cwd, '.omx', 'state', 'team');
+  const teamStateRoot = join(cwd, '.owx', 'state', 'team');
   if (!existsSync(teamStateRoot)) return false;
   let entries: string[] = [];
   try {
@@ -131,11 +131,11 @@ async function hasManagedTeamStateTree(cwd: string): Promise<boolean> {
 }
 
 async function isOmxManagedCwd(cwd: string): Promise<boolean> {
-  const trustedInternalCwd = safeString(process.env.OMX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD || '').trim();
+  const trustedInternalCwd = safeString(process.env.OWX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD || '').trim();
   if (trustedInternalCwd && sameFilePath(trustedInternalCwd, cwd)) return true;
-  if (existsSync(join(cwd, '.omx', 'setup-scope.json'))) return true;
-  if (existsSync(join(cwd, '.omx', 'managed'))) return true;
-  const sessionStatePath = join(cwd, '.omx', 'state', 'session.json');
+  if (existsSync(join(cwd, '.owx', 'setup-scope.json'))) return true;
+  if (existsSync(join(cwd, '.owx', 'managed'))) return true;
+  const sessionStatePath = join(cwd, '.owx', 'state', 'session.json');
   if (existsSync(sessionStatePath)) {
     try {
       const sessionState = JSON.parse(await readFile(sessionStatePath, 'utf-8'));
@@ -144,21 +144,21 @@ async function isOmxManagedCwd(cwd: string): Promise<boolean> {
       // Continue checking other managed markers.
     }
   }
-  const teamState = await readJsonFileIfObject(join(cwd, '.omx', 'state', 'team-state.json'));
+  const teamState = await readJsonFileIfObject(join(cwd, '.owx', 'state', 'team-state.json'));
   if (hasOmxRuntimeStateMarker(teamState)) return true;
-  const hudState = await readJsonFileIfObject(join(cwd, '.omx', 'state', 'hud-state.json'));
+  const hudState = await readJsonFileIfObject(join(cwd, '.owx', 'state', 'hud-state.json'));
   if (hudState && (typeof hudState.last_turn_at === 'string' || typeof hudState.turn_count === 'number')) return true;
   if (await hasManagedTeamStateTree(cwd)) return true;
-  const teamWorkerEnv = safeString(process.env.OMX_TEAM_INTERNAL_WORKER || process.env.OMX_TEAM_WORKER || '').trim();
+  const teamWorkerEnv = safeString(process.env.OWX_TEAM_INTERNAL_WORKER || process.env.OWX_TEAM_WORKER || '').trim();
   if (teamWorkerEnv) {
     const [teamName = '', workerName = ''] = teamWorkerEnv.split('/');
     if (teamName && workerName) {
       const candidateStateRoots = [
-        safeString(process.env.OMX_TEAM_STATE_ROOT || '').trim(),
-        safeString(process.env.OMX_TEAM_LEADER_CWD || '').trim()
-          ? join(resolve(cwd, safeString(process.env.OMX_TEAM_LEADER_CWD || '').trim()), '.omx', 'state')
+        safeString(process.env.OWX_TEAM_STATE_ROOT || '').trim(),
+        safeString(process.env.OWX_TEAM_LEADER_CWD || '').trim()
+          ? join(resolve(cwd, safeString(process.env.OWX_TEAM_LEADER_CWD || '').trim()), '.owx', 'state')
           : '',
-        join(cwd, '.omx', 'state'),
+        join(cwd, '.owx', 'state'),
       ].filter((value, index, values) => value && values.indexOf(value) === index);
       for (const candidateStateRoot of candidateStateRoots) {
         const identityPath = join(candidateStateRoot, 'team', teamName, 'workers', workerName, 'identity.json');
@@ -178,12 +178,12 @@ async function isOmxManagedCwd(cwd: string): Promise<boolean> {
           return false;
         }
       }
-      // A worker notify hook with an explicit runtime root hint is OMX-scoped
+      // A worker notify hook with an explicit runtime root hint is OWX-scoped
       // even when the hint fails validation. Let the main worker path log the
       // unresolved-root warning and fail closed without inventing local state.
       if (
-        safeString(process.env.OMX_TEAM_STATE_ROOT || '').trim()
-        || safeString(process.env.OMX_TEAM_LEADER_CWD || '').trim()
+        safeString(process.env.OWX_TEAM_STATE_ROOT || '').trim()
+        || safeString(process.env.OWX_TEAM_LEADER_CWD || '').trim()
       ) {
         return true;
       }
@@ -385,7 +385,7 @@ async function main() {
   const isNotifyFallbackTaskComplete = isNotifyFallbackTaskCompletePayload(payload);
 
   // Team worker detection via environment variable
-  const teamWorkerEnv = process.env.OMX_TEAM_INTERNAL_WORKER || process.env.OMX_TEAM_WORKER; // e.g., "fix-ts/worker-1"
+  const teamWorkerEnv = process.env.OWX_TEAM_INTERNAL_WORKER || process.env.OWX_TEAM_WORKER; // e.g., "fix-ts/worker-1"
   const parsedTeamWorker = parseTeamWorkerEnv(teamWorkerEnv);
   const isTeamWorker = !!parsedTeamWorker;
 
@@ -394,8 +394,8 @@ async function main() {
     : null;
   const workerStateRootResolved = !isTeamWorker || !!resolvedWorkerStateDir;
   const stateDir = resolvedWorkerStateDir || getBaseStateDir(cwd);
-  const logsDir = join(cwd, '.omx', 'logs');
-  const omxDir = join(cwd, '.omx');
+  const logsDir = join(cwd, '.owx', 'logs');
+  const owxDir = join(cwd, '.owx');
   let currentOmxSessionId = '';
   const getEffectiveSessionId = () => currentOmxSessionId || payloadSessionId;
 
@@ -498,8 +498,8 @@ async function main() {
     // mutations, but allow the narrow auto-nudge path to use an explicitly
     // supplied, already-existing worker state root. Auto-nudge only needs the
     // worker-scoped state files/pane anchor and should not fall back to creating
-    // local `.omx/state` when identity resolution failed.
-    const explicitWorkerStateRoot = safeString(process.env.OMX_TEAM_STATE_ROOT || '').trim();
+    // local `.owx/state` when identity resolution failed.
+    const explicitWorkerStateRoot = safeString(process.env.OWX_TEAM_STATE_ROOT || '').trim();
     const autoNudgeStateDir = explicitWorkerStateRoot ? resolve(cwd, explicitWorkerStateRoot) : '';
     if (autoNudgeStateDir && existsSync(autoNudgeStateDir)) {
       try {
@@ -526,7 +526,7 @@ async function main() {
           timestamp: new Date().toISOString(),
           type: 'ralph_session_resume',
           reason: resumeResult.reason,
-          current_omx_session_id: resumeResult.currentOmxSessionId || null,
+          current_owx_session_id: resumeResult.currentOmxSessionId || null,
           payload_codex_session_id: payloadSessionId || null,
           source_path: resumeResult.sourcePath || null,
           target_path: resumeResult.targetPath || null,
@@ -606,7 +606,7 @@ async function main() {
 
   // 3. Track subagent metrics (lead session only)
   if (!isTeamWorker) {
-    const metricsPath = join(omxDir, 'metrics.json');
+    const metricsPath = join(owxDir, 'metrics.json');
     try {
       let metrics = {
         total_turns: 0,
@@ -677,7 +677,7 @@ async function main() {
     }
   }
 
-  // 4. Write HUD state summary for `omx hud` (lead session only)
+  // 4. Write HUD state summary for `owx hud` (lead session only)
   if (!isTeamWorker) {
     try {
       const scopedSessionId = getEffectiveSessionId();
@@ -813,7 +813,7 @@ async function main() {
       input_messages: normalizeInputMessages(payload),
       output_preview: outputPreview,
       native_session_id: payloadSessionId || null,
-      omx_session_id: sessionIdForHooks || null,
+      owx_session_id: sessionIdForHooks || null,
       ...readRepositoryMetadata(cwd),
       session_name: resolveOperationalSessionName(cwd, sessionIdForHooks),
       project_path: cwd,
@@ -836,7 +836,7 @@ async function main() {
         errorSummary: signal.error_summary,
         extra: {
           native_session_id: payloadSessionId || null,
-          omx_session_id: sessionIdForHooks || null,
+          owx_session_id: sessionIdForHooks || null,
           source_event: safeString(payload.type || 'agent-turn-complete'),
         },
       }), {
@@ -955,7 +955,7 @@ async function main() {
   }
 
   // 10. Code simplifier: delegate recently modified files for simplification.
-  //     Opt-in via ~/.omx/config.json: { "codeSimplifier": { "enabled": true } }
+  //     Opt-in via ~/.owx/config.json: { "codeSimplifier": { "enabled": true } }
   if (!isTeamWorker) {
     try {
       const { processCodeSimplifier } = await import('../hooks/code-simplifier/index.js');
@@ -1015,7 +1015,7 @@ async function logFatalNotifyHookError(err: unknown): Promise<void> {
     // Keep notification hook failures silent in Codex TUI surfaces.
   }
 
-  const logsDir = join(cwd, '.omx', 'logs');
+  const logsDir = join(cwd, '.owx', 'logs');
   await mkdir(logsDir, { recursive: true }).catch(() => {});
   const logPath = join(logsDir, `notify-hook-${new Date().toISOString().split('T')[0]}.jsonl`);
   await appendFile(logPath, JSON.stringify({
@@ -1027,7 +1027,7 @@ async function logFatalNotifyHookError(err: unknown): Promise<void> {
 
 main().catch((err) => {
   // Notify hooks are auxiliary background work. Avoid printing stack traces into
-  // Codex TUI/PowerShell foreground panes; record diagnostics in .omx/logs.
+  // Codex TUI/PowerShell foreground panes; record diagnostics in .owx/logs.
   process.exitCode = 0;
   void logFatalNotifyHookError(err);
 });

@@ -21,7 +21,7 @@ import type { StageContext } from '../../pipeline/types.js';
 let tempDir: string;
 
 async function setup(): Promise<void> {
-  tempDir = await mkdtemp(join(tmpdir(), 'omx-approved-lifecycle-baseline-'));
+  tempDir = await mkdtemp(join(tmpdir(), 'owx-approved-lifecycle-baseline-'));
 }
 
 async function cleanup(): Promise<void> {
@@ -40,7 +40,7 @@ function makeCtx(overrides: Partial<StageContext> = {}): StageContext {
 }
 
 async function writePrd(slug: string, withTestSpec: boolean): Promise<{ prdPath: string; testSpecPath: string; teamTask: string; ralphTask: string }> {
-  const plansDir = join(tempDir, '.omx', 'plans');
+  const plansDir = join(tempDir, '.owx', 'plans');
   await mkdir(plansDir, { recursive: true });
   const prdPath = join(plansDir, `prd-${slug}.md`);
   const testSpecPath = join(plansDir, `test-spec-${slug}.md`);
@@ -51,8 +51,8 @@ async function writePrd(slug: string, withTestSpec: boolean): Promise<{ prdPath:
     [
       `# ${slug}`,
       '',
-      `Launch via omx team 2:executor "${teamTask}"`,
-      `Launch via omx ralph "${ralphTask}"`,
+      `Launch via owx team 2:executor "${teamTask}"`,
+      `Launch via owx ralph "${ralphTask}"`,
     ].join('\n'),
   );
   if (withTestSpec) {
@@ -94,7 +94,7 @@ describe('approved execution lifecycle baseline matrix', () => {
     assert.deepEqual(buildApprovedTeamExecutionBinding(teamOutcome.hint), {
       prd_path: fixture.prdPath,
       task: fixture.teamTask,
-      command: `omx team 2:executor "${fixture.teamTask}"`,
+      command: `owx team 2:executor "${fixture.teamTask}"`,
     });
     assert.match(buildApprovedTeamHandoffSection(teamOutcome.hint) ?? '', /approved plan/i);
     assert.match(buildApprovedTeamHandoffSection(teamOutcome.hint) ?? '', /matching test specs|Test specs/);
@@ -103,7 +103,7 @@ describe('approved execution lifecycle baseline matrix', () => {
     assert.equal(ralphOutcome.status, 'resolved');
     if (ralphOutcome.status !== 'resolved') throw new Error('expected ready ralph hint');
     const instructions = buildRalphAppendInstructions(fixture.ralphTask, {
-      changedFilesPath: '.omx/ralph/changed-files.txt',
+      changedFilesPath: '.owx/ralph/changed-files.txt',
       noDeslop: false,
       approvedHint: ralphOutcome.hint,
     });
@@ -117,12 +117,12 @@ describe('approved execution lifecycle baseline matrix', () => {
     assert.deepEqual(descriptor.approvedExecution, {
       prd_path: fixture.prdPath,
       task: fixture.teamTask,
-      command: `omx team 2:executor "${fixture.teamTask}"`,
+      command: `owx team 2:executor "${fixture.teamTask}"`,
     });
   });
 
   it('adds leader-owned Ultragoal checkpoint context to approved Team handoffs without breaking launch hint selection', async () => {
-    const plansDir = join(tempDir, '.omx', 'plans');
+    const plansDir = join(tempDir, '.owx', 'plans');
     await mkdir(plansDir, { recursive: true });
     const prdPath = join(plansDir, 'prd-ultragoal-team.md');
     const testSpecPath = join(plansDir, 'test-spec-ultragoal-team.md');
@@ -132,10 +132,10 @@ describe('approved execution lifecycle baseline matrix', () => {
       [
         '# Ultragoal Team bridge',
         '',
-        'Active ultragoal story: G001-team-runtime-bridge in .omx/ultragoal/goals.json.',
-        'Team returns evidence for .omx/ultragoal/ledger.jsonl; the leader checkpoints with a fresh get_goal snapshot.',
+        'Active ultragoal story: G001-team-runtime-bridge in .owx/ultragoal/goals.json.',
+        'Team returns evidence for .owx/ultragoal/ledger.jsonl; the leader checkpoints with a fresh get_goal snapshot.',
         '',
-        `Launch via omx team 3:executor "${teamTask}"`,
+        `Launch via owx team 3:executor "${teamTask}"`,
         'Use Ralph only for a later sequential single-owner verification/fix loop.',
       ].join('\n'),
     );
@@ -151,15 +151,15 @@ describe('approved execution lifecycle baseline matrix', () => {
     const guidance = buildUltragoalCheckpointGuidance(teamOutcome.hint);
     assert.equal(guidance?.goal_id, 'G001-team-runtime-bridge');
     assert.equal(guidance?.checkpoint_policy, 'fresh_leader_get_goal_required');
-    assert.match(guidance?.checkpoint_command_template ?? '', /verified \.omx\/ultragoal\/goals\.json context/);
+    assert.match(guidance?.checkpoint_command_template ?? '', /verified \.owx\/ultragoal\/goals\.json context/);
 
     const section = buildApprovedTeamHandoffSection(teamOutcome.hint) ?? '';
     assert.match(section, /Approved-plan Ultragoal hint/);
-    assert.match(section, /\.omx\/ultragoal\/goals\.json/);
-    assert.match(section, /\.omx\/ultragoal\/ledger\.jsonl/);
+    assert.match(section, /\.owx\/ultragoal\/goals\.json/);
+    assert.match(section, /\.owx\/ultragoal\/ledger\.jsonl/);
     assert.match(section, /Team workers provide task\/evidence updates only/i);
     assert.match(section, /No checkpoint command is emitted from approved-plan hints/i);
-    assert.doesNotMatch(section, /omx ultragoal checkpoint --goal-id/i);
+    assert.doesNotMatch(section, /owx ultragoal checkpoint --goal-id/i);
     assert.doesNotMatch(section, /auto[- ]launch.*team/i);
 
     const ralphOutcome = readApprovedExecutionLaunchHintOutcome(tempDir, 'ralph', {
@@ -169,7 +169,7 @@ describe('approved execution lifecycle baseline matrix', () => {
   });
 
   it('keeps same-task team selector outcomes fail-closed when launch hints are ambiguous', async () => {
-    const plansDir = join(tempDir, '.omx', 'plans');
+    const plansDir = join(tempDir, '.owx', 'plans');
     await mkdir(plansDir, { recursive: true });
     const prdPath = join(plansDir, 'prd-ambiguous-team.md');
     const sharedTask = 'Execute ambiguous team handoff';
@@ -178,8 +178,8 @@ describe('approved execution lifecycle baseline matrix', () => {
       [
         '# ambiguous team',
         '',
-        `Launch via omx team 2:executor "${sharedTask}"`,
-        `Launch via omx team 5:debugger "${sharedTask}"`,
+        `Launch via owx team 2:executor "${sharedTask}"`,
+        `Launch via owx team 5:debugger "${sharedTask}"`,
       ].join('\n'),
     );
     await writeFile(join(plansDir, 'test-spec-ambiguous-team.md'), '# ambiguous team test spec\n');

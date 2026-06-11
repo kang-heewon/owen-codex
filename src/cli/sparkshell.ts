@@ -18,19 +18,19 @@ import {
   resolveCachedNativeBinaryCandidatePaths,
 } from './native-assets.js';
 
-const OMX_SPARKSHELL_BIN_ENV = SPARKSHELL_BIN_ENV_SHARED;
-const OMX_SPARKSHELL_INSTRUCTIONS_FILE_ENV = 'OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE';
+const OWX_SPARKSHELL_BIN_ENV = SPARKSHELL_BIN_ENV_SHARED;
+const OWX_SPARKSHELL_INSTRUCTIONS_FILE_ENV = 'OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE';
 
 export const SPARKSHELL_USAGE = [
-  'Usage: omx sparkshell <command> [args...]',
-  '   or: omx sparkshell [--json] [--budget <chars>] <command> [args...]',
-  '   or: omx sparkshell --shell \'<shell command>\'',
-  '   or: omx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]',
-  'Runs the native omx-sparkshell sidecar with direct argv execution, explicit shell execution, or explicit tmux pane summarization.',
+  'Usage: owx sparkshell <command> [args...]',
+  '   or: owx sparkshell [--json] [--budget <chars>] <command> [args...]',
+  '   or: owx sparkshell --shell \'<shell command>\'',
+  '   or: owx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]',
+  'Runs the native owx-sparkshell sidecar with direct argv execution, explicit shell execution, or explicit tmux pane summarization.',
   'Shell metacharacters are interpreted only with explicit --shell opt-in.',
   'Tmux pane mode is explicit opt-in and captures a larger pane tail before applying raw-vs-summary behavior.',
-  'Environment: OMX_SPARKSHELL_BIN overrides the native binary; OMX_SPARKSHELL_MODEL selects the summary model; OMX_SPARKSHELL_FALLBACK_MODEL selects the retry model.',
-  'Environment: OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE overrides packaged summary instructions; OMX_SPARKSHELL_SUMMARY_TIMEOUT_MS controls local API summary timeout.',
+  'Environment: OWX_SPARKSHELL_BIN overrides the native binary; OWX_SPARKSHELL_MODEL selects the summary model; OWX_SPARKSHELL_FALLBACK_MODEL selects the retry model.',
+  'Environment: OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE overrides packaged summary instructions; OWX_SPARKSHELL_SUMMARY_TIMEOUT_MS controls local API summary timeout.',
 ].join('\n');
 
 export interface ResolveSparkShellBinaryPathOptions {
@@ -59,7 +59,7 @@ function resolveSignalExitCode(signal: NodeJS.Signals | null): number {
 }
 
 export function sparkshellBinaryName(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell';
+  return platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell';
 }
 
 export function packagedSparkShellBinaryPath(
@@ -100,7 +100,7 @@ export function nestedRepoLocalSparkShellBinaryPath(
   packageRoot = getPackageRoot(),
   platform: NodeJS.Platform = process.platform,
 ): string {
-  return join(packageRoot, 'native', 'omx-sparkshell', 'target', 'release', sparkshellBinaryName(platform));
+  return join(packageRoot, 'native', 'owx-sparkshell', 'target', 'release', sparkshellBinaryName(platform));
 }
 
 export function resolveSparkShellBinaryPath(options: ResolveSparkShellBinaryPathOptions = {}): string {
@@ -114,7 +114,7 @@ export function resolveSparkShellBinaryPath(options: ResolveSparkShellBinaryPath
     exists = existsSync,
   } = options;
 
-  const override = env[OMX_SPARKSHELL_BIN_ENV]?.trim();
+  const override = env[OWX_SPARKSHELL_BIN_ENV]?.trim();
   if (override) {
     return isAbsolute(override) ? override : resolve(cwd, override);
   }
@@ -132,7 +132,7 @@ export function resolveSparkShellBinaryPath(options: ResolveSparkShellBinaryPath
   const packagedCandidates = packagedSparkShellBinaryCandidatePaths(packageRoot, platform, arch, env, linuxLibcPreference);
   throw new Error(
     `[sparkshell] native binary not found. Checked ${packagedCandidates.join(', ')}, ${repoLocal}, and ${nestedRepoLocal}. `
-      + `Set ${OMX_SPARKSHELL_BIN_ENV} to override the path.`
+      + `Set ${OWX_SPARKSHELL_BIN_ENV} to override the path.`
   );
 }
 
@@ -149,13 +149,13 @@ export async function resolveSparkShellBinaryPathWithHydration(
     exists = existsSync,
   } = options;
 
-  const override = env[OMX_SPARKSHELL_BIN_ENV]?.trim();
+  const override = env[OWX_SPARKSHELL_BIN_ENV]?.trim();
   if (override) {
     return isAbsolute(override) ? override : resolve(cwd, override);
   }
 
   const version = await getPackageVersion(packageRoot);
-  for (const cached of resolveCachedNativeBinaryCandidatePaths('omx-sparkshell', version, platform, arch, env, {
+  for (const cached of resolveCachedNativeBinaryCandidatePaths('owx-sparkshell', version, platform, arch, env, {
     linuxLibcPreference: platform === 'linux'
       ? (linuxLibcPreference ?? resolveLinuxNativeLibcPreference({ env }))
       : undefined,
@@ -173,12 +173,12 @@ export async function resolveSparkShellBinaryPathWithHydration(
   const nestedRepoLocal = nestedRepoLocalSparkShellBinaryPath(packageRoot, platform);
   if (exists(nestedRepoLocal)) return nestedRepoLocal;
 
-  const hydrated = await hydrateNativeBinary('omx-sparkshell', { packageRoot, env, platform, arch });
+  const hydrated = await hydrateNativeBinary('owx-sparkshell', { packageRoot, env, platform, arch });
   if (hydrated) return hydrated;
 
   throw new Error(
     `[sparkshell] native binary not found. Checked cached/native candidates under ${packageRoot}, ${repoLocal}, and ${nestedRepoLocal}. `
-      + `Reconnect to the network so OMX can fetch the release asset, or set ${OMX_SPARKSHELL_BIN_ENV} to override the path.`
+      + `Reconnect to the network so OWX can fetch the release asset, or set ${OWX_SPARKSHELL_BIN_ENV} to override the path.`
   );
 }
 
@@ -198,13 +198,13 @@ export function runSparkShellBinary(
     ...configEnvOverrides,
     ...env,
   };
-  const instructionsFile = mergedEnv[OMX_SPARKSHELL_INSTRUCTIONS_FILE_ENV]?.trim()
+  const instructionsFile = mergedEnv[OWX_SPARKSHELL_INSTRUCTIONS_FILE_ENV]?.trim()
     || join(getPackageRoot(), 'templates', 'model-instructions', 'sparkshell-lightweight-AGENTS.md');
   const spawnOptions: SpawnSyncOptionsWithStringEncoding = {
     cwd,
     env: {
       ...mergedEnv,
-      [OMX_SPARKSHELL_INSTRUCTIONS_FILE_ENV]: instructionsFile,
+      [OWX_SPARKSHELL_INSTRUCTIONS_FILE_ENV]: instructionsFile,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf-8',
@@ -372,8 +372,8 @@ export async function sparkshellCommand(args: string[]): Promise<void> {
     throw new Error(`Missing command to run.\n${SPARKSHELL_USAGE}`);
   }
 
-  const hasExplicitOverride = typeof process.env[OMX_SPARKSHELL_BIN_ENV] === 'string'
-    && process.env[OMX_SPARKSHELL_BIN_ENV]!.trim().length > 0;
+  const hasExplicitOverride = typeof process.env[OWX_SPARKSHELL_BIN_ENV] === 'string'
+    && process.env[OWX_SPARKSHELL_BIN_ENV]!.trim().length > 0;
   let binaryPath: string;
   try {
     binaryPath = await resolveSparkShellBinaryPathWithHydration();

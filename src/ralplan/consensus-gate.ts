@@ -111,8 +111,8 @@ export function readLocalRalplanConsensusStateCandidates(
   const sessionIdList = explicitSession ? validateLocalSessionId(sessionId) : readLocalCurrentSessionIds(cwd);
   if (explicitSession && sessionIdList.length === 0) return [];
   const stateRoots = sessionIdList.length > 0
-    ? sessionIdList.map((id) => join(cwd, '.omx', 'state', 'sessions', id))
-    : [join(cwd, '.omx', 'state')];
+    ? sessionIdList.map((id) => join(cwd, '.owx', 'state', 'sessions', id))
+    : [join(cwd, '.owx', 'state')];
 
   const paths = stateRoots.flatMap((dir) => [
     join(dir, 'ralplan-state.json'),
@@ -309,7 +309,7 @@ function trackerBackedNativeReviewProblem(
   const tracking = readJsonState(expectedTrackerPath);
   const session = asRecord(asRecord(tracking?.sessions)?.[sessionId]);
   const thread = asRecord(asRecord(session?.threads)?.[threadId]);
-  if (!session) return `${agentRole} tracker session ${sessionId} is missing in ${expectedTrackerPath}; only reviews recorded in OMX subagent-tracking.json count as native lanes`;
+  if (!session) return `${agentRole} tracker session ${sessionId} is missing in ${expectedTrackerPath}; only reviews recorded in OWX subagent-tracking.json count as native lanes`;
   if (!thread) return `${agentRole} tracker thread ${threadId} is missing in ${expectedTrackerPath}; external/collab subagent reviews are not tracker-backed native lanes`;
   const leaderThreadId = typeof session.leader_thread_id === 'string' ? session.leader_thread_id.trim() : '';
   const currentLeaderThreadId = currentSessionNativeLeaderThreadId(options.cwd);
@@ -323,7 +323,7 @@ function trackerBackedNativeReviewProblem(
 
 function currentSessionNativeLeaderThreadId(cwd: string | undefined): string {
   if (!cwd) return '';
-  const sessionState = readJsonState(join(cwd, '.omx', 'state', 'session.json'));
+  const sessionState = readJsonState(join(cwd, '.owx', 'state', 'session.json'));
   return typeof sessionState?.native_session_id === 'string' ? sessionState.native_session_id.trim() : '';
 }
 
@@ -360,7 +360,7 @@ function hasBlockingReviewSignal(value: Record<string, unknown>): boolean {
 }
 
 function readLocalCurrentSessionIds(cwd: string): string[] {
-  const state = readJsonState(join(cwd, '.omx', 'state', 'session.json'));
+  const state = readJsonState(join(cwd, '.owx', 'state', 'session.json'));
   if (typeof state?.cwd === 'string' && state.cwd !== cwd) return [];
   const sessionId = typeof state?.session_id === 'string' ? state.session_id : undefined;
   return sessionId ? validateLocalSessionId(sessionId) : [];

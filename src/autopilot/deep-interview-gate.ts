@@ -210,14 +210,14 @@ function autopilotQuestionEnforcement(
 ): DeepInterviewQuestionEnforcementState | undefined {
   const wait = safeObject(state?.deep_interview_question) ?? safeObject(nestedState(state)?.deep_interview_question);
   if (!wait) return undefined;
-  if (safeString(wait.source) !== 'omx-question') return undefined;
+  if (safeString(wait.source) !== 'owx-question') return undefined;
   const obligationId = safeString(wait.obligation_id);
   if (!obligationId) return undefined;
   const status = normalizeStatus(wait.status);
   if (status === 'waiting-for-user') {
     return {
       obligation_id: obligationId,
-      source: 'omx-question',
+      source: 'owx-question',
       status: 'pending',
       lifecycle_outcome: 'askuserQuestion',
       requested_at: safeString(wait.requested_at) || safeString(wait.updated_at),
@@ -226,7 +226,7 @@ function autopilotQuestionEnforcement(
   if (status === 'satisfied') {
     return {
       obligation_id: obligationId,
-      source: 'omx-question',
+      source: 'owx-question',
       status: 'satisfied',
       lifecycle_outcome: 'askuserQuestion',
       requested_at: safeString(wait.requested_at) || safeString(wait.updated_at),
@@ -238,7 +238,7 @@ function autopilotQuestionEnforcement(
     const clearReason = normalizeStatus(wait.clear_reason);
     return {
       obligation_id: obligationId,
-      source: 'omx-question',
+      source: 'owx-question',
       status: 'cleared',
       lifecycle_outcome: 'askuserQuestion',
       requested_at: safeString(wait.requested_at) || safeString(wait.updated_at),
@@ -474,7 +474,7 @@ export async function canAdvanceAutopilotDeepInterviewToRalplan(
   if (!await allSatisfiedQuestionsHaveAnsweredRecords(input, enforcements)) {
     return {
       allowed: false,
-      reason: 'satisfied deep-interview question obligation lacks same-session answered omx question record',
+      reason: 'satisfied deep-interview question obligation lacks same-session answered owx question record',
     };
   }
 

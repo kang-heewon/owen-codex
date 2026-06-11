@@ -25,7 +25,7 @@ export function buildTeamWorkerGoalInstruction(
   void options.teamStateRoot;
   const taskIds = tasks.map((task) => task.id);
   const objective = options.objective ??
-    `Complete assigned OMX team task${taskIds.length === 1 ? "" : "s"} ${taskIds.join(", ")} for ${teamName} with verified evidence, preserving leader-owned audit.`;
+    `Complete assigned OWX team task${taskIds.length === 1 ? "" : "s"} ${taskIds.join(", ")} for ${teamName} with verified evidence, preserving leader-owned audit.`;
 
   return {
     teamName,
@@ -61,14 +61,14 @@ export function renderTeamWorkerGoalInstruction(
 
 Objective: ${instruction.objective}
 
-Durable OMX source of truth:
+Durable OWX source of truth:
 - Existing team task files, task claims, lifecycle events, and leader audit remain the durable artifacts.
 - This section is a logical Codex goal handoff only; it does not create separate per-worker goal JSON or leader-audit artifacts.
 
 Source-of-truth rules:
 - Existing team task files and claim lifecycle remain authoritative; this worker goal must reference task IDs ${instruction.taskIds.join(", ")} instead of creating a duplicate task list.
-- Claim each task with \`omx team api claim-task\` before editing; use the task file claim/status as the current assignment record.
-- Record completion evidence through \`omx team api transition-task-status\`; leader audit owns aggregate team completion.
+- Claim each task with \`owx team api claim-task\` before editing; use the task file claim/status as the current assignment record.
+- Record completion evidence through \`owx team api transition-task-status\`; leader audit owns aggregate team completion.
 
 Assigned task/claim references:
 ${taskLines}
@@ -76,7 +76,7 @@ ${taskLines}
 Codex goal handoff guidance (truthful fallback only):
 1. If goal tools are available in this worker thread, call \`get_goal\` before creating or completing a goal.
 2. Call \`create_goal\` only when no active goal exists and the explicit worker objective above should become this thread's active objective.
-3. Do not claim OMX shell commands mutated Codex goal state; shell/team APIs persist only OMX artifacts and task state.
+3. Do not claim OWX shell commands mutated Codex goal state; shell/team APIs persist only OWX artifacts and task state.
 4. Call \`update_goal({status: "complete"})\` only after assigned task transitions are complete and verification evidence is present for leader audit.
 `;
 }

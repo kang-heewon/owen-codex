@@ -25,26 +25,26 @@ import {
   UltragoalError,
 } from '../ultragoal/artifacts.js';
 
-export const ULTRAGOAL_HELP = `omx ultragoal - Durable repo-native multi-goal workflow over Codex goal mode
+export const ULTRAGOAL_HELP = `owx ultragoal - Durable repo-native multi-goal workflow over Codex goal mode
 
 Usage:
-  omx ultragoal create-goals [--brief <text> | --brief-file <path> | --from-stdin] [--goal <title::objective>] [--codex-goal-mode <aggregate|per-story>] [--force] [--json]
-  omx ultragoal complete-goals [--retry-failed] [--json]
-  omx ultragoal add-goal --title <title> --objective <text> [--evidence <text>] [--json]
-  omx ultragoal steer --kind <mutation-kind> --evidence <text> --rationale <text> [--target-goal-id <id> | --target-goal-ids <id1,id2,...>] [--title <title>] [--objective <text>] [--json]
-  omx ultragoal record-review-blockers --goal-id <id> --title <title> --objective <text> --evidence <review-findings> --codex-goal-json <active-json-or-path> [--json]
-  omx ultragoal steer --kind <add_subgoal|split_subgoal|reorder_pending|revise_pending_wording|annotate_ledger|mark_blocked_superseded> --evidence <text> --rationale <text> [--target-goal-id <id>] [--title <text>] [--objective <text>] [--after-json <json-or-path>] [--idempotency-key <key>] [--json]
-  omx ultragoal steer --directive-json <json-or-path> [--json]
-  omx ultragoal checkpoint --goal-id <id> --status <complete|failed|blocked> [--evidence <text>] [--codex-goal-json <json-or-path>] [--quality-gate-json <json-or-path>] [--json]
-  omx ultragoal status [--codex-goal-json <json-or-path>] [--json]
+  owx ultragoal create-goals [--brief <text> | --brief-file <path> | --from-stdin] [--goal <title::objective>] [--codex-goal-mode <aggregate|per-story>] [--force] [--json]
+  owx ultragoal complete-goals [--retry-failed] [--json]
+  owx ultragoal add-goal --title <title> --objective <text> [--evidence <text>] [--json]
+  owx ultragoal steer --kind <mutation-kind> --evidence <text> --rationale <text> [--target-goal-id <id> | --target-goal-ids <id1,id2,...>] [--title <title>] [--objective <text>] [--json]
+  owx ultragoal record-review-blockers --goal-id <id> --title <title> --objective <text> --evidence <review-findings> --codex-goal-json <active-json-or-path> [--json]
+  owx ultragoal steer --kind <add_subgoal|split_subgoal|reorder_pending|revise_pending_wording|annotate_ledger|mark_blocked_superseded> --evidence <text> --rationale <text> [--target-goal-id <id>] [--title <text>] [--objective <text>] [--after-json <json-or-path>] [--idempotency-key <key>] [--json]
+  owx ultragoal steer --directive-json <json-or-path> [--json]
+  owx ultragoal checkpoint --goal-id <id> --status <complete|failed|blocked> [--evidence <text>] [--codex-goal-json <json-or-path>] [--quality-gate-json <json-or-path>] [--json]
+  owx ultragoal status [--codex-goal-json <json-or-path>] [--json]
 
 Aliases:
   create -> create-goals, complete|next|start-next -> complete-goals
 
 Artifacts:
-  .omx/ultragoal/brief.md
-  .omx/ultragoal/goals.json
-  .omx/ultragoal/ledger.jsonl
+  .owx/ultragoal/brief.md
+  .owx/ultragoal/goals.json
+  .owx/ultragoal/ledger.jsonl
 
 Codex goal integration:
   This command cannot directly invoke the interactive /goal tool from a shell.
@@ -54,11 +54,11 @@ Codex goal integration:
   multiple sequential ultragoal runs in one Codex session/thread, manually run
   /goal clear in the Codex UI before creating the next aggregate goal.
   New plans default to aggregate mode: one Codex goal covers the whole ultragoal
-  run while OMX checkpoints G001/G002 stories in the durable ledger. Legacy
+  run while OWX checkpoints G001/G002 stories in the durable ledger. Legacy
   per-story plans retain completed-goal blocker handling when a completed thread
   goal prevents create_goal for the next story.
   Dynamic steering is explicit-only: steer accepts structured fields or directive JSON,
-  audits accepted/rejected/deduped results in .omx/ultragoal/ledger.jsonl, and
+  audits accepted/rejected/deduped results in .owx/ultragoal/ledger.jsonl, and
   rejects broad natural-language mutation requests.
   Repeated identical external authorization blockers become non-retriable
   needs_user_decision stories; complete-goals --retry-failed skips them and prints
@@ -136,7 +136,7 @@ function printStatus(plan: Awaited<ReturnType<typeof readUltragoalPlan>>): void 
     console.log(`microgoal ledger bookkeeping (progress-only): ${summary.complete}/${summary.total} complete, ${summary.pending} pending, ${summary.inProgress} in progress, ${summary.failed} failed, ${summary.reviewBlocked} review-blocked, ${summary.needsUserDecision} needs-user-decision`);
   } else if (summary.artifactComplete) {
     console.log('ultragoal artifact goals: complete');
-    console.log(`codex goal reconciliation: not recorded in OMX aggregateCompletion; status is artifact-backed until a fresh Codex goal snapshot is available.`);
+    console.log(`codex goal reconciliation: not recorded in OWX aggregateCompletion; status is artifact-backed until a fresh Codex goal snapshot is available.`);
     console.log(`microgoal ledger: ${summary.complete}/${summary.total} complete, ${summary.pending} pending, ${summary.inProgress} in progress, ${summary.failed} failed, ${summary.reviewBlocked} review-blocked, ${summary.needsUserDecision} needs-user-decision`);
   } else {
     console.log(`ultragoal: ${summary.complete}/${summary.total} complete, ${summary.pending} pending, ${summary.inProgress} in progress, ${summary.failed} failed, ${summary.reviewBlocked} review-blocked, ${summary.needsUserDecision} needs-user-decision`);
@@ -232,7 +232,7 @@ async function parseSteeringProposal(args: readonly string[]): Promise<Ultragoal
   }
 
   const freeform = positionalText(args);
-  if (freeform) throw new UltragoalError('omx ultragoal steer rejects broad natural-language mutation requests; pass structured fields or --directive-json.');
+  if (freeform) throw new UltragoalError('owx ultragoal steer rejects broad natural-language mutation requests; pass structured fields or --directive-json.');
 
   const after = await readJsonInput(readValue(args, '--after-json'), '--after-json');
   return normalizeSteeringProposal({
@@ -302,9 +302,9 @@ const ULTRAGOAL_MUTATING_COMMANDS = new Set([
 ]);
 
 function readTeamWorkerIdentity(env: NodeJS.ProcessEnv = process.env): string | null {
-  const publicIdentity = typeof env.OMX_TEAM_WORKER === 'string' ? env.OMX_TEAM_WORKER.trim() : '';
+  const publicIdentity = typeof env.OWX_TEAM_WORKER === 'string' ? env.OWX_TEAM_WORKER.trim() : '';
   if (publicIdentity) return publicIdentity;
-  const internalIdentity = typeof env.OMX_TEAM_INTERNAL_WORKER === 'string' ? env.OMX_TEAM_INTERNAL_WORKER.trim() : '';
+  const internalIdentity = typeof env.OWX_TEAM_INTERNAL_WORKER === 'string' ? env.OWX_TEAM_INTERNAL_WORKER.trim() : '';
   return internalIdentity || null;
 }
 
@@ -314,7 +314,7 @@ function assertUltragoalMutationAllowedFromCurrentProcess(command: string): void
   if (!workerIdentity) return;
   throw new UltragoalError(
     `Refusing mutating ultragoal command "${command}" from Team worker ${workerIdentity}. `
-    + 'Ultragoal state is leader-owned; workers must report checkpoint evidence upward instead of mutating .omx/ultragoal.',
+    + 'Ultragoal state is leader-owned; workers must report checkpoint evidence upward instead of mutating .owx/ultragoal.',
   );
 }
 

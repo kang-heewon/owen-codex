@@ -7,7 +7,7 @@ export const AUTH_DIR_MODE = 0o700;
 export const AUTH_FILE_MODE = 0o600;
 
 export function resolveOmxAuthDir(home = homedir()): string {
-  return join(home, ".omx", "auth");
+  return join(home, ".owx", "auth");
 }
 
 export function resolveAuthMetadataPath(home = homedir()): string {

@@ -1,6 +1,6 @@
-oh-my-codex doctor --team
+owen-codex doctor --team
 =========================
 
-  [XX] resume_blocker: alpha references missing tmux session omx-team-alpha
+  [XX] resume_blocker: alpha references missing tmux session owx-team-alpha
 
 Results: 0 warnings, 1 failed

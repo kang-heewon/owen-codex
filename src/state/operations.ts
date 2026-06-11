@@ -237,7 +237,7 @@ export async function listStateStatuses(
       statuses.ultragoal = {
         active: ultragoal.active,
         phase: ultragoal.status,
-        path: join(cwd, '.omx', 'ultragoal', 'goals.json'),
+        path: join(cwd, '.owx', 'ultragoal', 'goals.json'),
         data: ultragoal,
         source: 'ultragoal-artifacts',
       };
@@ -388,9 +388,9 @@ export async function executeStateOperation(
           if (
             mode === 'ralph' &&
             effectiveSessionId &&
-            typeof mergedRaw.owner_omx_session_id !== 'string'
+            typeof mergedRaw.owner_owx_session_id !== 'string'
           ) {
-            mergedRaw.owner_omx_session_id = effectiveSessionId;
+            mergedRaw.owner_owx_session_id = effectiveSessionId;
           }
 
           if (mode === 'ralph') {

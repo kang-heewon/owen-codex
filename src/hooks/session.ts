@@ -1,5 +1,5 @@
 /**
- * Session Lifecycle Manager for oh-my-codex
+ * Session Lifecycle Manager for owen-codex
  *
  * Tracks session start/end, detects stale sessions from crashed launches,
  * and provides structured logging for session events.
@@ -8,18 +8,18 @@
 import { readFile, writeFile, mkdir, unlink, appendFile, rm } from 'fs/promises';
 import { dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { omxRoot, omxStateDir, omxLogsDir, sameFilePath } from '../utils/paths.js';
+import { owxRoot, owxStateDir, owxLogsDir, sameFilePath } from '../utils/paths.js';
 import { getStateFilePath } from '../mcp/state-paths.js';
 
 export interface SessionState {
   session_id: string;
   native_session_id?: string;
   // Native session replacement metadata used when Codex /new swaps the native
-  // session while the original OMX launch wrapper is still responsible for
+  // session while the original OWX launch wrapper is still responsible for
   // archiving/cleanup.
   previous_native_session_id?: string;
   native_session_switched_at?: string;
-  owner_omx_session_id?: string;
+  owner_owx_session_id?: string;
   owner_codex_session_id?: string;
   started_at: string;
   cwd: string;
@@ -38,11 +38,11 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 // Long-running sessions (>2h) are legitimate and should not be reaped.
 
 function sessionPath(cwd: string): string {
-  return join(omxStateDir(cwd), SESSION_FILE);
+  return join(owxStateDir(cwd), SESSION_FILE);
 }
 
 function historyPath(cwd: string): string {
-  return join(omxLogsDir(cwd), HISTORY_FILE);
+  return join(owxLogsDir(cwd), HISTORY_FILE);
 }
 
 async function removeDeadSessionHudState(
@@ -74,13 +74,13 @@ async function removeDeadSessionHudState(
  * into a new Codex session.
  */
 export async function resetSessionMetrics(cwd: string, sessionId?: string): Promise<void> {
-  const omxDir = omxRoot(cwd);
-  const stateDir = omxStateDir(cwd);
-  await mkdir(omxDir, { recursive: true });
+  const owxDir = owxRoot(cwd);
+  const stateDir = owxStateDir(cwd);
+  await mkdir(owxDir, { recursive: true });
   await mkdir(stateDir, { recursive: true });
 
   const now = new Date().toISOString();
-  await writeFile(join(omxDir, 'metrics.json'), JSON.stringify({
+  await writeFile(join(owxDir, 'metrics.json'), JSON.stringify({
     total_turns: 0,
     session_turns: 0,
     last_activity: now,
@@ -270,7 +270,7 @@ function createSessionState(
     ...(nativeSessionId ? { native_session_id: nativeSessionId } : {}),
     ...(previousNativeSessionId ? { previous_native_session_id: previousNativeSessionId } : {}),
     ...(nativeSessionSwitchedAt ? { native_session_switched_at: nativeSessionSwitchedAt } : {}),
-    ...(ownerOmxSessionId ? { owner_omx_session_id: ownerOmxSessionId } : {}),
+    ...(ownerOmxSessionId ? { owner_owx_session_id: ownerOmxSessionId } : {}),
     started_at: options.startedAt ?? nowIso,
     cwd,
     pid,
@@ -324,7 +324,7 @@ export async function writeSessionStart(
   sessionId: string,
   options: SessionStartOptions = {},
 ): Promise<SessionState> {
-  const stateDir = omxStateDir(cwd);
+  const stateDir = owxStateDir(cwd);
   await mkdir(stateDir, { recursive: true });
   const existing = await readSessionState(cwd);
   const sameSession = existing?.session_id === sessionId;
@@ -339,7 +339,7 @@ export async function writeSessionStart(
     nativeSessionId: options.nativeSessionId ?? (sameSession ? existing?.native_session_id : undefined),
     previousNativeSessionId: options.previousNativeSessionId ?? (sameSession ? existing?.previous_native_session_id : undefined),
     nativeSessionSwitchedAt: options.nativeSessionSwitchedAt ?? (sameSession ? existing?.native_session_switched_at : undefined),
-    ownerOmxSessionId: options.ownerOmxSessionId ?? (sameSession ? existing?.owner_omx_session_id : undefined),
+    ownerOmxSessionId: options.ownerOmxSessionId ?? (sameSession ? existing?.owner_owx_session_id : undefined),
     tmuxSessionName: options.tmuxSessionName ?? (sameSession ? existing?.tmux_session_name : undefined),
     tmuxPaneId: options.tmuxPaneId ?? (sameSession ? existing?.tmux_pane_id : undefined),
   });
@@ -356,19 +356,19 @@ export async function writeSessionStart(
 }
 
 function getOmxLaunchSessionId(state: SessionState): string | undefined {
-  if (state.session_id.startsWith('omx-')) return state.session_id;
-  if (typeof state.owner_omx_session_id === 'string' && state.owner_omx_session_id.startsWith('omx-')) {
-    return state.owner_omx_session_id;
+  if (state.session_id.startsWith('owx-')) return state.session_id;
+  if (typeof state.owner_owx_session_id === 'string' && state.owner_owx_session_id.startsWith('owx-')) {
+    return state.owner_owx_session_id;
   }
   return undefined;
 }
 
 /**
- * Reconcile a native/Codex SessionStart with the canonical OMX launch session.
+ * Reconcile a native/Codex SessionStart with the canonical OWX launch session.
  * Same-native restarts preserve the current logical session and refresh
  * PID/native metadata. Native-session replacements start a fresh native-scoped
  * session to avoid inheriting stale task-scoped state; when the replaced session
- * belongs to an OMX launch wrapper, retain that wrapper as owner for later
+ * belongs to an OWX launch wrapper, retain that wrapper as owner for later
  * archive/cleanup and log the replacement chain.
  */
 export async function reconcileNativeSessionStart(
@@ -434,7 +434,7 @@ export async function reconcileNativeSessionStart(
     nativeSessionId,
     previousNativeSessionId: existing.previous_native_session_id,
     nativeSessionSwitchedAt: existing.native_session_switched_at,
-    ownerOmxSessionId: existing.owner_omx_session_id,
+    ownerOmxSessionId: existing.owner_owx_session_id,
     startedAt: existing.started_at,
     tmuxSessionName: existing.tmux_session_name,
     tmuxPaneId: existing.tmux_pane_id,
@@ -460,22 +460,22 @@ export async function writeSessionEnd(cwd: string, sessionId: string): Promise<v
   const ownsCurrentSessionFile = state == null
     || state.session_id === sessionId
     || state.native_session_id === sessionId
-    || state.owner_omx_session_id === sessionId;
+    || state.owner_owx_session_id === sessionId;
 
   // Archive to session history
-  const logsDir = omxLogsDir(cwd);
+  const logsDir = owxLogsDir(cwd);
   await mkdir(logsDir, { recursive: true });
 
   const historyEntry = {
     session_id: ownsCurrentSessionFile
-      ? (state?.owner_omx_session_id === sessionId ? sessionId : state?.session_id || sessionId)
+      ? (state?.owner_owx_session_id === sessionId ? sessionId : state?.session_id || sessionId)
       : sessionId,
     ...(ownsCurrentSessionFile && state?.native_session_id ? { native_session_id: state.native_session_id } : {}),
     started_at: ownsCurrentSessionFile ? state?.started_at || 'unknown' : 'unknown',
     ended_at: endTime,
     cwd,
     pid: ownsCurrentSessionFile ? state?.pid || process.pid : process.pid,
-    ...(ownsCurrentSessionFile && state?.owner_omx_session_id === sessionId && state?.session_id
+    ...(ownsCurrentSessionFile && state?.owner_owx_session_id === sessionId && state?.session_id
       ? { active_session_id: state.session_id }
       : {}),
     ...(!ownsCurrentSessionFile && state?.session_id
@@ -500,10 +500,10 @@ export async function writeSessionEnd(cwd: string, sessionId: string): Promise<v
   await appendToLog(cwd, {
     event: 'session_end',
     session_id: ownsCurrentSessionFile
-      ? (state?.owner_omx_session_id === sessionId ? sessionId : state?.session_id || sessionId)
+      ? (state?.owner_owx_session_id === sessionId ? sessionId : state?.session_id || sessionId)
       : sessionId,
     ...(ownsCurrentSessionFile && state?.native_session_id ? { native_session_id: state.native_session_id } : {}),
-    ...(ownsCurrentSessionFile && state?.owner_omx_session_id === sessionId && state?.session_id
+    ...(ownsCurrentSessionFile && state?.owner_owx_session_id === sessionId && state?.session_id
       ? { active_session_id: state.session_id }
       : {}),
     ...(!ownsCurrentSessionFile && state?.session_id
@@ -517,11 +517,11 @@ export async function writeSessionEnd(cwd: string, sessionId: string): Promise<v
  * Append a structured JSONL entry to the daily log file.
  */
 export async function appendToLog(cwd: string, entry: Record<string, unknown>): Promise<void> {
-  const logsDir = omxLogsDir(cwd);
+  const logsDir = owxLogsDir(cwd);
   await mkdir(logsDir, { recursive: true });
 
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const logFile = join(logsDir, `omx-${date}.jsonl`);
+  const logFile = join(logsDir, `owx-${date}.jsonl`);
   const line = JSON.stringify({ ...entry, _ts: new Date().toISOString() }) + '\n';
 
   await appendFile(logFile, line);

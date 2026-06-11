@@ -4,11 +4,11 @@ import { buildTeamExecutionPlan, decomposeTaskString } from '../team.js';
 
 describe('decomposeTaskString', () => {
   it('splits conjunction-separated tasks', () => {
-    const tasks = decomposeTaskString('fix tests, build UI, and write docs', 3, 'executor', false);
+    const tasks = decomposeTaskString('fix tests, build UI, and add telemetry', 3, 'executor', false);
     assert.equal(tasks.length, 3);
     assert.match(tasks[0].subject, /fix tests/i);
     assert.match(tasks[1].subject, /build UI/i);
-    assert.match(tasks[2].subject, /write docs/i);
+    assert.match(tasks[2].subject, /add telemetry/i);
   });
 
   it('assigns different roles to split tasks via heuristic routing', () => {
@@ -19,19 +19,19 @@ describe('decomposeTaskString', () => {
   });
 
   it('splits numbered list tasks', () => {
-    const tasks = decomposeTaskString('1. add auth 2. write tests 3. update docs', 3, 'executor', false);
+    const tasks = decomposeTaskString('1. add auth 2. write tests 3. update metrics', 3, 'executor', false);
     assert.equal(tasks.length, 3);
     assert.match(tasks[0].description, /add auth/i);
     assert.match(tasks[1].description, /write tests/i);
-    assert.match(tasks[2].description, /update docs/i);
+    assert.match(tasks[2].description, /update metrics/i);
   });
 
   it('splits bulleted task lists without relying on sentence heuristics', () => {
-    const tasks = decomposeTaskString('- implement worker preview\n- add verification coverage\n- update docs', 3, 'executor', false);
+    const tasks = decomposeTaskString('- implement worker preview\n- add verification coverage\n- update metrics', 3, 'executor', false);
     assert.equal(tasks.length, 3);
     assert.match(tasks[0].description, /implement worker preview/i);
     assert.match(tasks[1].description, /verification coverage/i);
-    assert.match(tasks[2].description, /update docs/i);
+    assert.match(tasks[2].description, /update metrics/i);
   });
 
   it('creates aspect sub-tasks for atomic tasks when the worker count is explicit', () => {
@@ -98,12 +98,12 @@ describe('decomposeTaskString', () => {
   });
 
   it('keeps long analytic prose prompts in a single-worker lane by default', () => {
-    const task = 'Analyze OMX team mode reliability/efficiency weaknesses, focusing on orchestration progress detection, heartbeat/task-state coupling, tmux/state-plane brittleness, and verification gaps. Produce concrete findings with root cause, user impact, evidence pointers, and actionable recommendations suitable for a GitHub issue.';
+    const task = 'Analyze OWX team mode reliability/efficiency weaknesses, focusing on orchestration progress detection, heartbeat/task-state coupling, tmux/state-plane brittleness, and verification gaps. Produce concrete findings with root cause, user impact, evidence pointers, and actionable recommendations suitable for a GitHub issue.';
     const plan = buildTeamExecutionPlan(task, 3, 'executor', false);
     assert.equal(plan.workerCount, 1);
     assert.equal(plan.tasks.length, 1);
     assert.equal(plan.tasks[0].owner, 'worker-1');
-    assert.match(plan.tasks[0].description, /Analyze OMX team mode reliability\/efficiency weaknesses/i);
+    assert.match(plan.tasks[0].description, /Analyze OWX team mode reliability\/efficiency weaknesses/i);
   });
 
   it('preserves backward compat: explicit agentType overrides routing', () => {
@@ -133,7 +133,7 @@ describe('decomposeTaskString', () => {
   });
 
   it('keeps medium-sized coupled implementation prompts single-lane by default', () => {
-    const task = 'Implement a staffing preview in omx team so the leader can inspect decomposition, role routing, and fanout reasons before launch.';
+    const task = 'Implement a staffing preview in owx team so the leader can inspect decomposition, role routing, and fanout reasons before launch.';
     const plan = buildTeamExecutionPlan(task, 3, 'executor', false);
     assert.equal(plan.workerCount, 1);
     assert.equal(plan.tasks.length, 1);
@@ -149,7 +149,7 @@ describe('decomposeTaskString', () => {
   });
 
   it('preserves explicit worker-count fanout for analytic prompts', () => {
-    const task = 'Analyze OMX team mode reliability/efficiency weaknesses, focusing on orchestration progress detection, heartbeat/task-state coupling, tmux/state-plane brittleness, and verification gaps. Produce concrete findings with root cause, user impact, evidence pointers, and actionable recommendations suitable for a GitHub issue.';
+    const task = 'Analyze OWX team mode reliability/efficiency weaknesses, focusing on orchestration progress detection, heartbeat/task-state coupling, tmux/state-plane brittleness, and verification gaps. Produce concrete findings with root cause, user impact, evidence pointers, and actionable recommendations suitable for a GitHub issue.';
     const plan = buildTeamExecutionPlan(task, 3, 'executor', false, true);
     assert.equal(plan.workerCount, 3);
     assert.equal(plan.tasks.length, 3);

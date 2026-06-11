@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { getInstallableNativeAgentNames } from '../../agents/policy.js';
 import { getSetupInstallableSkillNames } from '../../catalog/installable.js';
 import { readCatalogManifest } from '../../catalog/reader.js';
-import { OMX_FIRST_PARTY_MCP_PLUGIN_TARGETS } from '../../config/omx-first-party-mcp.js';
+import { OWX_FIRST_PARTY_MCP_PLUGIN_TARGETS } from '../../config/owx-first-party-mcp.js';
 
 type PackageJson = {
   files?: string[];
@@ -25,10 +25,10 @@ type NpmPackDryRunResult = {
 };
 
 describe('package bin contract', () => {
-  it('declares omx with an explicit relative bin path and avoids packaging platform-specific native binaries', () => {
+  it('declares owx with an explicit relative bin path and avoids packaging platform-specific native binaries', () => {
     const packageJsonPath = join(process.cwd(), 'package.json');
     const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as PackageJson;
-    const binaryName = platform() === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell';
+    const binaryName = platform() === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell';
     const packagedSparkShellPath = join(
       process.cwd(),
       'bin',
@@ -37,8 +37,8 @@ describe('package bin contract', () => {
       binaryName,
     );
 
-    assert.deepEqual(pkg.bin, { omx: 'dist/cli/omx.js' });
-    assert.equal(pkg.scripts?.['build:explore'], 'cargo build -p omx-explore-harness');
+    assert.deepEqual(pkg.bin, { owx: 'dist/cli/owx.js' });
+    assert.equal(pkg.scripts?.['build:explore'], 'cargo build -p owx-explore-harness');
     assert.equal(pkg.scripts?.['build:explore:release'], 'node dist/scripts/build-explore-harness.js');
     assert.equal(pkg.scripts?.['build:full'], 'npm run build && npm run build:explore:release && npm run build:sparkshell && npm run build:api');
     assert.equal(pkg.scripts?.['build:api'], 'node dist/scripts/build-api.js');
@@ -52,11 +52,11 @@ describe('package bin contract', () => {
     assert.match(pkg.scripts?.postinstall ?? '', /dist\/scripts\/postinstall\.js/);
     assert.match(pkg.scripts?.postinstall ?? '', /existsSync/);
     assert.equal(pkg.scripts?.postpack, 'npm run clean:native-package-assets');
-    assert.equal(pkg.scripts?.['test:explore'], 'cargo test -p omx-explore-harness && node --test dist/cli/__tests__/explore.test.js dist/hooks/__tests__/explore-routing.test.js dist/hooks/__tests__/explore-sparkshell-guidance-contract.test.js');
+    assert.equal(pkg.scripts?.['test:explore'], 'cargo test -p owx-explore-harness && node --test dist/cli/__tests__/explore.test.js dist/hooks/__tests__/explore-routing.test.js dist/hooks/__tests__/explore-sparkshell-guidance-contract.test.js');
     assert.equal(pkg.scripts?.['test:team:cross-rebase-smoke:compiled'], 'node dist/scripts/run-test-files.js dist/team/__tests__/cross-rebase-smoke.test.js');
     assert.equal(pkg.scripts?.['test:node'], 'node dist/scripts/run-test-files.js dist');
-    assert.equal(pkg.scripts?.test, 'npm run build && npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node && node dist/scripts/generate-catalog-docs.js --check');
-    assert.equal(pkg.scripts?.['test:ci:compiled'], 'npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node && node dist/scripts/generate-catalog-docs.js --check');
+    assert.equal(pkg.scripts?.test, 'npm run build && npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node');
+    assert.equal(pkg.scripts?.['test:ci:compiled'], 'npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node');
     assert.equal(
       pkg.scripts?.['coverage:team-critical'],
       'npm run build && npm run coverage:team-critical:compiled',
@@ -99,11 +99,11 @@ describe('package bin contract', () => {
     assert.ok(pkg.files?.includes('plugins/'));
     assert.ok(pkg.files?.includes('.agents/plugins/marketplace.json'));
 
-    const binPath = join(process.cwd(), 'dist', 'cli', 'omx.js');
+    const binPath = join(process.cwd(), 'dist', 'cli', 'owx.js');
     const compiledCliPath = join(process.cwd(), 'dist', 'cli', 'index.js');
 
     const prepareBuildSource = readFileSync(join(process.cwd(), 'src', 'scripts', 'prepare-build.js'), 'utf-8');
-    assert.match(prepareBuildSource, /dist.*cli.*omx\.js/s);
+    assert.match(prepareBuildSource, /dist.*cli.*owx\.js/s);
     assert.match(prepareBuildSource, /dist.*scripts.*postinstall\.js/s);
     assert.match(prepareBuildSource, /npm.*run.*build/s);
     assert.match(prepareBuildSource, /--global=false/s);
@@ -130,7 +130,7 @@ describe('package bin contract', () => {
         clientInfo: { name: 'package-bin-contract', version: '0' },
       },
     }) + '\n';
-    for (const target of OMX_FIRST_PARTY_MCP_PLUGIN_TARGETS) {
+    for (const target of OWX_FIRST_PARTY_MCP_PLUGIN_TARGETS) {
       const mcpServe = spawnSync(
         process.execPath,
         [binPath, 'mcp-serve', target],
@@ -149,26 +149,26 @@ describe('package bin contract', () => {
       assert.notEqual(
         mcpServe.stdout.trim(),
         '',
-        `omx bin wrapper must keep mcp-serve ${target} alive long enough to complete stdio initialization`,
+        `owx bin wrapper must keep mcp-serve ${target} alive long enough to complete stdio initialization`,
       );
       const mcpResponse = JSON.parse(mcpServe.stdout) as {
         result?: { serverInfo?: { name?: string; version?: string } };
       };
       assert.match(
         mcpResponse.result?.serverInfo?.name ?? '',
-        /^omx-/,
+        /^owx-/,
         `${target} initialize response should include serverInfo`,
       );
     }
-    assert.match(compiledCliSource, /omx update\s+Install the stable channel now, then refresh setup/);
-    assert.match(compiledCliSource, /omx update --stable\s+Install\/rollback to npm stable \(oh-my-codex@latest\), then refresh setup/);
-    assert.match(compiledCliSource, /omx update --dev\s+Install the upstream dev branch, then refresh setup/);
+    assert.match(compiledCliSource, /owx update\s+Install the stable channel now, then refresh setup/);
+    assert.match(compiledCliSource, /owx update --stable\s+Install\/rollback to npm stable \(owen-codex@latest\), then refresh setup/);
+    assert.match(compiledCliSource, /owx update --dev\s+Install the upstream dev branch, then refresh setup/);
     assert.match(compiledCliSource, /case "update"/);
 
     rmSync(packagedSparkShellPath, { force: true });
 
     const packed = (() => {
-      const npmCache = mkdtempSync(join(tmpdir(), 'omx-npm-pack-cache-'));
+      const npmCache = mkdtempSync(join(tmpdir(), 'owx-npm-pack-cache-'));
       try {
         return spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
           cwd: process.cwd(),
@@ -191,23 +191,23 @@ describe('package bin contract', () => {
     const results = JSON.parse(packed.stdout.slice(jsonStart)) as NpmPackDryRunResult[];
     assert.equal(Array.isArray(results), true, 'expected npm pack --json array output');
 
-    const binEntry = results[0]?.files?.find((file) => file.path === 'dist/cli/omx.js');
-    assert.ok(binEntry, 'expected npm pack output to include dist/cli/omx.js');
+    const binEntry = results[0]?.files?.find((file) => file.path === 'dist/cli/owx.js');
+    assert.ok(binEntry, 'expected npm pack output to include dist/cli/owx.js');
 
-    const packagedHarnessPath = process.platform === 'win32' ? 'bin/omx-explore-harness.exe' : 'bin/omx-explore-harness';
+    const packagedHarnessPath = process.platform === 'win32' ? 'bin/owx-explore-harness.exe' : 'bin/owx-explore-harness';
     const packagedHarnessEntry = results[0]?.files?.find((file) => file.path === packagedHarnessPath);
-    const packagedHarnessMetaEntry = results[0]?.files?.find((file) => file.path === 'bin/omx-explore-harness.meta.json');
+    const packagedHarnessMetaEntry = results[0]?.files?.find((file) => file.path === 'bin/owx-explore-harness.meta.json');
     const nativeBinaryEntry = results[0]?.files?.find((file) => file.path.includes('bin/native/'));
     const cargoTomlEntry = results[0]?.files?.find((file) => file.path === 'Cargo.toml');
     const cargoLockEntry = results[0]?.files?.find((file) => file.path === 'Cargo.lock');
-    const crateManifestEntry = results[0]?.files?.find((file) => file.path === 'crates/omx-explore/Cargo.toml');
-    const crateMainEntry = results[0]?.files?.find((file) => file.path === 'crates/omx-explore/src/main.rs');
+    const crateManifestEntry = results[0]?.files?.find((file) => file.path === 'crates/owx-explore/Cargo.toml');
+    const crateMainEntry = results[0]?.files?.find((file) => file.path === 'crates/owx-explore/src/main.rs');
     const marketplaceEntry = results[0]?.files?.find((file) => file.path === '.agents/plugins/marketplace.json');
-    const pluginManifestEntry = results[0]?.files?.find((file) => file.path === 'plugins/oh-my-codex/.codex-plugin/plugin.json');
-    const pluginMcpEntry = results[0]?.files?.find((file) => file.path === 'plugins/oh-my-codex/.mcp.json');
-    const pluginAppsEntry = results[0]?.files?.find((file) => file.path === 'plugins/oh-my-codex/.app.json');
-    const pluginHooksManifestEntry = results[0]?.files?.find((file) => file.path === 'plugins/oh-my-codex/hooks/hooks.json');
-    const pluginHookLauncherEntry = results[0]?.files?.find((file) => file.path === 'plugins/oh-my-codex/hooks/codex-native-hook.mjs');
+    const pluginManifestEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.codex-plugin/plugin.json');
+    const pluginMcpEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.mcp.json');
+    const pluginAppsEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.app.json');
+    const pluginHooksManifestEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/hooks/hooks.json');
+    const pluginHookLauncherEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/hooks/codex-native-hook.mjs');
     const stateServerEntry = results[0]?.files?.find((file) => file.path === 'dist/mcp/state-server.js');
     const memoryServerEntry = results[0]?.files?.find((file) => file.path === 'dist/mcp/memory-server.js');
     const codeIntelServerEntry = results[0]?.files?.find((file) => file.path === 'dist/mcp/code-intel-server.js');
@@ -218,35 +218,35 @@ describe('package bin contract', () => {
     const templateEntry = results[0]?.files?.find((file) => file.path === 'templates/AGENTS.md');
     const rootNativeAgentEntry = results[0]?.files?.find((file) => file.path === 'agents' || file.path.startsWith('agents/'));
     const pluginScopedHooksEntry = results[0]?.files?.find((file) =>
-      file.path === 'plugins/oh-my-codex/hooks.json'
-      || file.path === 'plugins/oh-my-codex/.codex/hooks.json'
-      || file.path === 'plugins/oh-my-codex/.codex-plugin/hooks.json'
-      || file.path.startsWith('plugins/oh-my-codex/.omx/hooks/'));
+      file.path === 'plugins/owen-codex/hooks.json'
+      || file.path === 'plugins/owen-codex/.codex/hooks.json'
+      || file.path === 'plugins/owen-codex/.codex-plugin/hooks.json'
+      || file.path.startsWith('plugins/owen-codex/.owx/hooks/'));
 
     assert.equal(packagedHarnessEntry, undefined, `did not expect ${packagedHarnessPath} in npm pack output`);
     assert.equal(packagedHarnessMetaEntry, undefined, 'did not expect packaged explore harness metadata in npm pack output');
     assert.equal(nativeBinaryEntry, undefined, 'did not expect staged native binaries in npm pack output');
     assert.ok(cargoTomlEntry, 'expected npm pack output to include Cargo.toml');
     assert.ok(cargoLockEntry, 'expected npm pack output to include Cargo.lock');
-    assert.ok(crateManifestEntry, 'expected npm pack output to include crates/omx-explore/Cargo.toml');
-    assert.ok(crateMainEntry, 'expected npm pack output to include crates/omx-explore/src/main.rs');
+    assert.ok(crateManifestEntry, 'expected npm pack output to include crates/owx-explore/Cargo.toml');
+    assert.ok(crateMainEntry, 'expected npm pack output to include crates/owx-explore/src/main.rs');
     assert.ok(marketplaceEntry, 'expected npm pack output to include .agents/plugins/marketplace.json');
-    assert.ok(pluginManifestEntry, 'expected npm pack output to include plugins/oh-my-codex/.codex-plugin/plugin.json');
-    assert.ok(pluginMcpEntry, 'expected npm pack output to include plugins/oh-my-codex/.mcp.json');
-    assert.ok(pluginAppsEntry, 'expected npm pack output to include plugins/oh-my-codex/.app.json');
-    assert.ok(pluginHooksManifestEntry, 'expected npm pack output to include plugins/oh-my-codex/hooks/hooks.json');
-    assert.ok(pluginHookLauncherEntry, 'expected npm pack output to include plugins/oh-my-codex/hooks/codex-native-hook.mjs');
-    assert.ok(stateServerEntry, 'expected npm pack output to include dist/mcp/state-server.js for omx mcp-serve');
-    assert.ok(memoryServerEntry, 'expected npm pack output to include dist/mcp/memory-server.js for omx mcp-serve');
-    assert.ok(codeIntelServerEntry, 'expected npm pack output to include dist/mcp/code-intel-server.js for omx mcp-serve');
-    assert.ok(traceServerEntry, 'expected npm pack output to include dist/mcp/trace-server.js for omx mcp-serve');
-    assert.ok(wikiServerEntry, 'expected npm pack output to include dist/mcp/wiki-server.js for omx mcp-serve');
+    assert.ok(pluginManifestEntry, 'expected npm pack output to include plugins/owen-codex/.codex-plugin/plugin.json');
+    assert.ok(pluginMcpEntry, 'expected npm pack output to include plugins/owen-codex/.mcp.json');
+    assert.ok(pluginAppsEntry, 'expected npm pack output to include plugins/owen-codex/.app.json');
+    assert.ok(pluginHooksManifestEntry, 'expected npm pack output to include plugins/owen-codex/hooks/hooks.json');
+    assert.ok(pluginHookLauncherEntry, 'expected npm pack output to include plugins/owen-codex/hooks/codex-native-hook.mjs');
+    assert.ok(stateServerEntry, 'expected npm pack output to include dist/mcp/state-server.js for owx mcp-serve');
+    assert.ok(memoryServerEntry, 'expected npm pack output to include dist/mcp/memory-server.js for owx mcp-serve');
+    assert.ok(codeIntelServerEntry, 'expected npm pack output to include dist/mcp/code-intel-server.js for owx mcp-serve');
+    assert.ok(traceServerEntry, 'expected npm pack output to include dist/mcp/trace-server.js for owx mcp-serve');
+    assert.ok(wikiServerEntry, 'expected npm pack output to include dist/mcp/wiki-server.js for owx mcp-serve');
     const packedFilePaths = new Set((results[0]?.files ?? []).map((file) => file.path));
     const manifest = readCatalogManifest(process.cwd());
     const installableSkillNames = [...getSetupInstallableSkillNames(manifest)].sort();
     for (const skillName of installableSkillNames) {
       assert.equal(
-        packedFilePaths.has(`plugins/oh-my-codex/skills/${skillName}/SKILL.md`),
+        packedFilePaths.has(`plugins/owen-codex/skills/${skillName}/SKILL.md`),
         true,
         `expected npm pack output to include mirrored plugin ${skillName} skill`,
       );

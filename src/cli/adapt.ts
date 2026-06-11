@@ -14,35 +14,35 @@ import {
 import { getAdaptTargetDescriptor } from "../adapt/registry.js";
 
 const HELP = [
-	"Usage: omx adapt <target> <probe|status|init|envelope|doctor> [--json] [--write]",
+	"Usage: owx adapt <target> <probe|status|init|envelope|doctor> [--json] [--write]",
 	"",
 	"Targets:",
-	"  openclaw  Foundation seam for OMX-owned OpenClaw adapter artifacts and reporting",
-	"  hermes    Foundation seam for OMX-owned Hermes adapter artifacts and reporting",
+	"  openclaw  Foundation seam for OWX-owned OpenClaw adapter artifacts and reporting",
+	"  hermes    Foundation seam for OWX-owned Hermes adapter artifacts and reporting",
 	"",
 	"Subcommands:",
 	"  probe     Report shared foundation probe metadata (target-specific runtime probing is deferred)",
-	"  status    Report OMX-owned adapter initialization status plus deferred target-runtime status",
-	"  init      Preview or write OMX-owned adapter artifacts under .omx/adapters/<target>/...",
-	"  envelope  Print the normalized OMX-owned adapter envelope for the target",
+	"  status    Report OWX-owned adapter initialization status plus deferred target-runtime status",
+	"  init      Preview or write OWX-owned adapter artifacts under .owx/adapters/<target>/...",
+	"  envelope  Print the normalized OWX-owned adapter envelope for the target",
 	"  doctor    Explain blocked foundation steps and follow-on integration gaps",
 	"",
 	"Options:",
 	"  --json    Emit compact machine-readable JSON",
-	"  --write   Only valid with init; write adapter artifacts under .omx/adapters/<target>/...",
+	"  --write   Only valid with init; write adapter artifacts under .owx/adapters/<target>/...",
 	"",
 	"Examples:",
-	"  omx adapt openclaw probe",
-	"  omx adapt hermes status --json",
-	"  omx adapt openclaw init --write",
-	"  omx adapt hermes envelope --json",
+	"  owx adapt openclaw probe",
+	"  owx adapt hermes status --json",
+	"  owx adapt openclaw init --write",
+	"  owx adapt hermes envelope --json",
 ].join("\n");
 
 function targetHelp(target: AdaptTarget): string {
 	const descriptor = getAdaptTargetDescriptor(target);
 	if (!descriptor) return HELP;
 	return [
-		`Usage: omx adapt ${target} <${ADAPT_SUBCOMMANDS.join("|")}> [--json] [--write]`,
+		`Usage: owx adapt ${target} <${ADAPT_SUBCOMMANDS.join("|")}> [--json] [--write]`,
 		"",
 		descriptor.summary,
 		"",
@@ -55,7 +55,7 @@ function targetHelp(target: AdaptTarget): string {
 		target === "openclaw"
 			? "  Status remains local-only and does not claim downstream OpenClaw runtime acknowledgement."
 			: target === "hermes"
-				? "  OMX remains authoritative for OMX state; Hermes internals are observed, not controlled."
+				? "  OWX remains authoritative for OWX state; Hermes internals are observed, not controlled."
 				: "  Target-specific runtime probing and integration logic are intentionally deferred.",
 		`  ${descriptor.followupHint}`,
 		"",
@@ -159,7 +159,7 @@ export async function adaptCommand(
 	}
 
 	if (write && subcommand !== "init") {
-		throw new Error("--write is only supported with omx adapt <target> init");
+		throw new Error("--write is only supported with owx adapt <target> init");
 	}
 
 	switch (subcommand as AdaptSubcommand) {

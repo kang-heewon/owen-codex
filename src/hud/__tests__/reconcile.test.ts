@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { OMX_TMUX_HUD_OWNER_ENV, reconcileHudForPromptSubmit } from '../reconcile.js';
+import { OWX_TMUX_HUD_OWNER_ENV, reconcileHudForPromptSubmit } from '../reconcile.js';
 import { HUD_TMUX_HEIGHT_LINES, HUD_TMUX_ULTRAGOAL_HEIGHT_LINES, HUD_TMUX_MIN_LAUNCH_WINDOW_HEIGHT_LINES } from '../constants.js';
-import { OMX_TMUX_HUD_LEADER_PANE_ENV } from '../tmux.js';
+import { OWX_TMUX_HUD_LEADER_PANE_ENV } from '../tmux.js';
 
 const noOpRegisterHudResizeHook = () => true;
 const noOpUnregisterHudResizeHook = () => true;
@@ -16,12 +16,12 @@ describe('reconcileHudForPromptSubmit', () => {
     assert.equal(result.paneId, null);
   });
 
-  it('skips reconciliation in non-OMX-owned tmux even when an entry exists', async () => {
+  it('skips reconciliation in non-OWX-owned tmux even when an entry exists', async () => {
     let listed = false;
     let created = false;
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%claude', OMX_SESSION_ID: 'untrusted' },
+      env: { TMUX: '1', TMUX_PANE: '%claude', OWX_SESSION_ID: 'untrusted' },
       listCurrentWindowPanes: () => {
         listed = true;
         return [
@@ -32,21 +32,21 @@ describe('reconcileHudForPromptSubmit', () => {
         created = true;
         return '%hud';
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
-    assert.equal(result.status, 'skipped_not_omx_owned_tmux');
+    assert.equal(result.status, 'skipped_not_owx_owned_tmux');
     assert.equal(result.paneId, null);
     assert.equal(listed, false);
     assert.equal(created, false);
   });
 
-  it('skips recreating a missing HUD in explicit OMX-owned tmux without a session id', async () => {
+  it('skips recreating a missing HUD in explicit OWX-owned tmux without a session id', async () => {
     const created: Array<{ cwd: string; cmd: string; options?: { heightLines?: number; targetPaneId?: string } }> = [];
     const resized: Array<{ paneId: string; heightLines: number }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -60,7 +60,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'skipped_no_session_id');
@@ -69,12 +69,12 @@ describe('reconcileHudForPromptSubmit', () => {
     assert.equal(resized.length, 0);
   });
 
-  it('recreates a missing HUD in explicit OMX-owned tmux with a session id', async () => {
+  it('recreates a missing HUD in explicit OWX-owned tmux with a session id', async () => {
     const created: Array<{ cwd: string; cmd: string; options?: { heightLines?: number; targetPaneId?: string } }> = [];
     const resized: Array<{ paneId: string; heightLines: number }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -86,15 +86,15 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
     assert.equal(result.paneId, '%9');
     assert.equal(created.length, 1);
-    assert.match(created[0]?.cmd || '', /exec .*\/repo\/dist\/cli\/omx\.js' hud --watch/);
-    assert.match(created[0]?.cmd || '', /OMX_SESSION_ID='sess-a'/);
-    assert.match(created[0]?.cmd || '', /OMX_TMUX_HUD_OWNER='1'/);
+    assert.match(created[0]?.cmd || '', /exec .*\/repo\/dist\/cli\/owx\.js' hud --watch/);
+    assert.match(created[0]?.cmd || '', /OWX_SESSION_ID='sess-a'/);
+    assert.match(created[0]?.cmd || '', /OWX_TMUX_HUD_OWNER='1'/);
     assert.equal(created[0]?.options?.heightLines, HUD_TMUX_HEIGHT_LINES);
     assert.equal(resized.length, 1);
     assert.equal(resized[0]?.heightLines, HUD_TMUX_HEIGHT_LINES);
@@ -112,11 +112,11 @@ describe('reconcileHudForPromptSubmit', () => {
     const orphan = (paneId: string) => ({
       paneId,
       currentCommand: 'node',
-      startCommand: `exec env OMX_SESSION_ID='sess-a' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%21' node omx hud --watch --preset=focused`,
+      startCommand: `exec env OWX_SESSION_ID='sess-a' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%21' node owx hud --watch --preset=focused`,
     });
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%33', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%33', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         // %33 is the current (live) leader pane; %21 is gone from the window.
         { paneId: '%33', currentCommand: 'codex', startCommand: 'codex' },
@@ -133,7 +133,7 @@ describe('reconcileHudForPromptSubmit', () => {
         created.push({ cmd, options });
         return '%50';
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     // All three dead-leader orphans are reaped, then exactly one fresh HUD is created.
@@ -142,25 +142,25 @@ describe('reconcileHudForPromptSubmit', () => {
     assert.equal(result.paneId, '%50');
     assert.equal(created.length, 1);
     assert.equal(created[0]?.options?.targetPaneId, '%33');
-    assert.match(created[0]?.cmd || '', new RegExp(`${OMX_TMUX_HUD_LEADER_PANE_ENV}='%33'`));
+    assert.match(created[0]?.cmd || '', new RegExp(`${OWX_TMUX_HUD_LEADER_PANE_ENV}='%33'`));
   });
 
   it('reaps orphaned HUD panes tagged with an equivalent native session id', async () => {
-    // #2684 lets HUD dedupe treat the OMX owner id and Codex native session id as
+    // #2684 lets HUD dedupe treat the OWX owner id and Codex native session id as
     // equivalent. Orphan reaping must use the same identity set so a canonical
     // owner reconcile still reclaims dead-leader HUDs tagged with the native id.
     const killed: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'codex-native-uuid', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
-      sessionId: 'omx-owner-abc',
-      sessionIds: ['omx-owner-abc', 'codex-native-uuid'],
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'codex-native-uuid', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
+      sessionId: 'owx-owner-abc',
+      sessionIds: ['owx-owner-abc', 'codex-native-uuid'],
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='codex-native-uuid' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%21' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='codex-native-uuid' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%21' node owx hud --watch`,
         },
       ],
       killTmuxPane: (paneId) => {
@@ -169,7 +169,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       resizeTmuxPane: () => true,
       createHudWatchPane: () => '%9',
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.deepEqual(killed, ['%2']);
@@ -183,13 +183,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const killed: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%4',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-b' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%5' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-b' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%5' node owx hud --watch`,
         },
       ],
       killTmuxPane: (paneId) => {
@@ -198,7 +198,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       resizeTmuxPane: () => true,
       createHudWatchPane: () => '%9',
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     // sess-b orphan is left untouched; this session simply creates its own HUD.
@@ -215,20 +215,20 @@ describe('reconcileHudForPromptSubmit', () => {
     const killed: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           // orphan whose recorded leader (%3) is itself another HUD pane
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `exec env OMX_SESSION_ID='sess-a' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%3' node omx hud --watch --preset=focused`,
+          startCommand: `exec env OWX_SESSION_ID='sess-a' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%3' node owx hud --watch --preset=focused`,
         },
         {
           // the referenced HUD %3, itself orphaned (its leader %21 is gone)
           paneId: '%3',
           currentCommand: 'node',
-          startCommand: `exec env OMX_SESSION_ID='sess-a' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%21' node omx hud --watch --preset=focused`,
+          startCommand: `exec env OWX_SESSION_ID='sess-a' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%21' node owx hud --watch --preset=focused`,
         },
       ],
       killTmuxPane: (paneId) => {
@@ -237,7 +237,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       resizeTmuxPane: () => true,
       createHudWatchPane: () => '%9',
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     // Both HUD-led and dead-leader orphans are reaped; a single fresh HUD is created.
@@ -250,7 +250,7 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ cmd: string }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-stale', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-stale', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       sessionId: 'sess-canonical',
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
@@ -262,28 +262,28 @@ describe('reconcileHudForPromptSubmit', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
     assert.equal(created.length, 1);
     assert.match(
       created[0]?.cmd || '',
-      /^exec env OMX_SESSION_ID='sess-canonical' OMX_TMUX_HUD_OWNER='1' OMX_TMUX_HUD_LEADER_PANE='%1' '.*' '.*omx\.js' hud --watch/,
+      /^exec env OWX_SESSION_ID='sess-canonical' OWX_TMUX_HUD_OWNER='1' OWX_TMUX_HUD_LEADER_PANE='%1' '.*' '.*owx\.js' hud --watch/,
     );
     assert.doesNotMatch(created[0]?.cmd || '', /sess-stale/);
   });
 
-  it('forwards OMX_ROOT when recreating HUD with shell-safe quoting', async () => {
+  it('forwards OWX_ROOT when recreating HUD with shell-safe quoting', async () => {
     const created: Array<{ cmd: string }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
       env: {
         TMUX: '1',
         TMUX_PANE: '%1',
-        OMX_SESSION_ID: 'sess boxed',
-        OMX_ROOT: "/tmp/boxed root/it's/$(literal)",
-        [OMX_TMUX_HUD_OWNER_ENV]: '1',
+        OWX_SESSION_ID: 'sess boxed',
+        OWX_ROOT: "/tmp/boxed root/it's/$(literal)",
+        [OWX_TMUX_HUD_OWNER_ENV]: '1',
       },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
@@ -295,33 +295,33 @@ describe('reconcileHudForPromptSubmit', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
     assert.equal(created.length, 1);
     assert.match(
       created[0]?.cmd || '',
-      /^exec env OMX_SESSION_ID='sess boxed' OMX_TMUX_HUD_OWNER='1' OMX_TMUX_HUD_LEADER_PANE='%1' OMX_ROOT='\/tmp\/boxed root\/it'\\''s\/\$\(literal\)' '.*' '.*omx\.js' hud --watch/,
+      /^exec env OWX_SESSION_ID='sess boxed' OWX_TMUX_HUD_OWNER='1' OWX_TMUX_HUD_LEADER_PANE='%1' OWX_ROOT='\/tmp\/boxed root\/it'\\''s\/\$\(literal\)' '.*' '.*owx\.js' hud --watch/,
     );
   });
 
-  it('forwards OMX_STATE_ROOT when recreating HUD with shell-safe quoting', async () => {
+  it('forwards OWX_STATE_ROOT when recreating HUD with shell-safe quoting', async () => {
     const created: string[] = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
       env: {
         TMUX: '1',
         TMUX_PANE: '%1',
-        OMX_SESSION_ID: 'sess-a',
-        OMX_STATE_ROOT: '/boxed state/root',
-        [OMX_TMUX_HUD_OWNER_ENV]: '1',
+        OWX_SESSION_ID: 'sess-a',
+        OWX_STATE_ROOT: '/boxed state/root',
+        [OWX_TMUX_HUD_OWNER_ENV]: '1',
       },
       listCurrentWindowPanes: () => [{ paneId: '%1', currentCommand: 'codex', startCommand: 'codex' }],
       createHudWatchPane: (_cwd, hudCmd) => {
         created.push(hudCmd);
         return '%9';
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       resizeTmuxPane: () => true,
       readHudConfig: async () => ({ preset: 'focused', git: { display: 'branch' }, statusLine: { preset: 'focused' } }),
       readAllState: async () => ({
@@ -343,28 +343,28 @@ describe('reconcileHudForPromptSubmit', () => {
     });
 
     assert.equal(result.status, 'recreated');
-    assert.match(created[0] ?? '', /OMX_STATE_ROOT='\/boxed state\/root'/);
-    assert.doesNotMatch(created[0] ?? '', /OMX_ROOT=/);
+    assert.match(created[0] ?? '', /OWX_STATE_ROOT='\/boxed state\/root'/);
+    assert.doesNotMatch(created[0] ?? '', /OWX_ROOT=/);
   });
 
-  it('forwards OMX_TEAM_STATE_ROOT before boxed roots when recreating HUD', async () => {
+  it('forwards OWX_TEAM_STATE_ROOT before boxed roots when recreating HUD', async () => {
     const created: string[] = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
       env: {
         TMUX: '1',
         TMUX_PANE: '%1',
-        OMX_SESSION_ID: 'sess-a',
-        OMX_ROOT: '/boxed-root',
-        OMX_STATE_ROOT: '/boxed-state-root',
-        OMX_TEAM_STATE_ROOT: '/team-state-root',
-        [OMX_TMUX_HUD_OWNER_ENV]: '1',
+        OWX_SESSION_ID: 'sess-a',
+        OWX_ROOT: '/boxed-root',
+        OWX_STATE_ROOT: '/boxed-state-root',
+        OWX_TEAM_STATE_ROOT: '/team-state-root',
+        [OWX_TMUX_HUD_OWNER_ENV]: '1',
       },
       listCurrentWindowPanes: () => [{ paneId: '%1', currentCommand: 'codex', startCommand: 'codex' }],
       createHudWatchPane: (_cwd, hudCmd) => {
         created.push(hudCmd);
         return '%9';
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       resizeTmuxPane: () => true,
       readHudConfig: async () => ({ preset: 'focused', git: { display: 'branch' }, statusLine: { preset: 'focused' } }),
       readAllState: async () => ({
@@ -386,9 +386,9 @@ describe('reconcileHudForPromptSubmit', () => {
     });
 
     assert.equal(result.status, 'recreated');
-    assert.match(created[0] ?? '', /OMX_TEAM_STATE_ROOT='\/team-state-root'/);
-    assert.doesNotMatch(created[0] ?? '', /OMX_ROOT=/);
-    assert.doesNotMatch(created[0] ?? '', /OMX_STATE_ROOT=/);
+    assert.match(created[0] ?? '', /OWX_TEAM_STATE_ROOT='\/team-state-root'/);
+    assert.doesNotMatch(created[0] ?? '', /OWX_ROOT=/);
+    assert.doesNotMatch(created[0] ?? '', /OWX_STATE_ROOT=/);
   });
 
   it('targets the emitting pane window when listing and creating HUD panes', async () => {
@@ -396,7 +396,7 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ options?: { heightLines?: number; targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%leader', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%leader', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: (currentPaneId) => {
         listArgs.push(currentPaneId);
         return [
@@ -410,7 +410,7 @@ describe('reconcileHudForPromptSubmit', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -422,7 +422,7 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ options?: { heightLines?: number; targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%right', OMX_SESSION_ID: 'sess-right', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%right', OWX_SESSION_ID: 'sess-right', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%left', currentCommand: 'codex', startCommand: 'codex' },
         { paneId: '%right', currentCommand: 'codex', startCommand: 'codex' },
@@ -432,7 +432,7 @@ describe('reconcileHudForPromptSubmit', () => {
         return '%hud-right';
       },
       resizeTmuxPane: () => true,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -454,11 +454,11 @@ describe('reconcileHudForPromptSubmit', () => {
     const hudPane = (paneId: string, sessionId: string, leaderPaneId: string) => ({
       paneId,
       currentCommand: 'node',
-      startCommand: `exec env OMX_SESSION_ID='${sessionId}' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='${leaderPaneId}' node omx hud --watch --preset=focused`,
+      startCommand: `exec env OWX_SESSION_ID='${sessionId}' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='${leaderPaneId}' node owx hud --watch --preset=focused`,
     });
 
     const leftCreateResult = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%left', OMX_SESSION_ID: 'sess-left', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%left', OWX_SESSION_ID: 'sess-left', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         codexPane('%left'),
         codexPane('%right'),
@@ -476,11 +476,11 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ side: 'left', paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     const leftRepeatResult = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%left', OMX_SESSION_ID: 'sess-left', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%left', OWX_SESSION_ID: 'sess-left', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         codexPane('%left'),
         codexPane('%right'),
@@ -499,11 +499,11 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ side: 'left', paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     const rightCreateResult = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%right', OMX_SESSION_ID: 'sess-right', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%right', OWX_SESSION_ID: 'sess-right', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         codexPane('%left'),
         codexPane('%right'),
@@ -521,11 +521,11 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ side: 'right', paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     const rightRepeatResult = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%right', OMX_SESSION_ID: 'sess-right', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%right', OWX_SESSION_ID: 'sess-right', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         codexPane('%left'),
         codexPane('%right'),
@@ -544,7 +544,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ side: 'right', paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(leftCreateResult.status, 'recreated');
@@ -575,7 +575,7 @@ describe('reconcileHudForPromptSubmit', () => {
     let listCount = 0;
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-race', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-race', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => {
         listCount += 1;
         if (listCount === 1) {
@@ -588,12 +588,12 @@ describe('reconcileHudForPromptSubmit', () => {
           {
             paneId: '%8',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch`,
           },
           {
             paneId: '%9',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch --preset=focused`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch --preset=focused`,
           },
         ];
       },
@@ -606,7 +606,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -622,7 +622,7 @@ describe('reconcileHudForPromptSubmit', () => {
     let listCount = 0;
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-race', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-race', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => {
         listCount += 1;
         if (listCount === 1) return [{ paneId: '%1', currentCommand: 'codex', startCommand: 'codex' }];
@@ -631,14 +631,14 @@ describe('reconcileHudForPromptSubmit', () => {
           {
             paneId: '%8',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch`,
           },
         ];
       },
       createHudWatchPane: () => '%9',
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -654,7 +654,7 @@ describe('reconcileHudForPromptSubmit', () => {
     let listCount = 0;
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-race', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-race', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => {
         listCount += 1;
         if (listCount === 1) return [{ paneId: '%1', currentCommand: 'codex', startCommand: 'codex' }];
@@ -663,12 +663,12 @@ describe('reconcileHudForPromptSubmit', () => {
           {
             paneId: '%8',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch`,
           },
           {
             paneId: '%9',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch`,
           },
         ];
       },
@@ -676,7 +676,7 @@ describe('reconcileHudForPromptSubmit', () => {
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: () => false,
       registerHudResizeHook: (paneId) => { registered.push(paneId); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'failed');
@@ -692,18 +692,18 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ cmd: string }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%3',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         { paneId: '%4', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -721,7 +721,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -737,27 +737,27 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ cmd: string }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'codex-native-uuid', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
-      sessionId: 'omx-owner-abc',
-      sessionIds: ['omx-owner-abc', 'codex-native-uuid'],
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'codex-native-uuid', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
+      sessionId: 'owx-owner-abc',
+      sessionIds: ['owx-owner-abc', 'codex-native-uuid'],
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='omx-owner-abc' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='owx-owner-abc' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%3',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='codex-native-uuid' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='codex-native-uuid' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           // Same equivalent session, but its recorded leader is itself a HUD pane;
           // the orphan reaper should remove it before normal same-leader dedupe.
           paneId: '%4',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='codex-native-uuid' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%4' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='codex-native-uuid' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%4' node owx hud --watch`,
         },
       ],
       killTmuxPane: (paneId) => {
@@ -772,7 +772,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -789,18 +789,18 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
-        { paneId: '%2', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --watch --preset=focused' },
-        { paneId: '%3', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --watch --preset=focused' },
-        { paneId: '%4', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --watch --preset=minimal' },
-        { paneId: '%5', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --tmux --preset=focused' },
+        { paneId: '%2', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --watch --preset=focused' },
+        { paneId: '%3', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --watch --preset=focused' },
+        { paneId: '%4', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --watch --preset=minimal' },
+        { paneId: '%5', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --tmux --preset=focused' },
       ],
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       createHudWatchPane: () => { created.push('create'); return '%9'; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -816,19 +816,19 @@ describe('reconcileHudForPromptSubmit', () => {
     const resized: Array<{ paneId: string; heightLines: number }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch --preset=focused`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch --preset=focused`,
         },
-        { paneId: '%3', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --watch --preset=focused' },
+        { paneId: '%3', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --watch --preset=focused' },
       ],
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -844,24 +844,24 @@ describe('reconcileHudForPromptSubmit', () => {
     let listCount = 0;
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-race', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-race', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => {
         listCount += 1;
         if (listCount === 1) return [{ paneId: '%1', currentCommand: 'codex', startCommand: 'codex' }];
         return [
           { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
-          { paneId: '%8', currentCommand: 'node', startCommand: 'node /tmp/bin/omx.js hud --watch --preset=focused' },
+          { paneId: '%8', currentCommand: 'node', startCommand: 'node /tmp/bin/owx.js hud --watch --preset=focused' },
           {
             paneId: '%9',
             currentCommand: 'node',
-            startCommand: `exec env OMX_SESSION_ID='sess-race' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch --preset=focused`,
+            startCommand: `exec env OWX_SESSION_ID='sess-race' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch --preset=focused`,
           },
         ];
       },
       createHudWatchPane: () => '%9',
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -876,24 +876,24 @@ describe('reconcileHudForPromptSubmit', () => {
     const registered: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%8',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%9',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
       ],
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: () => false,
       registerHudResizeHook: (paneId) => { registered.push(paneId); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'failed');
@@ -909,13 +909,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ cmd: string; options?: { targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%3', OMX_SESSION_ID: 'sess-b', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%3', OWX_SESSION_ID: 'sess-b', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         { paneId: '%3', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -933,7 +933,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -941,36 +941,36 @@ describe('reconcileHudForPromptSubmit', () => {
     assert.deepEqual(killed, []);
     assert.deepEqual(resized, ['%4']);
     assert.equal(created[0]?.options?.targetPaneId, '%3');
-    assert.match(created[0]?.cmd || '', /OMX_SESSION_ID='sess-b'/);
-    assert.match(created[0]?.cmd || '', new RegExp(`${OMX_TMUX_HUD_LEADER_PANE_ENV}='%3'`));
+    assert.match(created[0]?.cmd || '', /OWX_SESSION_ID='sess-b'/);
+    assert.match(created[0]?.cmd || '', new RegExp(`${OWX_TMUX_HUD_LEADER_PANE_ENV}='%3'`));
   });
 
   it('still cleans stale duplicate HUD panes for the same session and leader owner', async () => {
     const killed: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%3',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%4',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-b' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-b' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
         {
           paneId: '%5',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-b' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%5' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-b' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%5' node owx hud --watch`,
         },
       ],
       killTmuxPane: (paneId) => {
@@ -981,7 +981,7 @@ describe('reconcileHudForPromptSubmit', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -995,11 +995,11 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'zsh', startCommand: 'zsh' },
-        { paneId: '%2', currentCommand: 'node', startCommand: `exec env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch` },
-        { paneId: '%3', currentCommand: 'node', startCommand: `exec env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch` },
+        { paneId: '%2', currentCommand: 'node', startCommand: `exec env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch` },
+        { paneId: '%3', currentCommand: 'node', startCommand: `exec env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch` },
       ],
       readHudConfig: async () => ({ preset: 'focused', git: { display: 'branch' }, statusLine: { preset: 'focused' } }),
       readAllState: async () => ({
@@ -1032,7 +1032,7 @@ describe('reconcileHudForPromptSubmit', () => {
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
       createHudWatchPane: () => { created.push('create'); return '%9'; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -1046,13 +1046,13 @@ describe('reconcileHudForPromptSubmit', () => {
   it('resizes an existing single HUD pane instead of recreating it', async () => {
     const resized: Array<{ paneId: string; heightLines: number }> = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
       ],
       resizeTmuxPane: (paneId, heightLines) => {
@@ -1060,7 +1060,7 @@ describe('reconcileHudForPromptSubmit', () => {
         return true;
       },
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'resized');
@@ -1072,13 +1072,13 @@ describe('reconcileHudForPromptSubmit', () => {
   it('resizes an existing HUD pane to active ultragoal height when ultragoal is active', async () => {
     const resized: Array<{ paneId: string; heightLines: number }> = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
       ],
       readHudConfig: async () => ({ preset: 'focused', git: { display: 'branch' }, statusLine: { preset: 'focused' } }),
@@ -1113,7 +1113,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'resized');
@@ -1125,13 +1125,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-canonical', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-canonical', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `exec env OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /omx.js hud --watch`,
+          startCommand: `exec env OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' /node /owx.js hud --watch`,
         },
       ],
       createHudWatchPane: () => {
@@ -1142,7 +1142,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -1158,16 +1158,16 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
-        { paneId: '%2', currentCommand: 'node', startCommand: `env OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch` },
-        { paneId: '%3', currentCommand: 'node', startCommand: `env OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch` },
+        { paneId: '%2', currentCommand: 'node', startCommand: `env OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch` },
+        { paneId: '%3', currentCommand: 'node', startCommand: `env OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch` },
       ],
       killTmuxPane: (paneId) => { killed.push(paneId); return true; },
       resizeTmuxPane: (paneId, heightLines) => { resized.push({ paneId, heightLines }); return true; },
       createHudWatchPane: () => { created.push('create'); return '%9'; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -1183,13 +1183,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: string[] = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
       ],
       createHudWatchPane: () => {
@@ -1200,7 +1200,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'resized');
@@ -1215,13 +1215,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const resized: Array<{ paneId: string; heightLines: number }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex', paneLeft: 0, paneTop: 0, paneWidth: 160, paneHeight: 50 - HUD_TMUX_HEIGHT_LINES, paneBottom: 49 - HUD_TMUX_HEIGHT_LINES, windowWidth: 160, windowHeight: 50 },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 0,
           paneTop: 50 - HUD_TMUX_HEIGHT_LINES,
           paneWidth: 160,
@@ -1244,7 +1244,7 @@ describe('reconcileHudForPromptSubmit', () => {
         return true;
       },
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'unchanged');
@@ -1261,13 +1261,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const unregistered: Array<string | undefined> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex', paneLeft: 0, paneTop: 0, paneWidth: 80, paneHeight: 50, paneBottom: 49, windowWidth: 160, windowHeight: 50 },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 80,
           paneTop: 0,
           paneWidth: 80,
@@ -1298,7 +1298,7 @@ describe('reconcileHudForPromptSubmit', () => {
         registered.push({ hudPaneId, currentPaneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -1319,13 +1319,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ options?: { heightLines?: number; fullWidth?: boolean; targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex', paneLeft: 0, paneTop: 3, paneWidth: 160, paneHeight: 47, paneBottom: 49, windowWidth: 160, windowHeight: 50 },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 0,
           paneTop: 0,
           paneWidth: 160,
@@ -1347,7 +1347,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       resizeTmuxPane: () => true,
       registerHudResizeHook: () => true,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'recreated');
@@ -1362,13 +1362,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ options?: { heightLines?: number; fullWidth?: boolean; targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex', paneLeft: 0, paneTop: 0, paneWidth: 160, paneHeight: 47, paneBottom: 46, windowWidth: 160, windowHeight: 50 },
         {
           paneId: '%bad',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 80,
           paneTop: 0,
           paneWidth: 80,
@@ -1380,7 +1380,7 @@ describe('reconcileHudForPromptSubmit', () => {
         {
           paneId: '%good',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 0,
           paneTop: 47,
           paneWidth: 160,
@@ -1402,7 +1402,7 @@ describe('reconcileHudForPromptSubmit', () => {
         resized.push({ paneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -1418,13 +1418,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const created: Array<{ options?: { heightLines?: number; fullWidth?: boolean; targetPaneId?: string } }> = [];
 
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex', paneLeft: 0, paneTop: 0, paneWidth: 80, paneHeight: 50, paneBottom: 49, windowWidth: 160, windowHeight: 50 },
         {
           paneId: '%bad-a',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 80,
           paneTop: 0,
           paneWidth: 80,
@@ -1436,7 +1436,7 @@ describe('reconcileHudForPromptSubmit', () => {
         {
           paneId: '%bad-b',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
           paneLeft: 0,
           paneTop: 0,
           paneWidth: 160,
@@ -1460,7 +1460,7 @@ describe('reconcileHudForPromptSubmit', () => {
       },
       resizeTmuxPane: () => true,
       registerHudResizeHook: () => true,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(result.status, 'replaced_duplicates');
@@ -1476,13 +1476,13 @@ describe('reconcileHudForPromptSubmit', () => {
     const registered: Array<{ hudPaneId: string; leaderPaneId: string | undefined; heightLines: number }> = [];
 
     await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch`,
+          startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch`,
         },
       ],
       resizeTmuxPane: () => true,
@@ -1490,7 +1490,7 @@ describe('reconcileHudForPromptSubmit', () => {
         registered.push({ hudPaneId, leaderPaneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(registered.length, 1);
@@ -1503,7 +1503,7 @@ describe('reconcileHudForPromptSubmit', () => {
     const registered: Array<{ hudPaneId: string; leaderPaneId: string | undefined; heightLines: number }> = [];
 
     await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -1514,7 +1514,7 @@ describe('reconcileHudForPromptSubmit', () => {
         registered.push({ hudPaneId, leaderPaneId, heightLines });
         return true;
       },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.equal(registered.length, 1);
@@ -1528,18 +1528,18 @@ describe('reconcileHudForPromptSubmit', () => {
     const registered: Array<{ hudPaneId: string; leaderPaneId: string | undefined }> = [];
 
     await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
-        { paneId: '%2', currentCommand: 'node', startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch` },
-        { paneId: '%3', currentCommand: 'node', startCommand: `env OMX_SESSION_ID='sess-a' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch` },
+        { paneId: '%2', currentCommand: 'node', startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch` },
+        { paneId: '%3', currentCommand: 'node', startCommand: `env OWX_SESSION_ID='sess-a' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch` },
       ],
       killTmuxPane: () => true,
       createHudWatchPane: () => '%9',
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: (leaderPaneId) => { unregistered.push(leaderPaneId); return true; },
       registerHudResizeHook: (hudPaneId, leaderPaneId) => { registered.push({ hudPaneId, leaderPaneId }); return true; },
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
     });
 
     assert.deepEqual(unregistered, []);
@@ -1556,7 +1556,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
   it('does not create a HUD split on prompt submit when the existing window is too cramped', async () => {
     const created: string[] = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -1567,7 +1567,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       readCurrentWindowSize: () => ({ width: 160, height: crampedHeight }),
     });
 
@@ -1579,7 +1579,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
   it('creates the HUD on prompt submit when the existing window has room', async () => {
     const created: string[] = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -1590,7 +1590,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       readCurrentWindowSize: () => ({ width: 160, height: roomyHeight }),
     });
 
@@ -1602,7 +1602,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
   it('creates the HUD on prompt submit when the window height is unknown', async () => {
     const created: string[] = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
       ],
@@ -1613,7 +1613,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
       resizeTmuxPane: () => true,
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       readCurrentWindowSize: () => ({ width: null, height: null }),
     });
 
@@ -1625,13 +1625,13 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
     const created: string[] = [];
     const resized: Array<{ paneId: string; lines: number }> = [];
     const result = await reconcileHudForPromptSubmit('/repo', {
-      env: { TMUX: '1', TMUX_PANE: '%1', OMX_SESSION_ID: 'sess-a', [OMX_TMUX_HUD_OWNER_ENV]: '1' },
+      env: { TMUX: '1', TMUX_PANE: '%1', OWX_SESSION_ID: 'sess-a', [OWX_TMUX_HUD_OWNER_ENV]: '1' },
       listCurrentWindowPanes: () => [
         { paneId: '%1', currentCommand: 'codex', startCommand: 'codex' },
         {
           paneId: '%2',
           currentCommand: 'node',
-          startCommand: `exec env OMX_SESSION_ID='sess-a' OMX_TMUX_HUD_OWNER='1' ${OMX_TMUX_HUD_LEADER_PANE_ENV}='%1' node omx hud --watch --preset=focused`,
+          startCommand: `exec env OWX_SESSION_ID='sess-a' OWX_TMUX_HUD_OWNER='1' ${OWX_TMUX_HUD_LEADER_PANE_ENV}='%1' node owx hud --watch --preset=focused`,
         },
       ],
       createHudWatchPane: (_cwd, cmd) => {
@@ -1644,7 +1644,7 @@ describe('reconcileHudForPromptSubmit cramped-window guard (#2754)', () => {
       },
       unregisterHudResizeHook: noOpUnregisterHudResizeHook,
       registerHudResizeHook: noOpRegisterHudResizeHook,
-      resolveOmxCliEntryPath: () => '/repo/dist/cli/omx.js',
+      resolveOmxCliEntryPath: () => '/repo/dist/cli/owx.js',
       readCurrentWindowSize: () => ({ width: 160, height: crampedHeight }),
     });
 

@@ -13,8 +13,8 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const r = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const r = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env, ...envOverrides },
@@ -31,9 +31,9 @@ function shouldSkipForSpawnPermissions(err: string): boolean {
   return typeof err === 'string' && /(EPERM|EACCES)/i.test(err);
 }
 
-describe('omx setup (gh star hint)', () => {
+describe('owx setup (gh star hint)', () => {
   it('prints a star hint when GitHub CLI is configured', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-setup-gh-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-setup-gh-'));
     try {
       const fakeBin = join(wd, 'bin');
       await mkdir(fakeBin, { recursive: true });
@@ -53,14 +53,14 @@ describe('omx setup (gh star hint)', () => {
       });
       if (shouldSkipForSpawnPermissions(res.error)) return;
       assert.equal(res.status, 0, res.stderr || res.stdout);
-      assert.match(res.stdout, /gh repo star Yeachan-Heo\/oh-my-codex/);
+      assert.match(res.stdout, /gh repo star kang-heewon\/owen-codex/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
   it('does not print a star hint when GitHub CLI is missing', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-setup-gh-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-setup-gh-'));
     try {
       const home = join(wd, 'home');
       await mkdir(home, { recursive: true });
@@ -68,7 +68,7 @@ describe('omx setup (gh star hint)', () => {
       const res = runOmx(wd, ['setup', '--dry-run'], { PATH: '', HOME: home });
       if (shouldSkipForSpawnPermissions(res.error)) return;
       assert.equal(res.status, 0, res.stderr || res.stdout);
-      assert.doesNotMatch(res.stdout, /gh repo star Yeachan-Heo\/oh-my-codex/);
+      assert.doesNotMatch(res.stdout, /gh repo star kang-heewon\/owen-codex/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

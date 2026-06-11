@@ -233,7 +233,7 @@ describe('isCommandGateway', () => {
 
 describe('resolveCommandTimeoutMs', () => {
   afterEach(() => {
-    delete process.env.OMX_OPENCLAW_COMMAND_TIMEOUT_MS;
+    delete process.env.OWX_OPENCLAW_COMMAND_TIMEOUT_MS;
   });
 
   it('uses default timeout when gateway and env timeouts are absent', () => {
@@ -263,36 +263,36 @@ describe('resolveCommandTimeoutMs', () => {
 
 describe('wakeCommandGateway - command gate', () => {
   afterEach(() => {
-    delete process.env.OMX_OPENCLAW_COMMAND;
-    delete process.env.OMX_OPENCLAW_COMMAND_TIMEOUT_MS;
+    delete process.env.OWX_OPENCLAW_COMMAND;
+    delete process.env.OWX_OPENCLAW_COMMAND_TIMEOUT_MS;
   });
 
-  it('returns error when OMX_OPENCLAW_COMMAND is not set', async () => {
+  it('returns error when OWX_OPENCLAW_COMMAND is not set', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-    delete process.env.OMX_OPENCLAW_COMMAND;
+    delete process.env.OWX_OPENCLAW_COMMAND;
     const result = await wakeCommandGateway('test', { type: 'command', command: 'echo hi' }, {});
     assert.equal(result.success, false);
-    assert.ok(result.error?.includes('OMX_OPENCLAW_COMMAND'));
+    assert.ok(result.error?.includes('OWX_OPENCLAW_COMMAND'));
   });
 
-  it('succeeds when OMX_OPENCLAW_COMMAND=1 and command exits 0', async () => {
+  it('succeeds when OWX_OPENCLAW_COMMAND=1 and command exits 0', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-    process.env.OMX_OPENCLAW_COMMAND = '1';
+    process.env.OWX_OPENCLAW_COMMAND = '1';
     const result = await wakeCommandGateway('test', { type: 'command', command: 'true' }, {});
     assert.equal(result.success, true);
   });
 
   it('returns error when command exits non-zero', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-    process.env.OMX_OPENCLAW_COMMAND = '1';
+    process.env.OWX_OPENCLAW_COMMAND = '1';
     const result = await wakeCommandGateway('test', { type: 'command', command: 'false' }, {});
     assert.equal(result.success, false);
   });
 
   it('uses env timeout when gateway timeout is not set', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-    process.env.OMX_OPENCLAW_COMMAND = '1';
-    process.env.OMX_OPENCLAW_COMMAND_TIMEOUT_MS = '100';
+    process.env.OWX_OPENCLAW_COMMAND = '1';
+    process.env.OWX_OPENCLAW_COMMAND_TIMEOUT_MS = '100';
     const result = await wakeCommandGateway(
       'test',
       { type: 'command', command: "node -e \"setTimeout(() => {}, 250)\"" },
@@ -304,7 +304,7 @@ describe('wakeCommandGateway - command gate', () => {
 
   it('kills shell-command descendants on timeout to avoid bash process leaks', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-      const cwd = await mkdtemp(join(tmpdir(), 'omx-openclaw-process-leak-'));
+      const cwd = await mkdtemp(join(tmpdir(), 'owx-openclaw-process-leak-'));
     try {
       const pidFile = join(cwd, 'grandchild.pid');
       const scriptFile = join(cwd, 'spawn-grandchild.cjs');
@@ -318,7 +318,7 @@ describe('wakeCommandGateway - command gate', () => {
         setInterval(() => {}, 1000);
       `;
       await writeFile(scriptFile, script);
-      process.env.OMX_OPENCLAW_COMMAND = '1';
+      process.env.OWX_OPENCLAW_COMMAND = '1';
 
       const result = await wakeCommandGateway(
         'test',
@@ -337,8 +337,8 @@ describe('wakeCommandGateway - command gate', () => {
 
   it('uses gateway timeout over env timeout', async () => {
     const { wakeCommandGateway } = await import('../dispatcher.js');
-    process.env.OMX_OPENCLAW_COMMAND = '1';
-    process.env.OMX_OPENCLAW_COMMAND_TIMEOUT_MS = '100';
+    process.env.OWX_OPENCLAW_COMMAND = '1';
+    process.env.OWX_OPENCLAW_COMMAND_TIMEOUT_MS = '100';
     const result = await wakeCommandGateway(
       'test',
       { type: 'command', command: "node -e \"setTimeout(() => {}, 250)\"", timeout: 5000 },

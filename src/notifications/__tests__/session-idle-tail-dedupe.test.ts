@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os';
 
 const ENV_KEYS = [
   'CODEX_HOME',
-  'OMX_NOTIFY_TEMP',
-  'OMX_NOTIFY_TEMP_CONTRACT',
-  'OMX_NOTIFY_PROFILE',
-  'OMX_DISCORD_WEBHOOK_URL',
-  'OMX_OPENCLAW',
+  'OWX_NOTIFY_TEMP',
+  'OWX_NOTIFY_TEMP_CONTRACT',
+  'OWX_NOTIFY_PROFILE',
+  'OWX_DISCORD_WEBHOOK_URL',
+  'OWX_OPENCLAW',
 ] as const;
 
 function clearEnv(): void {
@@ -26,12 +26,12 @@ describe('session-idle tmux tail dedupe integration', () => {
 
   beforeEach(async () => {
     clearEnv();
-    const root = await mkdtemp(join(tmpdir(), 'omx-session-idle-tail-'));
+    const root = await mkdtemp(join(tmpdir(), 'owx-session-idle-tail-'));
     tempCodexHome = join(root, '.codex');
     projectPath = join(root, 'project');
     await mkdir(tempCodexHome, { recursive: true });
     await mkdir(projectPath, { recursive: true });
-    await writeFile(join(tempCodexHome, '.omx-config.json'), JSON.stringify({
+    await writeFile(join(tempCodexHome, '.owx-config.json'), JSON.stringify({
       notifications: {
         enabled: true,
         events: {

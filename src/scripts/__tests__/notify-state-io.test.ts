@@ -14,9 +14,9 @@ import {
 
 describe('notify-hook state I/O session authority', () => {
   it('uses an explicit session id before the current session pointer', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-notify-state-io-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-'));
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       await mkdir(join(stateDir, 'sessions', 'sess-current'), { recursive: true });
       await mkdir(join(stateDir, 'sessions', 'sess-explicit'), { recursive: true });
       await writeFile(
@@ -45,9 +45,9 @@ describe('notify-hook state I/O session authority', () => {
   });
 
   it('does not read current-session data when an explicit session has no state file', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-notify-state-io-missing-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-missing-'));
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       await mkdir(join(stateDir, 'sessions', 'sess-current'), { recursive: true });
       await writeFile(
         join(stateDir, 'session.json'),
@@ -73,7 +73,7 @@ describe('notify-hook state I/O session authority', () => {
   });
 
   it('resolves current session from authoritative team state root without cwd inference', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-notify-state-io-team-root-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-team-root-'));
     try {
       const teamStateRoot = join(wd, 'team-state-root');
       await mkdir(join(teamStateRoot, 'sessions', 'sess-team-root'), { recursive: true });
@@ -101,11 +101,11 @@ describe('notify-hook state I/O session authority', () => {
     }
   });
 
-  it('prefers OMX_SESSION_ID over stale session.json for notify state writes', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-notify-state-io-env-'));
-    const previousSessionId = process.env.OMX_SESSION_ID;
+  it('prefers OWX_SESSION_ID over stale session.json for notify state writes', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-env-'));
+    const previousSessionId = process.env.OWX_SESSION_ID;
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       await mkdir(join(stateDir, 'sessions', 'sess-env'), { recursive: true });
       await mkdir(join(stateDir, 'sessions', 'sess-stale'), { recursive: true });
       await writeFile(
@@ -113,7 +113,7 @@ describe('notify-hook state I/O session authority', () => {
         JSON.stringify({ session_id: 'sess-stale', cwd: join(wd, '..', 'other-worktree') }, null, 2),
         'utf-8',
       );
-      process.env.OMX_SESSION_ID = 'sess-env';
+      process.env.OWX_SESSION_ID = 'sess-env';
 
       assert.equal(await readCurrentSessionId(stateDir), 'sess-env');
       assert.equal(await resolveScopedStateDir(stateDir), join(stateDir, 'sessions', 'sess-env'));
@@ -124,42 +124,42 @@ describe('notify-hook state I/O session authority', () => {
       ) as { turn_count?: unknown };
       assert.equal(value.turn_count, 7);
     } finally {
-      if (typeof previousSessionId === 'string') process.env.OMX_SESSION_ID = previousSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
+      else delete process.env.OWX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it('maps native Codex session aliases to the canonical OMX session', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-notify-state-io-native-alias-'));
-    const previousOmxSessionId = process.env.OMX_SESSION_ID;
+  it('maps native Codex session aliases to the canonical OWX session', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-native-alias-'));
+    const previousOmxSessionId = process.env.OWX_SESSION_ID;
     const previousCodexSessionId = process.env.CODEX_SESSION_ID;
     try {
-      const stateDir = join(wd, '.omx', 'state');
-      await mkdir(join(stateDir, 'sessions', 'omx-canonical'), { recursive: true });
+      const stateDir = join(wd, '.owx', 'state');
+      await mkdir(join(stateDir, 'sessions', 'owx-canonical'), { recursive: true });
       await writeFile(
         join(stateDir, 'session.json'),
         JSON.stringify({
-          session_id: 'omx-canonical',
+          session_id: 'owx-canonical',
           native_session_id: 'codex-native',
           cwd: wd,
         }, null, 2),
         'utf-8',
       );
-      delete process.env.OMX_SESSION_ID;
+      delete process.env.OWX_SESSION_ID;
       process.env.CODEX_SESSION_ID = 'codex-native';
 
-      assert.equal(await readCurrentSessionId(stateDir), 'omx-canonical');
-      assert.equal(await resolveScopedStateDir(stateDir), join(stateDir, 'sessions', 'omx-canonical'));
+      assert.equal(await readCurrentSessionId(stateDir), 'owx-canonical');
+      assert.equal(await resolveScopedStateDir(stateDir), join(stateDir, 'sessions', 'owx-canonical'));
 
       await writeScopedJson(stateDir, 'hud-state.json', undefined, { turn_count: 11 });
       const value = JSON.parse(
-        await readFile(join(stateDir, 'sessions', 'omx-canonical', 'hud-state.json'), 'utf-8'),
+        await readFile(join(stateDir, 'sessions', 'owx-canonical', 'hud-state.json'), 'utf-8'),
       ) as { turn_count?: unknown };
       assert.equal(value.turn_count, 11);
     } finally {
-      if (typeof previousOmxSessionId === 'string') process.env.OMX_SESSION_ID = previousOmxSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousOmxSessionId === 'string') process.env.OWX_SESSION_ID = previousOmxSessionId;
+      else delete process.env.OWX_SESSION_ID;
       if (typeof previousCodexSessionId === 'string') process.env.CODEX_SESSION_ID = previousCodexSessionId;
       else delete process.env.CODEX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });

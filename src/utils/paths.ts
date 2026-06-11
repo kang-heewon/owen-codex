@@ -1,5 +1,5 @@
 /**
- * Path utilities for oh-my-codex
+ * Path utilities for owen-codex
  * Resolves Codex CLI config, skills, prompts, and state directories
  */
 
@@ -15,8 +15,8 @@ export function codexHome(): string {
   return process.env.CODEX_HOME || join(homedir(), ".codex");
 }
 
-export const OMX_ENTRY_PATH_ENV = "OMX_ENTRY_PATH";
-export const OMX_STARTUP_CWD_ENV = "OMX_STARTUP_CWD";
+export const OWX_ENTRY_PATH_ENV = "OWX_ENTRY_PATH";
+export const OWX_STARTUP_CWD_ENV = "OWX_STARTUP_CWD";
 
 function resolveOmxRootCandidate(raw?: string): string | null {
   if (typeof raw !== "string") return null;
@@ -25,13 +25,13 @@ function resolveOmxRootCandidate(raw?: string): string | null {
   return isAbsolute(trimmed) ? trimmed : resolve(trimmed);
 }
 
-/** Optional override root for OMX runtime files. */
-export function omxRoot(projectRoot?: string): string {
+/** Optional override root for OWX runtime files. */
+export function owxRoot(projectRoot?: string): string {
   const override =
-    resolveOmxRootCandidate(process.env.OMX_ROOT)
-    ?? resolveOmxRootCandidate(process.env.OMX_STATE_ROOT);
-  if (override) return join(override, ".omx");
-  return join(projectRoot || process.cwd(), ".omx");
+    resolveOmxRootCandidate(process.env.OWX_ROOT)
+    ?? resolveOmxRootCandidate(process.env.OWX_STATE_ROOT);
+  if (override) return join(override, ".owx");
+  return join(projectRoot || process.cwd(), ".owx");
 }
 
 
@@ -75,23 +75,23 @@ export function resolveOmxEntryPath(
   const argv1 = hasExplicitArgv1 ? options.argv1 : process.argv[1];
   const rawPath = typeof argv1 === "string" ? argv1.trim() : "";
   if (hasExplicitArgv1 && rawPath !== "") {
-    const startupCwd = String(env[OMX_STARTUP_CWD_ENV] ?? "").trim() || cwd;
+    const startupCwd = String(env[OWX_STARTUP_CWD_ENV] ?? "").trim() || cwd;
     return resolveLauncherPath(rawPath, startupCwd);
   }
 
-  const fromEnv = String(env[OMX_ENTRY_PATH_ENV] ?? "").trim();
+  const fromEnv = String(env[OWX_ENTRY_PATH_ENV] ?? "").trim();
   if (fromEnv !== "") return fromEnv;
 
   if (rawPath === "") return null;
 
-  const startupCwd = String(env[OMX_STARTUP_CWD_ENV] ?? "").trim() || cwd;
+  const startupCwd = String(env[OWX_STARTUP_CWD_ENV] ?? "").trim() || cwd;
   return resolveLauncherPath(rawPath, startupCwd);
 }
 
 function isOmxCliEntryPath(value: string | null | undefined): boolean {
   if (typeof value !== "string") return false;
   const normalized = value.trim().replace(/\\/g, "/");
-  return normalized.endsWith('/dist/cli/omx.js') || normalized.endsWith('/omx.js')
+  return normalized.endsWith('/dist/cli/owx.js') || normalized.endsWith('/owx.js')
 }
 
 export function resolveOmxCliEntryPath(
@@ -106,7 +106,7 @@ export function resolveOmxCliEntryPath(
   if (isOmxCliEntryPath(entry)) return entry;
 
   const packageRootDir = options.packageRootDir || packageRoot();
-  const fallback = resolveLauncherPath(join(packageRootDir, 'dist', 'cli', 'omx.js'), options.cwd || process.cwd());
+  const fallback = resolveLauncherPath(join(packageRootDir, 'dist', 'cli', 'owx.js'), options.cwd || process.cwd());
   return existsSync(fallback) ? fallback : entry;
 }
 
@@ -118,12 +118,12 @@ export function rememberOmxLaunchContext(
   } = {},
 ): void {
   const { cwd = process.cwd(), env = process.env } = options;
-  if (String(env[OMX_STARTUP_CWD_ENV] ?? "").trim() === "") {
-    env[OMX_STARTUP_CWD_ENV] = cwd;
+  if (String(env[OWX_STARTUP_CWD_ENV] ?? "").trim() === "") {
+    env[OWX_STARTUP_CWD_ENV] = cwd;
   }
   const hasExplicitArgv1 = Object.prototype.hasOwnProperty.call(options, "argv1");
   const explicitArgv1 = typeof options.argv1 === "string" ? options.argv1.trim() : "";
-  if (String(env[OMX_ENTRY_PATH_ENV] ?? "").trim() !== "" && (!hasExplicitArgv1 || explicitArgv1 === "")) return;
+  if (String(env[OWX_ENTRY_PATH_ENV] ?? "").trim() !== "" && (!hasExplicitArgv1 || explicitArgv1 === "")) return;
 
   const resolved = hasExplicitArgv1
     ? resolveOmxEntryPath({
@@ -136,7 +136,7 @@ export function rememberOmxLaunchContext(
       env,
     });
   if (resolved) {
-    env[OMX_ENTRY_PATH_ENV] = resolved;
+    env[OWX_ENTRY_PATH_ENV] = resolved;
   }
 }
 
@@ -302,14 +302,14 @@ async function hashSkillDirectory(
   return hashes;
 }
 
-/** oh-my-codex state directory (.omx/state/) */
-export function omxStateDir(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "state");
+/** owen-codex state directory (.owx/state/) */
+export function owxStateDir(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "state");
 }
 
-/** oh-my-codex project memory file (.omx/project-memory.json) */
-export function omxProjectMemoryPath(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "project-memory.json");
+/** owen-codex project memory file (.owx/project-memory.json) */
+export function owxProjectMemoryPath(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "project-memory.json");
 }
 
 /** Repository-visible project memory file used as canonical startup context. */
@@ -317,22 +317,22 @@ export function canonicalProjectMemoryPath(projectRoot?: string): string {
   return join(projectRoot || process.cwd(), "project-memory.json");
 }
 
-/** CLI-compatible repository-local project memory file (.omx/project-memory.json). */
+/** CLI-compatible repository-local project memory file (.owx/project-memory.json). */
 export function repoLocalProjectMemoryPath(projectRoot?: string): string {
-  return join(projectRoot || process.cwd(), ".omx", "project-memory.json");
+  return join(projectRoot || process.cwd(), ".owx", "project-memory.json");
 }
 
 /**
  * Project memory read order for startup context.
  *
  * Keep the repository-visible root file first for existing SessionStart compatibility,
- * then include the CLI/MCP project-memory location before boxed OMX runtime memory.
+ * then include the CLI/MCP project-memory location before boxed OWX runtime memory.
  */
 export function projectMemoryPathCandidates(projectRoot?: string): string[] {
   const candidates = [
     canonicalProjectMemoryPath(projectRoot),
     repoLocalProjectMemoryPath(projectRoot),
-    omxProjectMemoryPath(projectRoot),
+    owxProjectMemoryPath(projectRoot),
   ];
   return candidates.filter((path, index) => candidates.indexOf(path) === index);
 }
@@ -345,39 +345,39 @@ export function resolveProjectMemoryPath(projectRoot?: string): string | null {
   return null;
 }
 
-/** oh-my-codex notepad file (.omx/notepad.md) */
-export function omxNotepadPath(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "notepad.md");
+/** owen-codex notepad file (.owx/notepad.md) */
+export function owxNotepadPath(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "notepad.md");
 }
 
-/** oh-my-codex wiki directory (repository-root omx_wiki/) */
-export function omxWikiDir(projectRoot?: string): string {
-  return join(projectRoot || process.cwd(), "omx_wiki");
+/** owen-codex wiki directory (repository-root owx_wiki/) */
+export function owxWikiDir(projectRoot?: string): string {
+  return join(projectRoot || process.cwd(), "owx_wiki");
 }
 
 /** Legacy project-local wiki directory used before wiki pages became repository-tracked. */
-export function omxLegacyWikiDir(projectRoot?: string): string {
-  return join(projectRoot || process.cwd(), ".omx", "wiki");
+export function owxLegacyWikiDir(projectRoot?: string): string {
+  return join(projectRoot || process.cwd(), ".owx", "wiki");
 }
 
-/** oh-my-codex plans directory (.omx/plans/) */
-export function omxPlansDir(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "plans");
+/** owen-codex plans directory (.owx/plans/) */
+export function owxPlansDir(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "plans");
 }
 
-/** oh-my-codex adapters directory (.omx/adapters/) */
-export function omxAdaptersDir(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "adapters");
+/** owen-codex adapters directory (.owx/adapters/) */
+export function owxAdaptersDir(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "adapters");
 }
 
-/** oh-my-codex logs directory (.omx/logs/) */
-export function omxLogsDir(projectRoot?: string): string {
-  return join(omxRoot(projectRoot), "logs");
+/** owen-codex logs directory (.owx/logs/) */
+export function owxLogsDir(projectRoot?: string): string {
+  return join(owxRoot(projectRoot), "logs");
 }
 
-/** User-scope install/update stamp path ($CODEX_HOME/.omx/install-state.json) */
-export function omxUserInstallStampPath(codexHomeDir?: string): string {
-  return join(codexHomeDir || codexHome(), ".omx", "install-state.json");
+/** User-scope install/update stamp path ($CODEX_HOME/.owx/install-state.json) */
+export function owxUserInstallStampPath(codexHomeDir?: string): string {
+  return join(codexHomeDir || codexHome(), ".owx", "install-state.json");
 }
 
 /** Get the package root directory (where agents/, skills/, prompts/ live) */

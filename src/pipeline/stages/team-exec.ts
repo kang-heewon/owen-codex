@@ -3,7 +3,7 @@
  *
  * Wraps the existing team mode (tmux-based Codex CLI workers) into a
  * PipelineStage. The execution backend is always teams — this is the
- * canonical OMX execution surface.
+ * canonical OWX execution surface.
  */
 
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
@@ -300,7 +300,7 @@ function buildTeamRuntimeCliLaunchInput(descriptor: TeamExecDescriptor): TeamRun
 /**
  * Create a team-exec pipeline stage.
  *
- * This stage delegates to the existing `omx team` infrastructure, which
+ * This stage delegates to the existing `owx team` infrastructure, which
  * starts real Codex CLI workers in tmux panes. When RALPLAN names a
  * concrete approved PRD handoff, team-exec reuses that exact task text;
  * otherwise it stays on the generic request-task path.
@@ -385,7 +385,7 @@ export interface TeamExecDescriptor {
 }
 
 /**
- * Build the `omx team` CLI instruction from a descriptor.
+ * Build the `owx team` CLI instruction from a descriptor.
  */
 export function buildTeamInstruction(
   descriptor: TeamExecDescriptor,

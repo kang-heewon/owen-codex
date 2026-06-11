@@ -1,11 +1,11 @@
 import {
-  OMX_FIRST_PARTY_MCP_ENTRYPOINTS,
-  OMX_FIRST_PARTY_MCP_PLUGIN_TARGETS,
-  OMX_PLUGIN_MCP_SERVE_SUBCOMMAND,
-} from "../config/omx-first-party-mcp.js";
+  OWX_FIRST_PARTY_MCP_ENTRYPOINTS,
+  OWX_FIRST_PARTY_MCP_PLUGIN_TARGETS,
+  OWX_PLUGIN_MCP_SERVE_SUBCOMMAND,
+} from "../config/owx-first-party-mcp.js";
 import { MCP_ENTRYPOINT_MARKER_ENV } from "../mcp/bootstrap.js";
 
-type McpServeEntrypoint = (typeof OMX_FIRST_PARTY_MCP_ENTRYPOINTS)[number];
+type McpServeEntrypoint = (typeof OWX_FIRST_PARTY_MCP_ENTRYPOINTS)[number];
 
 type McpServeLoader = () => Promise<unknown>;
 type McpServeLoaderMap = Record<McpServeEntrypoint, McpServeLoader>;
@@ -17,12 +17,12 @@ interface McpServeCommandOptions {
 }
 
 const MCP_SERVE_USAGE = [
-  `Usage: omx ${OMX_PLUGIN_MCP_SERVE_SUBCOMMAND} <target>`,
+  `Usage: owx ${OWX_PLUGIN_MCP_SERVE_SUBCOMMAND} <target>`,
   "",
-  "Launch an OMX stdio MCP server target via the installed omx CLI.",
+  "Launch an OWX stdio MCP server target via the installed owx CLI.",
   "Intended for plugin-scoped MCP metadata and other runtime launchers.",
   "",
-  `Supported targets: ${OMX_FIRST_PARTY_MCP_PLUGIN_TARGETS.join(", ")}`,
+  `Supported targets: ${OWX_FIRST_PARTY_MCP_PLUGIN_TARGETS.join(", ")}`,
 ].join("\n");
 
 const MCP_SERVE_LOADERS: McpServeLoaderMap = {

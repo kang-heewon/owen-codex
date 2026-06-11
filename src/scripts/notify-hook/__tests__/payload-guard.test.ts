@@ -13,10 +13,10 @@ function notifyHookScriptPath(): string {
 
 describe('notify-hook raw payload guard', () => {
   it('ignores oversized argv JSON before parsing or writing hook state', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-notify-hook-oversized-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-notify-hook-oversized-'));
     try {
-      await mkdir(join(cwd, '.omx'), { recursive: true });
-      await writeFile(join(cwd, '.omx', 'setup-scope.json'), '{}', 'utf-8');
+      await mkdir(join(cwd, '.owx'), { recursive: true });
+      await writeFile(join(cwd, '.owx', 'setup-scope.json'), '{}', 'utf-8');
       const payload = JSON.stringify({
         cwd,
         type: 'agent-turn-complete',
@@ -32,8 +32,8 @@ describe('notify-hook raw payload guard', () => {
         env: process.env,
       });
 
-      assert.equal(existsSync(join(cwd, '.omx', 'logs')), false);
-      assert.equal(existsSync(join(cwd, '.omx', 'state')), false);
+      assert.equal(existsSync(join(cwd, '.owx', 'logs')), false);
+      assert.equal(existsSync(join(cwd, '.owx', 'state')), false);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

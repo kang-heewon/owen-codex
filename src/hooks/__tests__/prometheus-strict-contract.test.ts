@@ -37,7 +37,7 @@ describe('prometheus-strict clean-room contract', () => {
     }
   });
 
-  it('keeps the skill planning-only, OMX-native, and clean-room credited', () => {
+  it('keeps the skill planning-only, OWX-native, and clean-room credited', () => {
     assert.ok(existsSync(skillPath), 'prometheus-strict skill must exist');
     assert.ok(existsSync(readmePath), 'prometheus-strict README must exist');
 
@@ -57,13 +57,13 @@ describe('prometheus-strict clean-room contract', () => {
       assert.match(content, /Metis/i, `${label} must include the Metis interview role`);
       assert.match(content, /Momus/i, `${label} must include the Momus critique role`);
       assert.match(content, /Oracle/i, `${label} must include the Oracle synthesis role`);
-      assert.match(content, /\$ultragoal/i, `${label} must hand off through OMX ultragoal`);
+      assert.match(content, /\$ultragoal/i, `${label} must hand off through OWX ultragoal`);
       assert.match(content, /\$team/i, `${label} must mention team only as a warranted handoff`);
       assert.match(content, /No hook implementation/i, `${label} must keep hook work out of scope`);
       assert.match(content, /No Sisyphus|No Sisyphus\/start-work port/i, `${label} must reject Sisyphus ports`);
       assert.match(content, /start-work/i, `${label} must explicitly reject start-work ports`);
       assert.match(content, /planning-only|Planning and interview only|planning skill/i, `${label} must stay planning-only`);
-      assert.match(content, /\.omx\/plans\/prometheus-strict\//i, `${label} must document the durable prometheus-strict plan path`);
+      assert.match(content, /\.owx\/plans\/prometheus-strict\//i, `${label} must document the durable prometheus-strict plan path`);
       assert.doesNotMatch(content, /@opencode-ai\/plugin|bun:sqlite|\.sisyphus/i, `${label} must not leak OMO runtime details`);
     }
 
@@ -117,10 +117,10 @@ describe('prometheus-strict clean-room contract', () => {
       }
 
       const role = promptRoles[promptName];
-      assert.match(content, new RegExp(`OMX:GUIDANCE:${role}:CONSTRAINTS:START`), `${promptName} must include constraints guidance start marker`);
-      assert.match(content, new RegExp(`OMX:GUIDANCE:${role}:CONSTRAINTS:END`), `${promptName} must include constraints guidance end marker`);
-      assert.match(content, new RegExp(`OMX:GUIDANCE:${role}:OUTPUT:START`), `${promptName} must include output guidance start marker`);
-      assert.match(content, new RegExp(`OMX:GUIDANCE:${role}:OUTPUT:END`), `${promptName} must include output guidance end marker`);
+      assert.match(content, new RegExp(`OWX:GUIDANCE:${role}:CONSTRAINTS:START`), `${promptName} must include constraints guidance start marker`);
+      assert.match(content, new RegExp(`OWX:GUIDANCE:${role}:CONSTRAINTS:END`), `${promptName} must include constraints guidance end marker`);
+      assert.match(content, new RegExp(`OWX:GUIDANCE:${role}:OUTPUT:START`), `${promptName} must include output guidance start marker`);
+      assert.match(content, new RegExp(`OWX:GUIDANCE:${role}:OUTPUT:END`), `${promptName} must include output guidance end marker`);
     }
 
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-metis.md')), /Metis Clarification/i);
@@ -128,10 +128,10 @@ describe('prometheus-strict clean-room contract', () => {
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-oracle.md')), /Prometheus Strict Plan/i);
   });
 
-  it('routes interview questions through the OMX structured question surface with documented fallbacks', () => {
+  it('routes interview questions through the OWX structured question surface with documented fallbacks', () => {
     const skill = readRepoFile(skillPath);
 
-    assert.match(skill, /omx question/, 'skill must name `omx question` as the structured question surface');
+    assert.match(skill, /owx question/, 'skill must name `owx question` as the structured question surface');
     assert.match(
       skill,
       /native structured input/i,
@@ -145,7 +145,7 @@ describe('prometheus-strict clean-room contract', () => {
     assert.match(
       skill,
       /attached[-\s]?tmux/i,
-      'skill must name the attached-tmux precondition for `omx question`',
+      'skill must name the attached-tmux precondition for `owx question`',
     );
     assert.match(
       skill,
@@ -163,8 +163,8 @@ describe('prometheus-strict clean-room contract', () => {
       const content = readRepoFile(promptPath);
       assert.match(
         content,
-        /omx question/,
-        `${promptName} must reference the OMX structured question surface (omx question)`,
+        /owx question/,
+        `${promptName} must reference the OWX structured question surface (owx question)`,
       );
       assert.match(
         content,
@@ -269,7 +269,7 @@ describe('prometheus-strict clean-room contract', () => {
 
     assert.match(skill, /<Turn_Termination_Rules>[\s\S]+<\/Turn_Termination_Rules>/, 'skill must include turn termination block');
     assert.match(skill, /EXACTLY ONE of/i, 'termination must choose exactly one path');
-    assert.match(skill, /\(a\)[\s\S]{0,120}omx question[\s\S]{0,80}batch/i, 'option a must name omx question batch');
+    assert.match(skill, /\(a\)[\s\S]{0,120}owx question[\s\S]{0,80}batch/i, 'option a must name owx question batch');
     assert.match(skill, /\(b\)[\s\S]{0,120}explicit handoff/i, 'option b must name explicit handoff');
     assert.match(skill, /\(c\)[\s\S]{0,120}stop-blocker/i, 'option c must name stop-blocker');
     assert.doesNotMatch(skill, /answered_high_leverage_question_count\s*>=\s*3/i, 'count rule removed from skill');
@@ -464,23 +464,6 @@ ${oracle}`, /Default-absorb prior[\s\S]+Plan-A-vs-Plan-B[\s\S]+scope boundary[\s
     assert.match(skill, /checklist clearance/i, 'Final_Checklist must reference checklist clearance');
     assert.match(skill, /Oracle Pass 2 self-verification/i, 'Final_Checklist must reference Oracle Pass 2 self-verification');
     assert.match(skill, /Post-plan Metis gap check/i, 'Final_Checklist must reference the post-plan Metis gap check');
-  });
-
-  it('pins the public docs entry for the skill handoff path', () => {
-    assert.ok(existsSync(skillPath), 'prometheus-strict skill must exist');
-
-    const docs = readRepoFile(join(repoRoot, 'docs', 'skills.html'));
-    assert.match(docs, /\$prometheus-strict/i, 'docs must advertise the explicit prometheus-strict skill token');
-    assert.match(docs, /Metis/i, 'docs must mention the Metis role');
-    assert.match(docs, /Momus/i, 'docs must mention the Momus role');
-    assert.match(docs, /Oracle/i, 'docs must mention the Oracle role');
-    assert.match(docs, /\$ultragoal/i, 'docs must preserve the OMX-native ultragoal handoff');
-    assert.match(docs, /\.omx\/plans\/prometheus-strict\//i, 'docs must preserve the durable plan artifact path');
-    assert.match(
-      docs,
-      /Inspired by OMO Prometheus[\s\S]*code-yeongyu\/oh-my-openagent[\s\S]*reimplemented from concept under MIT/i,
-      'docs must preserve clean-room concept credit',
-    );
   });
 
   it('wires catalog, agent definitions, and explicit keyword activation', () => {

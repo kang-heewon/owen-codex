@@ -6,7 +6,7 @@ dist/
 .omc/logs/
 .omc/research/
 .omc/
-.omx/
+.owx/
 
 # Local agent/worktree artifacts (never commit)
 .claude/
@@ -18,9 +18,9 @@ dist/
 coverage/
 target/
 bin/native/
-bin/omx-explore-harness
-bin/omx-explore-harness.exe
-bin/omx-explore-harness.meta.json
+bin/owx-explore-harness
+bin/owx-explore-harness.exe
+bin/owx-explore-harness.meta.json
 
 # Local runtime bridge artifacts (generated)
 authority.json

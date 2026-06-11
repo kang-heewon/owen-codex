@@ -13,7 +13,7 @@ describe('explore + sparkshell guidance contract', () => {
   it('keeps AGENTS root and template aligned on supported repository-lookup routing and opt-in sparkshell guidance without the removed explore command', () => {
     const requiredPatterns = [
       /normal Codex repository inspection/i,
-      /omx sparkshell --tmux-pane/i,
+      /owx sparkshell --tmux-pane/i,
       /explicit opt-?in/i,
       /When to use what/i,
     ];
@@ -21,14 +21,14 @@ describe('explore + sparkshell guidance contract', () => {
     for (const surface of listTrackedAgentSurfaces()) {
       const content = loadSurface(surface);
       expectPatterns(surface, requiredPatterns);
-      assert.doesNotMatch(content, /omx explore/i, `${surface} still references the removed omx explore command`);
-      assert.doesNotMatch(content, /USE_OMX_EXPLORE_CMD/i, `${surface} still references the deprecated USE_OMX_EXPLORE_CMD override`);
+      assert.doesNotMatch(content, /owx explore/i, `${surface} still references the removed owx explore command`);
+      assert.doesNotMatch(content, /USE_OWX_EXPLORE_CMD/i, `${surface} still references the deprecated USE_OWX_EXPLORE_CMD override`);
     }
   });
 
   it('keeps explore surfaces explicit about richer-path fallback', () => {
     expectPatterns('prompts/explore.md', [
-      /`omx explore --prompt \.\.\.` is deprecated/i,
+      /`owx explore --prompt \.\.\.` is deprecated/i,
       /compatibility-only/i,
       /richer normal path/i,
     ]);
@@ -51,9 +51,9 @@ describe('explore + sparkshell guidance contract', () => {
       'skills/ralph/SKILL.md',
     ]) {
       expectPatterns(surface, [
-        /`omx explore` is deprecated/i,
+        /`owx explore` is deprecated/i,
         /normal repository inspection|normal Codex repository inspection/i,
-        /omx sparkshell/i,
+        /owx sparkshell/i,
       ]);
     }
   });
@@ -66,7 +66,7 @@ describe('explore + sparkshell guidance contract', () => {
     ]);
 
     expectPatterns('skills/team/SKILL.md', [
-      /omx sparkshell --tmux-pane/i,
+      /owx sparkshell --tmux-pane/i,
       /explicit opt-?in/i,
       /raw `tmux capture-pane` evidence/i,
     ]);

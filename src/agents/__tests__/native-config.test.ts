@@ -29,21 +29,21 @@ function manifestWithAgents(names: string[]): CatalogManifest {
 }
 
 const originalCodexHome = process.env.CODEX_HOME;
-const originalFrontierModel = process.env.OMX_DEFAULT_FRONTIER_MODEL;
-const originalStandardModel = process.env.OMX_DEFAULT_STANDARD_MODEL;
-const originalSparkModel = process.env.OMX_DEFAULT_SPARK_MODEL;
-const originalLegacySparkModel = process.env.OMX_SPARK_MODEL;
+const originalFrontierModel = process.env.OWX_DEFAULT_FRONTIER_MODEL;
+const originalStandardModel = process.env.OWX_DEFAULT_STANDARD_MODEL;
+const originalSparkModel = process.env.OWX_DEFAULT_SPARK_MODEL;
+const originalLegacySparkModel = process.env.OWX_SPARK_MODEL;
 const isolatedCodexHome = join(
   tmpdir(),
-  `omx-native-config-empty-codex-home-${process.pid}`,
+  `owx-native-config-empty-codex-home-${process.pid}`,
 );
 
 beforeEach(() => {
   process.env.CODEX_HOME = isolatedCodexHome;
-  delete process.env.OMX_DEFAULT_FRONTIER_MODEL;
-  process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
-  delete process.env.OMX_DEFAULT_SPARK_MODEL;
-  delete process.env.OMX_SPARK_MODEL;
+  delete process.env.OWX_DEFAULT_FRONTIER_MODEL;
+  process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+  delete process.env.OWX_DEFAULT_SPARK_MODEL;
+  delete process.env.OWX_SPARK_MODEL;
 });
 
 afterEach(() => {
@@ -53,24 +53,24 @@ afterEach(() => {
     delete process.env.CODEX_HOME;
   }
   if (typeof originalFrontierModel === "string") {
-    process.env.OMX_DEFAULT_FRONTIER_MODEL = originalFrontierModel;
+    process.env.OWX_DEFAULT_FRONTIER_MODEL = originalFrontierModel;
   } else {
-    delete process.env.OMX_DEFAULT_FRONTIER_MODEL;
+    delete process.env.OWX_DEFAULT_FRONTIER_MODEL;
   }
   if (typeof originalStandardModel === "string") {
-    process.env.OMX_DEFAULT_STANDARD_MODEL = originalStandardModel;
+    process.env.OWX_DEFAULT_STANDARD_MODEL = originalStandardModel;
   } else {
-    delete process.env.OMX_DEFAULT_STANDARD_MODEL;
+    delete process.env.OWX_DEFAULT_STANDARD_MODEL;
   }
   if (typeof originalSparkModel === "string") {
-    process.env.OMX_DEFAULT_SPARK_MODEL = originalSparkModel;
+    process.env.OWX_DEFAULT_SPARK_MODEL = originalSparkModel;
   } else {
-    delete process.env.OMX_DEFAULT_SPARK_MODEL;
+    delete process.env.OWX_DEFAULT_SPARK_MODEL;
   }
   if (typeof originalLegacySparkModel === "string") {
-    process.env.OMX_SPARK_MODEL = originalLegacySparkModel;
+    process.env.OWX_SPARK_MODEL = originalLegacySparkModel;
   } else {
-    delete process.env.OMX_SPARK_MODEL;
+    delete process.env.OWX_SPARK_MODEL;
   }
 });
 
@@ -90,7 +90,7 @@ describe("agents/native-config", () => {
     const prompt = `---\ntitle: demo\n---\n\nInstruction line\n\"\"\"danger\"\"\"`;
     const toml = generateAgentToml(agent, prompt);
 
-    assert.match(toml, /# oh-my-codex agent: executor/);
+    assert.match(toml, /# owen-codex agent: executor/);
     assert.match(toml, /model = "gpt-5\.5"/);
     assert.match(toml, /model_reasoning_effort = "medium"/);
     assert.ok(!toml.includes("title: demo"));
@@ -107,9 +107,9 @@ describe("agents/native-config", () => {
   });
 
   it("applies per-agent reasoning overrides when generating native TOML", async () => {
-    const codexHome = await mkdtemp(join(tmpdir(), "omx-native-config-reasoning-"));
+    const codexHome = await mkdtemp(join(tmpdir(), "owx-native-config-reasoning-"));
     try {
-      await writeFile(join(codexHome, ".omx-config.json"), JSON.stringify({
+      await writeFile(join(codexHome, ".owx-config.json"), JSON.stringify({
         agentReasoning: {
           architect: "xhigh",
         },
@@ -135,8 +135,8 @@ describe("agents/native-config", () => {
 
 
   it("pins ralplan thesis/antithesis and researcher to exact gpt-5.4-mini without downgrading judgment roles", () => {
-    process.env.OMX_DEFAULT_FRONTIER_MODEL = "gpt-5.5";
-    process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.5";
+    process.env.OWX_DEFAULT_FRONTIER_MODEL = "gpt-5.5";
+    process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.5";
 
     for (const role of ["planner", "architect", "researcher"] as const) {
       const toml = generateAgentToml(AGENT_DEFINITIONS[role], `${role} prompt`);
@@ -182,13 +182,13 @@ describe("agents/native-config", () => {
 
     const prompt = "Instruction line";
     const exactMiniToml = generateAgentToml(agent, prompt, {
-      env: { OMX_DEFAULT_STANDARD_MODEL: "gpt-5.4-mini" } as NodeJS.ProcessEnv,
+      env: { OWX_DEFAULT_STANDARD_MODEL: "gpt-5.4-mini" } as NodeJS.ProcessEnv,
     });
     const frontierToml = generateAgentToml(agent, prompt, {
-      env: { OMX_DEFAULT_STANDARD_MODEL: "gpt-5.5" } as NodeJS.ProcessEnv,
+      env: { OWX_DEFAULT_STANDARD_MODEL: "gpt-5.5" } as NodeJS.ProcessEnv,
     });
     const tunedToml = generateAgentToml(agent, prompt, {
-      env: { OMX_DEFAULT_STANDARD_MODEL: "gpt-5.4-mini-tuned" } as NodeJS.ProcessEnv,
+      env: { OWX_DEFAULT_STANDARD_MODEL: "gpt-5.4-mini-tuned" } as NodeJS.ProcessEnv,
     });
 
     assert.match(exactMiniToml, /exact gpt-5\.4-mini model/);
@@ -213,7 +213,7 @@ describe("agents/native-config", () => {
     );
     const modelDelegationIndex = codeReviewerToml.indexOf("precise delegation.");
     const guardIndex = codeReviewerToml.indexOf("<native_subagent_leaf_guard>");
-    const metadataIndex = codeReviewerToml.indexOf("## OMX Agent Metadata");
+    const metadataIndex = codeReviewerToml.indexOf("## OWX Agent Metadata");
 
     assert.ok(postureDelegationIndex >= 0, "frontier posture delegation text should exist");
     assert.ok(modelDelegationIndex >= 0, "frontier model delegation text should exist");
@@ -229,7 +229,7 @@ describe("agents/native-config", () => {
       "strict execution order: inspect -> plan -> act -> verify",
     );
     const architectGuardIndex = architectToml.indexOf("<native_subagent_leaf_guard>");
-    const architectMetadataIndex = architectToml.indexOf("## OMX Agent Metadata");
+    const architectMetadataIndex = architectToml.indexOf("## OWX Agent Metadata");
 
     assert.ok(exactMiniIndex >= 0, "architect should exercise the exact-model overlay path");
     assert.ok(
@@ -286,7 +286,7 @@ describe("agents/native-config", () => {
   });
 
   it("installs only catalog-installable agents and skips existing files without force", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-"));
     const promptsDir = join(root, "prompts");
     const outDir = join(root, "agents-out");
 
@@ -323,7 +323,7 @@ describe("agents/native-config", () => {
   });
 
   it("installs native agent TOML with configured per-agent reasoning overrides", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-install-reasoning-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-install-reasoning-"));
     const codexHome = join(root, ".codex");
     const promptsDir = join(root, "prompts");
     const outDir = join(codexHome, "agents");
@@ -331,7 +331,7 @@ describe("agents/native-config", () => {
     try {
       await mkdir(promptsDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
-      await writeFile(join(codexHome, ".omx-config.json"), JSON.stringify({
+      await writeFile(join(codexHome, ".owx-config.json"), JSON.stringify({
         agentReasoning: {
           architect: "xhigh",
         },
@@ -351,14 +351,14 @@ describe("agents/native-config", () => {
   });
 
   it("preserves active provider on native agents so websocket-capable Responses providers are inherited", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-provider-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-provider-"));
     const codexHome = join(root, ".codex");
     const promptsDir = join(root, "prompts");
     const outDir = join(codexHome, "agents");
     const previousCodexHome = process.env.CODEX_HOME;
 
     try {
-      delete process.env.OMX_DEFAULT_STANDARD_MODEL;
+      delete process.env.OWX_DEFAULT_STANDARD_MODEL;
       process.env.CODEX_HOME = codexHome;
       await mkdir(promptsDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
@@ -385,20 +385,20 @@ describe("agents/native-config", () => {
     } finally {
       if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
-      process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+      process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("inherits a custom root model for standard agents when no standard override exists", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-root-model-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-root-model-"));
     const codexHome = join(root, ".codex");
     const promptsDir = join(root, "prompts");
     const outDir = join(codexHome, "agents");
     const previousCodexHome = process.env.CODEX_HOME;
 
     try {
-      delete process.env.OMX_DEFAULT_STANDARD_MODEL;
+      delete process.env.OWX_DEFAULT_STANDARD_MODEL;
       process.env.CODEX_HOME = codexHome;
       await mkdir(promptsDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
@@ -415,20 +415,20 @@ describe("agents/native-config", () => {
     } finally {
       if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
-      process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+      process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("preserves explicit standard model override for standard agents", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-standard-override-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-standard-override-"));
     const codexHome = join(root, ".codex");
     const promptsDir = join(root, "prompts");
     const outDir = join(codexHome, "agents");
     const previousCodexHome = process.env.CODEX_HOME;
 
     try {
-      process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+      process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
       process.env.CODEX_HOME = codexHome;
       await mkdir(promptsDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
@@ -445,20 +445,20 @@ describe("agents/native-config", () => {
     } finally {
       if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
-      process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+      process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
       await rm(root, { recursive: true, force: true });
     }
   });
 
   it("keeps executor on the frontier lane so an explicit gpt-5.2 root model still applies there", async () => {
-    const root = await mkdtemp(join(tmpdir(), "omx-native-config-executor-model-"));
+    const root = await mkdtemp(join(tmpdir(), "owx-native-config-executor-model-"));
     const codexHome = join(root, ".codex");
     const promptsDir = join(root, "prompts");
     const outDir = join(codexHome, "agents");
     const previousCodexHome = process.env.CODEX_HOME;
 
     try {
-      delete process.env.OMX_DEFAULT_STANDARD_MODEL;
+      delete process.env.OWX_DEFAULT_STANDARD_MODEL;
       process.env.CODEX_HOME = codexHome;
       await mkdir(promptsDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
@@ -474,7 +474,7 @@ describe("agents/native-config", () => {
     } finally {
       if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
-      process.env.OMX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
+      process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.4-mini";
       await rm(root, { recursive: true, force: true });
     }
   });

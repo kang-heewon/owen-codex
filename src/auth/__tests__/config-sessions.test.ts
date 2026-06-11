@@ -8,13 +8,13 @@ import { findLatestRolloutSession } from "../sessions.js";
 
 describe("auth config", () => {
   it("merges project keys over user keys per absent key fallback", async () => {
-    const home = await mkdtemp(join(tmpdir(), "omx-auth-config-home-"));
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-config-wd-"));
+    const home = await mkdtemp(join(tmpdir(), "owx-auth-config-home-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-config-wd-"));
     try {
-      await mkdir(join(home, ".omx"), { recursive: true });
-      await writeFile(join(home, ".omx", "config.toml"), '[omx.auth]\nrotation = "priority"\npriority = ["user"]\nquota_patterns = ["custom-quota"]\n');
-      await mkdir(join(wd, ".omx"), { recursive: true });
-      await writeFile(join(wd, ".omx", "config.toml"), '[omx.auth]\npriority = ["project"]\n');
+      await mkdir(join(home, ".owx"), { recursive: true });
+      await writeFile(join(home, ".owx", "config.toml"), '[owx.auth]\nrotation = "priority"\npriority = ["user"]\nquota_patterns = ["custom-quota"]\n');
+      await mkdir(join(wd, ".owx"), { recursive: true });
+      await writeFile(join(wd, ".owx", "config.toml"), '[owx.auth]\npriority = ["project"]\n');
       const config = await readAuthConfig(wd, home);
       assert.equal(config.rotation, "priority");
       assert.deepEqual(config.priority, ["project"]);
@@ -28,7 +28,7 @@ describe("auth config", () => {
 
 describe("Codex rollout session heuristic", () => {
   it("returns newest rollout id by mtime", async () => {
-    const home = await mkdtemp(join(tmpdir(), "omx-auth-sessions-"));
+    const home = await mkdtemp(join(tmpdir(), "owx-auth-sessions-"));
     try {
       const dir = join(home, "sessions", "2026", "05", "24");
       await mkdir(dir, { recursive: true });

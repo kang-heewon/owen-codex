@@ -10,7 +10,7 @@ import {
   type CodexGoalReconciliation,
 } from '../goal-workflows/codex-goal-snapshot.js';
 
-export const AUTORESEARCH_GOAL_ROOT = '.omx/goals/autoresearch';
+export const AUTORESEARCH_GOAL_ROOT = '.owx/goals/autoresearch';
 export const AUTORESEARCH_GOAL_MISSION = 'mission.json';
 export const AUTORESEARCH_GOAL_RUBRIC = 'rubric.md';
 export const AUTORESEARCH_GOAL_LEDGER = 'ledger.jsonl';
@@ -174,7 +174,7 @@ export async function readAutoresearchGoal(cwd: string, slug: string): Promise<A
   try {
     raw = await readFile(path, 'utf-8');
   } catch {
-    throw new AutoresearchGoalError(`No autoresearch-goal mission found at ${repoRelative(cwd, path)}. Run \`omx autoresearch-goal create ...\` first.`);
+    throw new AutoresearchGoalError(`No autoresearch-goal mission found at ${repoRelative(cwd, path)}. Run \`owx autoresearch-goal create ...\` first.`);
   }
   const parsed = JSON.parse(raw) as AutoresearchGoalMission;
   if (parsed.schema_version !== 1 || parsed.workflow !== 'autoresearch-goal') {
@@ -262,7 +262,7 @@ export function buildAutoresearchGoalObjective(mission: Pick<AutoresearchGoalMis
     'Research methodology / professor-critic rubric:',
     mission.rubric,
     '',
-    `Completion gate: record a passing professor-critic verdict with omx autoresearch-goal verdict --slug ${mission.slug} --verdict pass --evidence "<critic artifact/evidence>". After the objective audit passes, call update_goal({status: "complete"}), call get_goal again, then run omx autoresearch-goal complete --slug ${mission.slug} --codex-goal-json "<fresh get_goal JSON or path>".`,
+    `Completion gate: record a passing professor-critic verdict with owx autoresearch-goal verdict --slug ${mission.slug} --verdict pass --evidence "<critic artifact/evidence>". After the objective audit passes, call update_goal({status: "complete"}), call get_goal again, then run owx autoresearch-goal complete --slug ${mission.slug} --codex-goal-json "<fresh get_goal JSON or path>".`,
   ].join('\n');
 }
 
@@ -273,7 +273,7 @@ export function buildLegacyAutoresearchGoalObjective(mission: Pick<AutoresearchG
     'Research methodology / professor-critic rubric:',
     mission.rubric,
     '',
-    `Completion gate: record a passing professor-critic verdict with omx autoresearch-goal verdict --slug ${mission.slug} --verdict pass --evidence "<critic artifact/evidence>", then run omx autoresearch-goal complete --slug ${mission.slug}.`,
+    `Completion gate: record a passing professor-critic verdict with owx autoresearch-goal verdict --slug ${mission.slug} --verdict pass --evidence "<critic artifact/evidence>", then run owx autoresearch-goal complete --slug ${mission.slug}.`,
   ].join('\n');
 }
 
@@ -323,12 +323,12 @@ export async function buildAutoresearchGoalHandoff(cwd: string, slug: string, no
     `Completion artifact: ${mission.completion_path}`,
     '',
     'Codex goal integration constraints:',
-    '- This shell command does not mutate hidden Codex /goal state; it writes durable OMX artifacts and prints this handoff only.',
+    '- This shell command does not mutate hidden Codex /goal state; it writes durable OWX artifacts and prints this handoff only.',
     '- First call get_goal. If no active goal exists, call create_goal with the payload below.',
     '- If a different active Codex goal exists, finish/checkpoint that goal before starting this autoresearch goal.',
     '- Iterate research until the professor-critic evaluator records a concrete pass/fail/blocker artifact.',
-    '- Do not call update_goal({status: "complete"}) until the professor-critic verdict is pass and the objective audit proves the mission complete; then call get_goal again and run omx autoresearch-goal complete --codex-goal-json with the fresh snapshot.',
-    '- If validation fails or blocks, keep iterating or report the blocker with the recorded evidence; do not revive deprecated omx autoresearch.',
+    '- Do not call update_goal({status: "complete"}) until the professor-critic verdict is pass and the objective audit proves the mission complete; then call get_goal again and run owx autoresearch-goal complete --codex-goal-json with the fresh snapshot.',
+    '- If validation fails or blocks, keep iterating or report the blocker with the recorded evidence; do not revive deprecated owx autoresearch.',
     '',
     'create_goal payload:',
     JSON.stringify(createPayload, null, 2),

@@ -47,11 +47,11 @@ export interface ParsedImagegenContinuationArgs {
   json: boolean;
 }
 
-const DEFAULT_ACTOR = "omx-imagegen";
+const DEFAULT_ACTOR = "owx-imagegen";
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 function sessionImagegenPendingPath(cwd: string, sessionId: string): string {
-  return join(cwd, ".omx", "state", "sessions", sessionId, "imagegen-pending.json");
+  return join(cwd, ".owx", "state", "sessions", sessionId, "imagegen-pending.json");
 }
 
 function normalizeRequired(value: string | undefined, name: string): string {
@@ -83,7 +83,7 @@ function defaultResumeInstruction(
   pendingPath: string,
 ): string {
   const generatedDir = record.generated_images_dir || "$CODEX_HOME/generated_images/<session>";
-  const workDir = record.work_dir || ".omx imagegen artifact workspace";
+  const workDir = record.work_dir || ".owx imagegen artifact workspace";
   return [
     `Resume the interrupted Ralph visual/imagegen workflow for artifact "${record.artifact_name}".`,
     `Read pending imagegen metadata at ${pendingPath} if needed.`,
@@ -223,7 +223,7 @@ export function parseImagegenContinuationArgs(args: string[]): ParsedImagegenCon
 
 export const IMAGEGEN_CONTINUATION_USAGE = [
   "Usage:",
-  "  omx imagegen continuation <session-id> --artifact <name> [--generated-dir <path>] [--work-dir <path>] [--after <iso|now>] [--prompt <text>|--prompt-file <path>] [--json]",
+  "  owx imagegen continuation <session-id> --artifact <name> [--generated-dir <path>] [--work-dir <path>] [--after <iso|now>] [--prompt <text>|--prompt-file <path>] [--json]",
   "",
   "Queues a Stop-hook follow-up for a built-in image_gen call that cannot continue in-turn.",
 ].join("\n");

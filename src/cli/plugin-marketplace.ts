@@ -1,12 +1,12 @@
 import { existsSync } from "fs";
 import { cp, readdir, readFile, rm, writeFile } from "fs/promises";
 import { join, resolve } from "path";
-import { OMX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/omx-first-party-mcp.js";
+import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
 import { teamModeEnabled, type SetupTeamMode } from "../config/team-mode.js";
 
-export const OMX_LOCAL_MARKETPLACE_NAME = "oh-my-codex-local";
-export const OMX_PLUGIN_NAME = "oh-my-codex";
-export const OMX_LOCAL_PLUGIN_CONFIG_KEY = `${OMX_PLUGIN_NAME}@${OMX_LOCAL_MARKETPLACE_NAME}`;
+export const OWX_LOCAL_MARKETPLACE_NAME = "owen-codex-local";
+export const OWX_PLUGIN_NAME = "owen-codex";
+export const OWX_LOCAL_PLUGIN_CONFIG_KEY = `${OWX_PLUGIN_NAME}@${OWX_LOCAL_MARKETPLACE_NAME}`;
 
 export interface PackagedOmxMarketplace {
 	marketplacePath: string;
@@ -30,7 +30,7 @@ interface PluginManifest {
 	hooks?: unknown;
 }
 
-const OMX_PLUGIN_HOOK_LAUNCHER_FILE = "omx-command.json";
+const OWX_PLUGIN_HOOK_LAUNCHER_FILE = "owx-command.json";
 const TEAM_MODE_PLUGIN_SKILL_NAMES = new Set(["team", "worker"]);
 
 export async function resolvePackagedOmxMarketplace(
@@ -53,10 +53,10 @@ export async function resolvePackagedOmxMarketplace(
 		return null;
 	}
 
-	if (marketplace.name !== OMX_LOCAL_MARKETPLACE_NAME) return null;
+	if (marketplace.name !== OWX_LOCAL_MARKETPLACE_NAME) return null;
 	const pluginEntry = marketplace.plugins?.find(
 		(entry) =>
-			entry.name === OMX_PLUGIN_NAME &&
+			entry.name === OWX_PLUGIN_NAME &&
 			entry.source?.source === "local" &&
 			typeof entry.source.path === "string",
 	);
@@ -71,7 +71,7 @@ export async function resolvePackagedOmxMarketplace(
 			await readFile(pluginManifestPath, "utf-8"),
 		) as PluginManifest;
 		if (
-			pluginManifest.name !== OMX_PLUGIN_NAME ||
+			pluginManifest.name !== OWX_PLUGIN_NAME ||
 			pluginManifest.skills !== "./skills/"
 		) {
 			return null;
@@ -125,13 +125,13 @@ export async function expectedPackagedOmxSkillNames(
 	));
 }
 
-export function omxPluginCacheBase(codexHomeDir: string): string {
+export function owxPluginCacheBase(codexHomeDir: string): string {
 	return join(
 		codexHomeDir,
 		"plugins",
 		"cache",
-		OMX_LOCAL_MARKETPLACE_NAME,
-		OMX_PLUGIN_NAME,
+		OWX_LOCAL_MARKETPLACE_NAME,
+		OWX_PLUGIN_NAME,
 	);
 }
 
@@ -154,7 +154,7 @@ export async function discoverOmxPluginCacheDirs(
 		const manifestPath = join(current.path, ".codex-plugin", "plugin.json");
 		if (existsSync(manifestPath)) {
 			const manifest = await readPluginManifest(manifestPath);
-			if (manifest?.name === OMX_PLUGIN_NAME) {
+			if (manifest?.name === OWX_PLUGIN_NAME) {
 				matches.push(current.path);
 				continue;
 			}
@@ -197,7 +197,7 @@ export async function readOmxPluginCacheState(
 	const manifest = await readPluginManifest(
 		join(cacheDir, ".codex-plugin", "plugin.json"),
 	);
-	if (manifest?.name !== OMX_PLUGIN_NAME) return null;
+	if (manifest?.name !== OWX_PLUGIN_NAME) return null;
 	return {
 		cacheDir,
 		manifestVersion:
@@ -206,7 +206,7 @@ export async function readOmxPluginCacheState(
 		skillNames: await listChildDirectoryNames(join(cacheDir, "skills")),
 		hooksPointer: typeof manifest.hooks === "string" ? manifest.hooks : null,
 		hookLauncherPinned: existsSync(
-			join(cacheDir, "hooks", OMX_PLUGIN_HOOK_LAUNCHER_FILE),
+			join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
 		),
 	};
 }
@@ -222,7 +222,7 @@ export async function hasExpectedOmxPluginCache(
 	]);
 	if (!version || !expectedSkillNames) return false;
 	const state = await readOmxPluginCacheState(
-		join(omxPluginCacheBase(codexHomeDir), version),
+		join(owxPluginCacheBase(codexHomeDir), version),
 	);
 	if (
 		state?.manifestVersion !== version ||
@@ -278,7 +278,7 @@ function buildPinnedHookLauncherContent(
 	return `${JSON.stringify(
 		{
 			command: process.execPath,
-			argsPrefix: [join(packagedMarketplace.packageRoot, "dist", "cli", "omx.js")],
+			argsPrefix: [join(packagedMarketplace.packageRoot, "dist", "cli", "owx.js")],
 		},
 		null,
 		2,
@@ -291,7 +291,7 @@ async function pinnedHookLauncherMatchesPackaged(
 ): Promise<boolean> {
 	try {
 		return await readFile(
-			join(cacheDir, "hooks", OMX_PLUGIN_HOOK_LAUNCHER_FILE),
+			join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
 			"utf-8",
 		) === buildPinnedHookLauncherContent(packagedMarketplace);
 	} catch {
@@ -304,7 +304,7 @@ async function writePinnedHookLauncher(
 	packagedMarketplace: PackagedOmxMarketplace,
 ): Promise<void> {
 	await writeFile(
-		join(cacheDir, "hooks", OMX_PLUGIN_HOOK_LAUNCHER_FILE),
+		join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
 		buildPinnedHookLauncherContent(packagedMarketplace),
 	);
 }
@@ -333,7 +333,7 @@ export async function materializePackagedOmxPluginCache(
 	if (!packagedMarketplace) return { status: "unavailable" };
 	const version = await packagedOmxPluginVersion(packagedMarketplace);
 	if (!version) return { status: "unavailable" };
-	const cacheDir = join(omxPluginCacheBase(codexHomeDir), version);
+	const cacheDir = join(owxPluginCacheBase(codexHomeDir), version);
 	if (await hasExpectedOmxPluginCache(codexHomeDir, packagedMarketplace, options)) {
 		return { status: "unchanged", cacheDir, version };
 	}
@@ -348,7 +348,7 @@ export async function materializePackagedOmxPluginCache(
 
 function marketplaceTableHeaderPattern(): RegExp {
 	return new RegExp(
-		`^\\s*\\[marketplaces\\.${OMX_LOCAL_MARKETPLACE_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
+		`^\\s*\\[marketplaces\\.${OWX_LOCAL_MARKETPLACE_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
 	);
 }
 
@@ -381,7 +381,7 @@ export function buildLocalOmxMarketplaceRegistration(
 	packageRoot: string,
 ): string {
 	return [
-		`[marketplaces.${OMX_LOCAL_MARKETPLACE_NAME}]`,
+		`[marketplaces.${OWX_LOCAL_MARKETPLACE_NAME}]`,
 		`source_type = "local"`,
 		`source = ${JSON.stringify(packageRoot)}`,
 	].join("\n");
@@ -398,26 +398,26 @@ export function upsertLocalOmxMarketplaceRegistration(
 
 function localPluginTableHeaderPattern(): RegExp {
 	return new RegExp(
-		`^\\s*\\[plugins\\.${JSON.stringify(OMX_LOCAL_PLUGIN_CONFIG_KEY).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
+		`^\\s*\\[plugins\\.${JSON.stringify(OWX_LOCAL_PLUGIN_CONFIG_KEY).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
 	);
 }
 
 function localPluginMcpServerTableHeaderPattern(serverName: string): RegExp {
 	return new RegExp(
-		`^\\s*\\[plugins\\.${JSON.stringify(OMX_LOCAL_PLUGIN_CONFIG_KEY).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.mcp_servers\\.${serverName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
+		`^\\s*\\[plugins\\.${JSON.stringify(OWX_LOCAL_PLUGIN_CONFIG_KEY).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.mcp_servers\\.${serverName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\s*$`,
 	);
 }
 
 export function hasLocalOmxPluginMcpServerRegistrations(config: string): boolean {
 	const lines = config.split(/\r?\n/);
-	return OMX_FIRST_PARTY_MCP_SERVER_NAMES.some((serverName) =>
+	return OWX_FIRST_PARTY_MCP_SERVER_NAMES.some((serverName) =>
 		lines.some((line) => localPluginMcpServerTableHeaderPattern(serverName).test(line)),
 	);
 }
 
 export function stripLocalOmxPluginMcpServerRegistrations(config: string): string {
 	let lines = config.split(/\r?\n/);
-	for (const serverName of OMX_FIRST_PARTY_MCP_SERVER_NAMES) {
+	for (const serverName of OWX_FIRST_PARTY_MCP_SERVER_NAMES) {
 		const headerPattern = localPluginMcpServerTableHeaderPattern(serverName);
 		const start = lines.findIndex((line) => headerPattern.test(line));
 		if (start < 0) continue;
@@ -487,7 +487,7 @@ export function upsertLocalOmxPluginEnablement(config: string): string {
 
 	if (start < 0) {
 		const base = config.trimEnd();
-		return `${base ? `${base}\n\n` : ""}[plugins.${JSON.stringify(OMX_LOCAL_PLUGIN_CONFIG_KEY)}]\nenabled = true\n`;
+		return `${base ? `${base}\n\n` : ""}[plugins.${JSON.stringify(OWX_LOCAL_PLUGIN_CONFIG_KEY)}]\nenabled = true\n`;
 	}
 
 	let end = lines.length;
@@ -532,8 +532,8 @@ export function upsertLocalOmxPluginMcpServerEnablement(
 		return config;
 	}
 	let next = config;
-	for (const serverName of OMX_FIRST_PARTY_MCP_SERVER_NAMES) {
-		const header = `[plugins.${JSON.stringify(OMX_LOCAL_PLUGIN_CONFIG_KEY)}.mcp_servers.${serverName}]`;
+	for (const serverName of OWX_FIRST_PARTY_MCP_SERVER_NAMES) {
+		const header = `[plugins.${JSON.stringify(OWX_LOCAL_PLUGIN_CONFIG_KEY)}.mcp_servers.${serverName}]`;
 		const headerPattern = localPluginMcpServerTableHeaderPattern(serverName);
 		next = upsertTomlTableBooleanKey(next, header, headerPattern, "enabled", enabled, {
 			create: enabled,

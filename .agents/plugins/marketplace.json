@@ -1,14 +1,14 @@
 {
-  "name": "oh-my-codex-local",
+  "name": "owen-codex-local",
   "interface": {
-    "displayName": "oh-my-codex Local Plugins"
+    "displayName": "owen-codex Local Plugins"
   },
   "plugins": [
     {
-      "name": "oh-my-codex",
+      "name": "owen-codex",
       "source": {
         "source": "local",
-        "path": "./plugins/oh-my-codex"
+        "path": "./plugins/owen-codex"
       },
       "policy": {
         "installation": "AVAILABLE",

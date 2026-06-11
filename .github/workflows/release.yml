@@ -42,20 +42,20 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
           const workspace = TOML.parse(fs.readFileSync(path.join(root, 'Cargo.toml'), 'utf-8'));
           const expectedMembers = [
-            'crates/omx-api',
-            'crates/omx-explore',
-            'crates/omx-mux',
-            'crates/omx-runtime-core',
-            'crates/omx-runtime',
-            'crates/omx-sparkshell',
+            'crates/owx-api',
+            'crates/owx-explore',
+            'crates/owx-mux',
+            'crates/owx-runtime-core',
+            'crates/owx-runtime',
+            'crates/owx-sparkshell',
           ];
           const manifests = [
-            'crates/omx-api/Cargo.toml',
-            'crates/omx-explore/Cargo.toml',
-            'crates/omx-runtime-core/Cargo.toml',
-            'crates/omx-mux/Cargo.toml',
-            'crates/omx-runtime/Cargo.toml',
-            'crates/omx-sparkshell/Cargo.toml',
+            'crates/owx-api/Cargo.toml',
+            'crates/owx-explore/Cargo.toml',
+            'crates/owx-runtime-core/Cargo.toml',
+            'crates/owx-mux/Cargo.toml',
+            'crates/owx-runtime/Cargo.toml',
+            'crates/owx-sparkshell/Cargo.toml',
           ];
           const problems = [];
 
@@ -185,7 +185,7 @@ jobs:
             --artifacts-dir release-assets \
             --out release-assets/native-release-manifest.json \
             --release-base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}" \
-            --require-products "omx-api,omx-explore-harness,omx-sparkshell"
+            --require-products "owx-api,owx-explore-harness,owx-sparkshell"
       - name: Upload release asset bundle for follow-up jobs
         uses: actions/upload-artifact@v4
         with:
@@ -194,9 +194,12 @@ jobs:
           if-no-files-found: error
       - name: Generate release body
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node dist/scripts/generate-release-body.js --template RELEASE_BODY.md --out RELEASE_BODY.generated.md
+        run: |
+          {
+            echo "## Native release assets"
+            echo
+            echo "Release assets are attached below."
+          } > RELEASE_BODY.generated.md
       - name: Attach native assets to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -275,20 +278,20 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
           const workspace = TOML.parse(fs.readFileSync(path.join(root, 'Cargo.toml'), 'utf-8'));
           const expectedMembers = [
-            'crates/omx-api',
-            'crates/omx-explore',
-            'crates/omx-mux',
-            'crates/omx-runtime-core',
-            'crates/omx-runtime',
-            'crates/omx-sparkshell',
+            'crates/owx-api',
+            'crates/owx-explore',
+            'crates/owx-mux',
+            'crates/owx-runtime-core',
+            'crates/owx-runtime',
+            'crates/owx-sparkshell',
           ];
           const manifests = [
-            'crates/omx-api/Cargo.toml',
-            'crates/omx-explore/Cargo.toml',
-            'crates/omx-runtime-core/Cargo.toml',
-            'crates/omx-mux/Cargo.toml',
-            'crates/omx-runtime/Cargo.toml',
-            'crates/omx-sparkshell/Cargo.toml',
+            'crates/owx-api/Cargo.toml',
+            'crates/owx-explore/Cargo.toml',
+            'crates/owx-runtime-core/Cargo.toml',
+            'crates/owx-mux/Cargo.toml',
+            'crates/owx-runtime/Cargo.toml',
+            'crates/owx-sparkshell/Cargo.toml',
           ];
           const problems = [];
 

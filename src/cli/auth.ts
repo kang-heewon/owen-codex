@@ -9,12 +9,12 @@ import { readTopLevelTomlString, upsertTopLevelTomlString } from "../utils/toml.
 
 export const AUTH_HELP = `
 Usage:
-  omx auth add <slot>      Log in with Codex OAuth and store auth.json as a named slot
-  omx auth list [--json]   List registered auth slots and local quota metadata
-  omx auth use <slot>      Atomically switch live Codex auth.json to a slot
-  omx auth --help          Show this help
+  owx auth add <slot>      Log in with Codex OAuth and store auth.json as a named slot
+  owx auth list [--json]   List registered auth slots and local quota metadata
+  owx auth use <slot>      Atomically switch live Codex auth.json to a slot
+  owx auth --help          Show this help
 
-Auth slots are stored under ~/.omx/auth/<slot>.json with owner-only permissions.
+Auth slots are stored under ~/.owx/auth/<slot>.json with owner-only permissions.
 `;
 
 function wantsJson(args: string[]): boolean {
@@ -76,7 +76,7 @@ export async function authCommand(args: string[], env: NodeJS.ProcessEnv = proce
 
   if (command === "add") {
     const slot = args[1];
-    if (!slot) throw new Error("Usage: omx auth add <slot>");
+    if (!slot) throw new Error("Usage: owx auth add <slot>");
     const liveAuthPath = resolveLiveAuthPath(cwd, env, home);
     runCodexLogin(cwd, { ...env, CODEX_HOME: dirname(liveAuthPath) });
     const record = await addSlotFromAuthFile(slot, liveAuthPath, home);
@@ -93,7 +93,7 @@ export async function authCommand(args: string[], env: NodeJS.ProcessEnv = proce
       return;
     }
     if (slots.length === 0) {
-      console.log("No auth slots configured. Run `omx auth add <slot>` first.");
+      console.log("No auth slots configured. Run `owx auth add <slot>` first.");
       return;
     }
     for (const slot of slots) {
@@ -106,7 +106,7 @@ export async function authCommand(args: string[], env: NodeJS.ProcessEnv = proce
 
   if (command === "use") {
     const slot = args[1];
-    if (!slot) throw new Error("Usage: omx auth use <slot>");
+    if (!slot) throw new Error("Usage: owx auth use <slot>");
     const liveAuthPath = resolveLiveAuthPath(cwd, env, home);
     const record = await useSlot(slot, liveAuthPath, home);
     console.log(`Using auth slot ${record.slot}`);

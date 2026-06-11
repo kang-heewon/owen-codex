@@ -6,27 +6,27 @@ import { EXPLORE_BIN_ENV as EXPLORE_BIN_ENV_SHARED } from './native-assets.js';
 export const EXPLORE_BIN_ENV = EXPLORE_BIN_ENV_SHARED;
 
 export const EXPLORE_DEPRECATION_MESSAGE = [
-  'omx explore is hard-deprecated and the direct command surface has been removed.',
+  'owx explore is hard-deprecated and the direct command surface has been removed.',
   'Use normal Codex repository inspection tools/subagents for read-only repository lookups.',
-  'Use `omx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries.',
+  'Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries.',
 ].join(' ');
 
-export const EXPLORE_HELP = `omx explore - Hard-deprecated legacy command surface
+export const EXPLORE_HELP = `owx explore - Hard-deprecated legacy command surface
 
 Usage:
-  omx explore --help
+  owx explore --help
 
 Deprecated legacy forms (all fail intentionally):
-  omx explore --prompt "<prompt>"
-  omx explore --prompt-file <file>
+  owx explore --prompt "<prompt>"
+  owx explore --prompt-file <file>
 
 Migration:
   - Use normal Codex repository inspection tools/subagents for simple read-only repository lookups.
-  - Use \`omx sparkshell -- <command>\` for explicit shell-native read-only evidence or \`--tmux-pane\` summaries.
+  - Use \`owx sparkshell -- <command>\` for explicit shell-native read-only evidence or \`--tmux-pane\` summaries.
 `;
 
 const WINDOWS_BUILTIN_EXPLORE_HARNESS_REASON =
-  'the built-in explore harness is not ready on Windows because its allowlist runtime relies on POSIX sh/bash wrappers. Set OMX_EXPLORE_BIN to a compatible custom harness, prefer `omx sparkshell` for shell-native read-only lookups, or run `omx doctor` for readiness details.';
+  'the built-in explore harness is not ready on Windows because its allowlist runtime relies on POSIX sh/bash wrappers. Set OWX_EXPLORE_BIN to a compatible custom harness, prefer `owx sparkshell` for shell-native read-only lookups, or run `owx doctor` for readiness details.';
 
 interface ExploreHarnessCommand {
   command: string;
@@ -57,7 +57,7 @@ export function assertBuiltinExploreHarnessSupported(
 }
 
 export function packagedExploreHarnessBinaryName(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'omx-explore-harness.exe' : 'omx-explore-harness';
+  return platform === 'win32' ? 'owx-explore-harness.exe' : 'owx-explore-harness';
 }
 
 export function resolvePackagedExploreHarnessCommand(
@@ -65,7 +65,7 @@ export function resolvePackagedExploreHarnessCommand(
   platform: NodeJS.Platform = process.platform,
   arch = process.arch,
 ): ExploreHarnessCommand | undefined {
-  const metadataPath = join(packageRoot, 'bin', 'omx-explore-harness.meta.json');
+  const metadataPath = join(packageRoot, 'bin', 'owx-explore-harness.meta.json');
   if (!existsSync(metadataPath)) return undefined;
   try {
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8')) as ExploreHarnessMetadata;

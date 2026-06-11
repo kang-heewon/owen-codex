@@ -124,7 +124,7 @@ function quoteWindowsProcessArgument(value: string): string {
 
 export const WINDOWS_NATIVE_HOOK_SHIM_RELATIVE_PATH = [
   "hooks",
-  "omx-native-hook-windows-shim.ps1",
+  "owx-native-hook-windows-shim.ps1",
 ] as const;
 
 export interface ManagedCodexHookOptions {
@@ -271,7 +271,7 @@ export function parseCodexHooksConfig(
 
 function isOmxManagedHookCommand(command: string): boolean {
   return /(?:^|[\\/])codex-native-hook\.js(?:["'\s]|$)/.test(command)
-    || /(?:^|[\\/])omx-native-hook-windows-shim\.ps1(?:["'\s]|$)/i.test(command);
+    || /(?:^|[\\/])owx-native-hook-windows-shim\.ps1(?:["'\s]|$)/i.test(command);
 }
 
 function countManagedHooksInEntry(entry: unknown): number {
@@ -491,13 +491,13 @@ export function isRuntimeCodexHomeMirrorPath(
     return false;
   }
 
-  const omxIndex = segments.indexOf(".omx");
-  if (omxIndex < 0) return false;
+  const owxIndex = segments.indexOf(".owx");
+  if (owxIndex < 0) return false;
 
   return (
-    segments[omxIndex + 1] === "runtime" &&
-    segments[omxIndex + 2] === "codex-home" &&
-    segments.length > omxIndex + 4 &&
+    segments[owxIndex + 1] === "runtime" &&
+    segments[owxIndex + 2] === "codex-home" &&
+    segments.length > owxIndex + 4 &&
     segments[segments.length - 1] === "hooks.json"
   );
 }

@@ -96,8 +96,8 @@ function readMatchingPaths(dir: string, pattern: RegExp): string[] {
 }
 
 export function readPlanningArtifacts(cwd: string): PlanningArtifacts {
-  const plansDir = join(cwd, '.omx', 'plans');
-  const specsDir = join(cwd, '.omx', 'specs');
+  const plansDir = join(cwd, '.owx', 'plans');
+  const specsDir = join(cwd, '.owx', 'specs');
 
   return {
     plansDir,
@@ -393,9 +393,9 @@ type LaunchHintSelection =
 type LaunchHintMatchFilter = (match: RegExpMatchArray, task: string) => boolean;
 
 const TEAM_LAUNCH_HINT_PATTERN_SOURCE =
-  String.raw`(?<command>(?:omx\s+team|\$team)\s+(?<ralph>ralph\s+)?(?<count>\d+)(?::(?<role>[a-z][a-z0-9-]*))?\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
+  String.raw`(?<command>(?:owx\s+team|\$team)\s+(?<ralph>ralph\s+)?(?<count>\d+)(?::(?<role>[a-z][a-z0-9-]*))?\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
 const RALPH_LAUNCH_HINT_PATTERN_SOURCE =
-  String.raw`(?<command>(?:omx\s+ralph|\$ralph)\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
+  String.raw`(?<command>(?:owx\s+ralph|\$ralph)\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
 
 function launchHintPattern(mode: 'team' | 'ralph'): RegExp {
   return mode === 'team'
@@ -426,7 +426,7 @@ function normalizeLaunchHintCommandFromMatch(
       return null;
     }
     const roleToken = groups.role?.trim();
-    const prefix = /^\$team\b/i.test(rawCommand) ? '$team' : 'omx team';
+    const prefix = /^\$team\b/i.test(rawCommand) ? '$team' : 'owx team';
     const countWithRole = roleToken ? `${countToken}:${roleToken}` : countToken;
     const parts = [prefix];
     if (groups.ralph?.trim()) {
@@ -436,7 +436,7 @@ function normalizeLaunchHintCommandFromMatch(
     return parts.join(' ');
   }
 
-  const prefix = /^\$ralph\b/i.test(rawCommand) ? '$ralph' : 'omx ralph';
+  const prefix = /^\$ralph\b/i.test(rawCommand) ? '$ralph' : 'owx ralph';
   return `${prefix} ${taskToken}`;
 }
 

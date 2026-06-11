@@ -45,11 +45,7 @@ Ecomode is a modifier that combines with execution modes:
 
 ## Agent Selection in Ecomode
 
-**FIRST ACTION:** Before delegating any work, read the agent reference file:
-```
-Read file: docs/shared/agent-tiers.md
-```
-This provides the complete agent tier matrix, MCP tool assignments, and selection guidance.
+**FIRST ACTION:** Before delegating any work, inspect the installed role catalog for the agent tier matrix, MCP tool assignments, and selection guidance.
 
 **Ecomode preference order:**
 
@@ -93,7 +89,7 @@ Long-running commands (install, build, test) run in background. Maximum 20 concu
 
 Ecomode can be completely disabled via config. When disabled, all ecomode keywords are ignored.
 
-Set in `~/.codex/.omx-config.json`:
+Set in `~/.codex/.owx-config.json`:
 ```json
 {
   "ecomode": {
@@ -104,11 +100,11 @@ Set in `~/.codex/.omx-config.json`:
 
 ## State Management
 
-Use the CLI-first state surface (`omx state ... --json`) for ecomode lifecycle state. If explicit MCP compatibility tools are already available, equivalent `omx_state` calls are optional compatibility, not the default.
+Use the CLI-first state surface (`owx state ... --json`) for ecomode lifecycle state. If explicit MCP compatibility tools are already available, equivalent `owx_state` calls are optional compatibility, not the default.
 
 - **On activation**:
-  `omx state write --input '{"mode":"ecomode","active":true}' --json`
+  `owx state write --input '{"mode":"ecomode","active":true}' --json`
 - **On deactivation/completion**:
-  `omx state write --input '{"mode":"ecomode","active":false}' --json`
+  `owx state write --input '{"mode":"ecomode","active":false}' --json`
 - **On cancellation/cleanup**:
-  run `$cancel` (which should call `omx state clear --input '{"mode":"ecomode"}' --json`)
+  run `$cancel` (which should call `owx state clear --input '{"mode":"ecomode"}' --json`)

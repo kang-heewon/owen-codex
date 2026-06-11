@@ -99,7 +99,7 @@ export async function defaultOmxQuestionProcessRunner(
 function parseQuestionStdout(stdout: string, stderr: string, exitCode: number | null): OmxQuestionPayload {
   const trimmed = stdout.trim();
   if (!trimmed) {
-    throw new OmxQuestionError('question_no_stdout', 'omx question did not emit a JSON response on stdout.', {
+    throw new OmxQuestionError('question_no_stdout', 'owx question did not emit a JSON response on stdout.', {
       stdout,
       stderr,
       exitCode,
@@ -111,7 +111,7 @@ function parseQuestionStdout(stdout: string, stderr: string, exitCode: number | 
   } catch (error) {
     throw new OmxQuestionError(
       'question_invalid_stdout',
-      `omx question emitted invalid JSON on stdout: ${(error as Error).message}`,
+      `owx question emitted invalid JSON on stdout: ${(error as Error).message}`,
       { stdout, stderr, exitCode },
     );
   }
@@ -123,15 +123,15 @@ export async function runOmxQuestion(
 ): Promise<OmxQuestionSuccessPayload> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
-  const omxBin = resolveOmxCliEntryPath({ argv1: options.argv1, cwd, env });
-  if (!omxBin) {
-    throw new OmxQuestionError('question_cli_not_found', 'Could not resolve the omx CLI entrypoint for blocking question execution.');
+  const owxBin = resolveOmxCliEntryPath({ argv1: options.argv1, cwd, env });
+  if (!owxBin) {
+    throw new OmxQuestionError('question_cli_not_found', 'Could not resolve the owx CLI entrypoint for blocking question execution.');
   }
 
   const runner = options.runner ?? defaultOmxQuestionProcessRunner;
   const result = await runner(
     process.execPath,
-    [omxBin, 'question', '--json', '--input', JSON.stringify(input)],
+    [owxBin, 'question', '--json', '--input', JSON.stringify(input)],
     { cwd, env },
   );
   const payload = parseQuestionStdout(result.stdout, result.stderr, result.code);
@@ -148,7 +148,7 @@ export async function runOmxQuestion(
   if (result.code !== 0) {
     throw new OmxQuestionError(
       'question_nonzero_exit',
-      `omx question returned an answer but exited with code ${result.code}.`,
+      `owx question returned an answer but exited with code ${result.code}.`,
       { stdout: result.stdout, stderr: result.stderr, exitCode: result.code },
     );
   }

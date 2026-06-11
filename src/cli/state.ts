@@ -1,6 +1,6 @@
 import { executeStateOperation, type StateOperationName } from '../state/operations.js';
 
-const STATE_HELP = `Usage: omx state <read|write|clear|list-active|get-status> [--input <json>] [--json]\n\nExamples:\n  omx state read --input '{"mode":"ralph"}' --json\n  omx state write --input '{"mode":"ralph","active":true,"current_phase":"executing"}' --json\n  omx state clear --input '{"mode":"ralph","all_sessions":true}' --json\n  omx state list-active --json\n  omx state get-status --input '{"mode":"ralph"}' --json`;
+const STATE_HELP = `Usage: owx state <read|write|clear|list-active|get-status> [--input <json>] [--json]\n\nExamples:\n  owx state read --input '{"mode":"ralph"}' --json\n  owx state write --input '{"mode":"ralph","active":true,"current_phase":"executing"}' --json\n  owx state clear --input '{"mode":"ralph","all_sessions":true}' --json\n  owx state list-active --json\n  owx state get-status --input '{"mode":"ralph"}' --json`;
 
 const STATE_OPERATION_MAP: Record<string, StateOperationName> = {
   read: 'state_read',

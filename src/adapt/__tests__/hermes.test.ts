@@ -20,7 +20,7 @@ let processCwdFixtureRoot: string;
 let suppliedCwd: string;
 let originalCwd: string;
 const originalEnv = {
-  root: process.env.OMX_ADAPT_HERMES_ROOT,
+  root: process.env.OWX_ADAPT_HERMES_ROOT,
   home: process.env.HERMES_HOME,
 };
 
@@ -38,7 +38,6 @@ function writeHermesFixture(options: {
   if (withRoot) {
     mkdirSync(join(hermesRoot, "acp_adapter"), { recursive: true });
     mkdirSync(join(hermesRoot, "gateway"), { recursive: true });
-    mkdirSync(join(hermesRoot, "docs"), { recursive: true });
     mkdirSync(join(hermesRoot, "acp_registry"), { recursive: true });
     writeFileSync(join(hermesRoot, "acp_adapter", "server.py"), "# acp server\n");
     writeFileSync(join(hermesRoot, "acp_adapter", "session.py"), "# acp session\n");
@@ -46,7 +45,6 @@ function writeHermesFixture(options: {
     writeFileSync(join(hermesRoot, "acp_adapter", "entry.py"), "# acp entry\n");
     writeFileSync(join(hermesRoot, "gateway", "status.py"), "# gateway status\n");
     writeFileSync(join(hermesRoot, "gateway", "hooks.py"), "# gateway hooks\n");
-    writeFileSync(join(hermesRoot, "docs", "acp-setup.md"), "# acp setup\n");
     writeFileSync(join(hermesRoot, "hermes_state.py"), "# hermes state store\n");
   }
 
@@ -76,27 +74,27 @@ function writeHermesFixture(options: {
 }
 
 beforeEach(async () => {
-  tempDir = await mkdtemp(join(tmpdir(), "omx-adapt-hermes-"));
+  tempDir = await mkdtemp(join(tmpdir(), "owx-adapt-hermes-"));
   suppliedCwd = join(tempDir, "sandbox", "worktree");
   hermesRoot = join(tempDir, "hermes-runtime");
   hermesHome = join(tempDir, "hermes-home");
   originalCwd = process.cwd();
-  processCwdFixtureBase = await mkdtemp(join(tmpdir(), "omx-adapt-hermes-process-cwd-"));
+  processCwdFixtureBase = await mkdtemp(join(tmpdir(), "owx-adapt-hermes-process-cwd-"));
   processCwdFixtureRoot = join(
     processCwdFixtureBase,
-    "hermes-codex-skill-omx-aware-prd",
+    "hermes-codex-skill-owx-aware-prd",
     "external",
     "hermes-agent",
   );
-  process.env.OMX_ADAPT_HERMES_ROOT = hermesRoot;
+  process.env.OWX_ADAPT_HERMES_ROOT = hermesRoot;
   process.env.HERMES_HOME = hermesHome;
 });
 
 afterEach(async () => {
   if (originalEnv.root === undefined) {
-    delete process.env.OMX_ADAPT_HERMES_ROOT;
+    delete process.env.OWX_ADAPT_HERMES_ROOT;
   } else {
-    process.env.OMX_ADAPT_HERMES_ROOT = originalEnv.root;
+    process.env.OWX_ADAPT_HERMES_ROOT = originalEnv.root;
   }
 
   if (originalEnv.home === undefined) {
@@ -128,7 +126,7 @@ describe("hermes adapter integration", () => {
   });
 
   it("anchors sibling-default Hermes discovery to the supplied cwd for programmatic probes", async () => {
-    delete process.env.OMX_ADAPT_HERMES_ROOT;
+    delete process.env.OWX_ADAPT_HERMES_ROOT;
     delete process.env.HERMES_HOME;
 
     mkdirSync(join(processCwdFixtureRoot, "acp_adapter"), { recursive: true });
@@ -140,7 +138,7 @@ describe("hermes adapter integration", () => {
     const tempSiblingRoot = join(
       suppliedCwd,
       "..",
-      "hermes-codex-skill-omx-aware-prd",
+      "hermes-codex-skill-owx-aware-prd",
       "external",
       "hermes-agent",
     );
@@ -161,7 +159,7 @@ describe("hermes adapter integration", () => {
     assert.match(envelope.bootstrap?.summary ?? "", /bootstrap metadata/i);
     assert.deepEqual(
       [...new Set(envelope.capabilities.map((capability) => capability.ownership))].sort(),
-      ["omx-owned", "shared-contract", "target-observed"],
+      ["owx-owned", "shared-contract", "target-observed"],
     );
     assert.equal(
       envelope.capabilities.find((capability) => capability.id === "persistent-session-observation")?.status,
@@ -181,13 +179,13 @@ describe("hermes adapter integration", () => {
     assert.match(status.targetRuntime.detail, /connected platforms: telegram/i);
   });
 
-  it("keeps Hermes init writes inside OMX-owned adapter paths", async () => {
+  it("keeps Hermes init writes inside OWX-owned adapter paths", async () => {
     writeHermesFixture({ withRoot: true, withGatewayRuntime: true, withStateDb: true });
     const result = await initAdaptFoundationForTarget(tempDir, "hermes", true, new Date("2026-04-14T00:00:00.000Z"));
 
     assert.equal(result.write, true);
     assert.equal(result.wrotePaths.length, 2);
-    assert.equal(existsSync(join(tempDir, ".omx", "state")), false);
+    assert.equal(existsSync(join(tempDir, ".owx", "state")), false);
     assert.equal(existsSync(join(hermesHome, "gateway_state.json")), true);
     assert.equal(existsSync(join(hermesHome, "state.db")), true);
 

@@ -1,7 +1,7 @@
 /**
- * OMX HUD - State file readers
+ * OWX HUD - State file readers
  *
- * Reads .omx/state/ files to build HUD render context.
+ * Reads .owx/state/ files to build HUD render context.
  */
 
 import { readFile } from 'fs/promises';
@@ -138,7 +138,7 @@ function normalizeUltragoalGoal(raw: unknown): NormalizedUltragoalGoal | null {
 }
 
 export async function readUltragoalState(cwd: string): Promise<UltragoalStateForHud | null> {
-  const plan = await readJsonFile<RawUltragoalPlan>(join(cwd, '.omx', 'ultragoal', 'goals.json'));
+  const plan = await readJsonFile<RawUltragoalPlan>(join(cwd, '.owx', 'ultragoal', 'goals.json'));
   if (!plan || typeof plan !== 'object' || !Array.isArray(plan.goals)) return null;
 
   const goals = plan.goals.map(normalizeUltragoalGoal).filter((goal): goal is NormalizedUltragoalGoal => goal !== null);
@@ -251,7 +251,7 @@ export async function readTeamState(cwd: string): Promise<TeamStateForHud | null
 }
 
 export async function readMetrics(cwd: string): Promise<HudMetrics | null> {
-  return readJsonFile<HudMetrics>(join(cwd, '.omx', 'metrics.json'));
+  return readJsonFile<HudMetrics>(join(cwd, '.owx', 'metrics.json'));
 }
 
 export async function readHudNotifyState(cwd: string): Promise<HudNotifyState | null> {
@@ -270,7 +270,7 @@ export async function readSessionState(cwd: string): Promise<SessionStateForHud 
 }
 
 export async function readHudConfig(cwd: string): Promise<ResolvedHudConfig> {
-  const config = await readJsonFile<HudConfig>(join(cwd, '.omx', 'hud-config.json'));
+  const config = await readJsonFile<HudConfig>(join(cwd, '.owx', 'hud-config.json'));
   return normalizeHudConfig(config);
 }
 
@@ -285,7 +285,7 @@ export type GitRunner = (cwd: string, args: string[]) => string | null;
  * spawning console windows (conhost.exe flicker).  Falls back to execSync
  * for non-Windows platforms or unrecognised arguments.
  *
- * See: https://github.com/Yeachan-Heo/oh-my-codex/issues/1100
+ * See: https://github.com/kang-heewon/owen-codex/issues/1100
  */
 function runGit(cwd: string, args: string[]): string | null {
   if (process.platform === 'win32') {

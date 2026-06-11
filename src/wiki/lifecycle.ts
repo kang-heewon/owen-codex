@@ -20,7 +20,7 @@ import {
 import { DEFAULT_WIKI_CONFIG, type WikiConfig, WIKI_SCHEMA_VERSION } from './types.js';
 
 function loadWikiConfig(root: string): WikiConfig {
-  const candidates = [join(root, '.omx-config.json'), join(codexHome(), '.omx-config.json')];
+  const candidates = [join(root, '.owx-config.json'), join(codexHome(), '.owx-config.json')];
 
   for (const path of candidates) {
     try {
@@ -52,9 +52,9 @@ export function onSessionStart(data: { cwd?: string }): { additionalContext?: st
 
     if (legacyFallbackActive) {
       const summary = [
-        `[OMX Wiki: ${pages.length} legacy pages at .omx/wiki/; canonical storage is omx_wiki/]`,
+        `[OWX Wiki: ${pages.length} legacy pages at .owx/wiki/; canonical storage is owx_wiki/]`,
         '',
-        'Legacy wiki fallback is read-only. Review and copy selected pages into omx_wiki/ before committing.',
+        'Legacy wiki fallback is read-only. Review and copy selected pages into owx_wiki/ before committing.',
       ].join('\n');
       return { additionalContext: summary };
     }
@@ -73,7 +73,7 @@ export function onSessionStart(data: { cwd?: string }): { additionalContext?: st
     if (!index) return {};
 
     const summary = [
-      `[OMX Wiki: ${pages.length} pages at omx_wiki/]`,
+      `[OWX Wiki: ${pages.length} pages at owx_wiki/]`,
       '',
       'Use wiki_query to search, wiki_list to browse, wiki_read to inspect pages.',
       '',
@@ -175,9 +175,9 @@ export function onPostCompact(data: { cwd?: string }): { additionalContext?: str
 
     return {
       additionalContext: [
-        '[OMX Wiki PostCompact Nudge]',
-        'Review the compaction artifacts and write durable findings to repository `omx_wiki/` when they would help future agents.',
-        'Use `omx wiki wiki_ingest --input <json> --json` or `omx wiki wiki_add --input <json> --json` for decisions, architecture notes, debugging findings, environment facts, and session-log summaries worth committing.',
+        '[OWX Wiki PostCompact Nudge]',
+        'Review the compaction artifacts and write durable findings to repository `owx_wiki/` when they would help future agents.',
+        'Use `owx wiki wiki_ingest --input <json> --json` or `owx wiki wiki_add --input <json> --json` for decisions, architecture notes, debugging findings, environment facts, and session-log summaries worth committing.',
       ].join('\n'),
     };
   } catch {

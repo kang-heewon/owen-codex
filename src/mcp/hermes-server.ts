@@ -1,5 +1,5 @@
 /**
- * OMX Hermes Coordination MCP Server
+ * OWX Hermes Coordination MCP Server
  * Small product-facing bridge for dispatch/status/artifact coordination.
  */
 
@@ -24,13 +24,13 @@ import {
 } from "./hermes-bridge.js";
 
 const server = new Server(
-  { name: "omx-hermes", version: "0.1.0" },
+  { name: "owx-hermes", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 
 export function buildHermesServerTools() {
-  const workingDirectory = { type: "string", description: "Bounded OMX project/worktree directory" };
-  const sessionId = { type: "string", description: "OMX session_id (A-Z, a-z, 0-9, _, -)" };
+  const workingDirectory = { type: "string", description: "Bounded OWX project/worktree directory" };
+  const sessionId = { type: "string", description: "OWX session_id (A-Z, a-z, 0-9, _, -)" };
   const allowMutation = {
     type: "boolean",
     description: "Must be true for mutating operations; read tools ignore it.",
@@ -38,12 +38,12 @@ export function buildHermesServerTools() {
   return [
     {
       name: "hermes_list_sessions",
-      description: "List known OMX session state for a bounded worktree without reading terminal UI.",
+      description: "List known OWX session state for a bounded worktree without reading terminal UI.",
       inputSchema: { type: "object", properties: { workingDirectory } },
     },
     {
       name: "hermes_start_session",
-      description: "Start a new isolated OMX tmux session in disposable worktree mode for one bounded prompt.",
+      description: "Start a new isolated OWX tmux session in disposable worktree mode for one bounded prompt.",
       inputSchema: {
         type: "object",
         properties: {
@@ -57,7 +57,7 @@ export function buildHermesServerTools() {
     },
     {
       name: "hermes_send_prompt",
-      description: "Queue one explicit prompt for a selected OMX exec session via the audited follow-up queue.",
+      description: "Queue one explicit prompt for a selected OWX exec session via the audited follow-up queue.",
       inputSchema: {
         type: "object",
         properties: {
@@ -72,12 +72,12 @@ export function buildHermesServerTools() {
     },
     {
       name: "hermes_read_status",
-      description: "Read selected session/mode status JSON from OMX state files.",
+      description: "Read selected session/mode status JSON from OWX state files.",
       inputSchema: { type: "object", properties: { workingDirectory, session_id: sessionId } },
     },
     {
       name: "hermes_read_tail",
-      description: "Read the bounded OMX session history log tail, not tmux scrollback.",
+      description: "Read the bounded OWX session history log tail, not tmux scrollback.",
       inputSchema: { type: "object", properties: { workingDirectory, lines: { type: "number" } } },
     },
     {
@@ -116,12 +116,12 @@ export function buildHermesServerTools() {
     },
     {
       name: "hermes_list_artifacts",
-      description: "List known safe result artifact files under .omx plans/specs/goals/context/reports.",
+      description: "List known safe result artifact files under .owx plans/specs/goals/context/reports.",
       inputSchema: { type: "object", properties: { workingDirectory, limit: { type: "number" } } },
     },
     {
       name: "hermes_read_artifact",
-      description: "Read one safe .omx result artifact by relative path with byte truncation.",
+      description: "Read one safe .owx result artifact by relative path with byte truncation.",
       inputSchema: {
         type: "object",
         properties: { workingDirectory, path: { type: "string" }, max_bytes: { type: "number" } },

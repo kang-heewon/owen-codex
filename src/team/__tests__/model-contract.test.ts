@@ -21,17 +21,17 @@ function withIsolatedDefaultModelEnv<T>(run: () => T): T {
   const savedEnv = new Map<string, string | undefined>();
   for (const key of [
     'CODEX_HOME',
-    'OMX_DEFAULT_FRONTIER_MODEL',
-    'OMX_DEFAULT_STANDARD_MODEL',
-    'OMX_DEFAULT_SPARK_MODEL',
-    'OMX_SPARK_MODEL',
+    'OWX_DEFAULT_FRONTIER_MODEL',
+    'OWX_DEFAULT_STANDARD_MODEL',
+    'OWX_DEFAULT_SPARK_MODEL',
+    'OWX_SPARK_MODEL',
   ] as const) {
     savedEnv.set(key, process.env[key]);
     delete process.env[key];
   }
   process.env.CODEX_HOME = join(
     tmpdir(),
-    `omx-model-contract-defaults-${process.pid}-${Date.now()}`,
+    `owx-model-contract-defaults-${process.pid}-${Date.now()}`,
   );
 
   try {
@@ -167,9 +167,9 @@ describe('team model contract', () => {
   });
 
   it('maps worker roles through configured per-agent reasoning overrides', async () => {
-    const codexHome = await mkdtemp(join(tmpdir(), 'omx-model-contract-reasoning-'));
+    const codexHome = await mkdtemp(join(tmpdir(), 'owx-model-contract-reasoning-'));
     try {
-      await writeFile(join(codexHome, '.omx-config.json'), JSON.stringify({
+      await writeFile(join(codexHome, '.owx-config.json'), JSON.stringify({
         agentReasoning: {
           architect: 'xhigh',
         },

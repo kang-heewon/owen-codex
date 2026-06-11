@@ -8,10 +8,10 @@ import { fileURLToPath } from 'url';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(testDir, '..', '..', '..');
-const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
+const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
 
 function runOmx(cwd: string, ...args: string[]) {
-  return spawnSync(process.execPath, [omxBin, ...args], {
+  return spawnSync(process.execPath, [owxBin, ...args], {
     cwd,
     encoding: 'utf-8',
   });
@@ -19,11 +19,11 @@ function runOmx(cwd: string, ...args: string[]) {
 
 describe('CLI session-scoped state parity', () => {
   it('status and cancel include session-scoped states', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-cli-session-scope-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-cli-session-scope-'));
     try {
-      await mkdir(join(wd, '.omx', 'state'), { recursive: true });
-      await writeFile(join(wd, '.omx', 'state', 'session.json'), JSON.stringify({ session_id: 'sess1' }));
-      const scopedDir = join(wd, '.omx', 'state', 'sessions', 'sess1');
+      await mkdir(join(wd, '.owx', 'state'), { recursive: true });
+      await writeFile(join(wd, '.owx', 'state', 'session.json'), JSON.stringify({ session_id: 'sess1' }));
+      const scopedDir = join(wd, '.owx', 'state', 'sessions', 'sess1');
       await mkdir(scopedDir, { recursive: true });
       await writeFile(join(scopedDir, 'team-state.json'), JSON.stringify({
         active: true,
@@ -49,9 +49,9 @@ describe('CLI session-scoped state parity', () => {
   });
 
   it('status does not report a root fallback mode as active after current-session clear', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-cli-session-clear-fallback-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-cli-session-clear-fallback-'));
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       const sessionId = 'sess-clear';
       const sessionDir = join(stateDir, 'sessions', sessionId);
       await mkdir(sessionDir, { recursive: true });
@@ -88,9 +88,9 @@ describe('CLI session-scoped state parity', () => {
   });
 
   it('cancels linked ultrawork when Ralph is active', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-cli-ralph-link-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-cli-ralph-link-'));
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       const sessionId = 'sess-link';
       const sessionDir = join(stateDir, 'sessions', sessionId);
       await mkdir(sessionDir, { recursive: true });
@@ -128,9 +128,9 @@ describe('CLI session-scoped state parity', () => {
   });
 
   it('does not mutate unrelated sessions when cancelling current session mode', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-cli-cross-session-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-cli-cross-session-'));
     try {
-      const stateDir = join(wd, '.omx', 'state');
+      const stateDir = join(wd, '.owx', 'state');
       const sessionA = join(stateDir, 'sessions', 'sessA');
       const sessionB = join(stateDir, 'sessions', 'sessB');
       await mkdir(sessionA, { recursive: true });

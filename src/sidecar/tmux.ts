@@ -8,7 +8,7 @@ export interface SidecarTmuxOptions {
   teamName: string;
   width?: number;
   sessionId?: string;
-  omxBin?: string;
+  owxBin?: string;
 }
 
 type TmuxExecSync = (args: string[]) => string;
@@ -18,10 +18,10 @@ function sidecarWidth(width: number | undefined): number {
 }
 
 export function buildSidecarWatchCommand(options: SidecarTmuxOptions): string {
-  const omxBin = options.omxBin ?? resolveOmxCliEntryPath();
-  if (!omxBin) throw new Error('Failed to resolve OMX launcher path for sidecar startup.');
-  const prefix = options.sessionId ? `OMX_SESSION_ID=${shellEscapeSingle(options.sessionId)} ` : '';
-  return `${prefix}${shellEscapeSingle(process.execPath)} ${shellEscapeSingle(omxBin)} sidecar ${shellEscapeSingle(options.teamName)} --watch --width ${sidecarWidth(options.width)}`;
+  const owxBin = options.owxBin ?? resolveOmxCliEntryPath();
+  if (!owxBin) throw new Error('Failed to resolve OWX launcher path for sidecar startup.');
+  const prefix = options.sessionId ? `OWX_SESSION_ID=${shellEscapeSingle(options.sessionId)} ` : '';
+  return `${prefix}${shellEscapeSingle(process.execPath)} ${shellEscapeSingle(owxBin)} sidecar ${shellEscapeSingle(options.teamName)} --watch --width ${sidecarWidth(options.width)}`;
 }
 
 export function buildSidecarTmuxSplitArgs(options: SidecarTmuxOptions): string[] {

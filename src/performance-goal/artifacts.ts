@@ -7,7 +7,7 @@ import {
   reconcileCodexGoalSnapshot,
 } from '../goal-workflows/codex-goal-snapshot.js';
 
-export const PERFORMANCE_GOAL_ROOT = '.omx/goals/performance';
+export const PERFORMANCE_GOAL_ROOT = '.owx/goals/performance';
 export const PERFORMANCE_GOAL_STATE = 'state.json';
 export const PERFORMANCE_GOAL_LEDGER = 'ledger.jsonl';
 export const PERFORMANCE_GOAL_EVALUATOR = 'evaluator.md';
@@ -204,7 +204,7 @@ export async function readPerformanceGoal(cwd: string, slug: string): Promise<Pe
   try {
     raw = await readFile(path, 'utf-8');
   } catch {
-    throw new PerformanceGoalError(`No performance goal found at ${repoRelative(cwd, path)}. Run \`omx performance-goal create ...\` first.`);
+    throw new PerformanceGoalError(`No performance goal found at ${repoRelative(cwd, path)}. Run \`owx performance-goal create ...\` first.`);
   }
   const parsed = JSON.parse(raw) as PerformanceGoalState;
   if (parsed.version !== 1 || parsed.workflow !== 'performance-goal' || !parsed.evaluator?.command) {
@@ -256,7 +256,7 @@ export async function checkpointPerformanceGoal(cwd: string, options: Checkpoint
 export async function completePerformanceGoal(cwd: string, options: CompletePerformanceGoalOptions): Promise<PerformanceGoalState> {
   const state = await readPerformanceGoal(cwd, options.slug);
   if (state.lastValidation?.status !== 'pass') {
-    throw new PerformanceGoalError('Cannot complete performance goal until evaluator validation has a passing checkpoint. Run `omx performance-goal checkpoint --status pass ...` first.');
+    throw new PerformanceGoalError('Cannot complete performance goal until evaluator validation has a passing checkpoint. Run `owx performance-goal checkpoint --status pass ...` first.');
   }
   const reconciliation = reconcileCodexGoalSnapshot(
     options.codexGoal === undefined ? null : parseCodexGoalSnapshot(options.codexGoal),
@@ -293,11 +293,11 @@ export function buildPerformanceGoalInstruction(state: PerformanceGoalState): st
     'Codex goal integration constraints:',
     '- First call get_goal. If no active goal exists, call create_goal with the payload below.',
     '- If a different active Codex goal exists, finish or checkpoint that goal before starting this performance goal.',
-    '- Do not treat this shell command as hidden Codex goal mutation; it only wrote OMX artifacts and this handoff.',
+    '- Do not treat this shell command as hidden Codex goal mutation; it only wrote OWX artifacts and this handoff.',
     '- Optimize only against the evaluator command/contract below; do not begin optimization without that evaluator.',
-    '- Completion is blocked until evaluator evidence passes and is recorded with `omx performance-goal checkpoint --status pass ...`.',
+    '- Completion is blocked until evaluator evidence passes and is recorded with `owx performance-goal checkpoint --status pass ...`.',
     '- After evaluator pass and a completion audit prove the objective is complete, call update_goal({status: "complete"}) in the Codex thread, then call get_goal again for a fresh completion snapshot.',
-    `- Finish by running: omx performance-goal complete --slug ${state.slug} --evidence "<passing evaluator/tests/files evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
+    `- Finish by running: owx performance-goal complete --slug ${state.slug} --evidence "<passing evaluator/tests/files evidence>" --codex-goal-json "<fresh get_goal JSON or path>"`,
     '- If the evaluator fails or blocks, checkpoint with --status fail or --status blocked and continue iterating.',
     '',
     'create_goal payload:',

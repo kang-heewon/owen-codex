@@ -21,12 +21,12 @@ interface ReplyListenerLiveSmokeDeps {
   log?: (message: string) => void;
 }
 
-const LIVE_ENABLE_ENV = 'OMX_REPLY_LISTENER_LIVE';
+const LIVE_ENABLE_ENV = 'OWX_REPLY_LISTENER_LIVE';
 const REQUIRED_ENV_KEYS = [
-  'OMX_DISCORD_NOTIFIER_BOT_TOKEN',
-  'OMX_DISCORD_NOTIFIER_CHANNEL',
-  'OMX_TELEGRAM_BOT_TOKEN',
-  'OMX_TELEGRAM_CHAT_ID',
+  'OWX_DISCORD_NOTIFIER_BOT_TOKEN',
+  'OWX_DISCORD_NOTIFIER_CHANNEL',
+  'OWX_TELEGRAM_BOT_TOKEN',
+  'OWX_TELEGRAM_CHAT_ID',
 ] as const;
 
 function requireJsonObject(value: unknown, label: string): Record<string, unknown> {
@@ -59,10 +59,10 @@ export function resolveReplyListenerLiveEnv(env: NodeJS.ProcessEnv = process.env
     enabled: true,
     missing: [],
     config: {
-      discordBotToken: env.OMX_DISCORD_NOTIFIER_BOT_TOKEN!.trim(),
-      discordChannelId: env.OMX_DISCORD_NOTIFIER_CHANNEL!.trim(),
-      telegramBotToken: env.OMX_TELEGRAM_BOT_TOKEN!.trim(),
-      telegramChatId: env.OMX_TELEGRAM_CHAT_ID!.trim(),
+      discordBotToken: env.OWX_DISCORD_NOTIFIER_BOT_TOKEN!.trim(),
+      discordChannelId: env.OWX_DISCORD_NOTIFIER_CHANNEL!.trim(),
+      telegramBotToken: env.OWX_TELEGRAM_BOT_TOKEN!.trim(),
+      telegramChatId: env.OWX_TELEGRAM_CHAT_ID!.trim(),
     },
   };
 }
@@ -84,7 +84,7 @@ export async function runReplyListenerLiveSmoke(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        content: `[omx live smoke ${stamp}] reply-listener Discord connectivity probe`,
+        content: `[owx live smoke ${stamp}] reply-listener Discord connectivity probe`,
       }),
       signal: AbortSignal.timeout(10_000),
     },
@@ -121,7 +121,7 @@ export async function runReplyListenerLiveSmoke(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: config.telegramChatId,
-        text: `[omx live smoke ${stamp}] reply-listener Telegram connectivity probe`,
+        text: `[owx live smoke ${stamp}] reply-listener Telegram connectivity probe`,
       }),
       signal: AbortSignal.timeout(10_000),
     },

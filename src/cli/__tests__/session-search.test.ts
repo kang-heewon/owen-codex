@@ -22,8 +22,8 @@ async function writeRollout(
 function runOmx(cwd: string, argv: string[], envOverrides: Record<string, string> = {}) {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env, ...envOverrides },
@@ -45,9 +45,9 @@ describe('parseSessionSearchArgs', () => {
   });
 });
 
-describe('omx session search', () => {
+describe('owx session search', () => {
   it('prints structured JSON results for matching transcripts', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-session-search-cli-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-session-search-cli-'));
     const codexHomeDir = join(cwd, '.codex-home');
     try {
       await writeRollout(codexHomeDir, '2026-03-10T12:00:00.000Z', 'rollout-2026-03-10T12-00-00-session-a.jsonl', [

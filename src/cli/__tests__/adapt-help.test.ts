@@ -9,30 +9,30 @@ import { fileURLToPath } from 'node:url';
 function runOmx(cwd: string, argv: string[]) {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  return spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  return spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: {
       ...process.env,
-      OMX_AUTO_UPDATE: '0',
-      OMX_NOTIFY_FALLBACK: '0',
-      OMX_HOOK_DERIVED_SIGNALS: '0',
+      OWX_AUTO_UPDATE: '0',
+      OWX_NOTIFY_FALLBACK: '0',
+      OWX_HOOK_DERIVED_SIGNALS: '0',
     },
   });
 }
 
-describe('omx adapt help', () => {
+describe('owx adapt help', () => {
   it('documents adapt in top-level help and routes adapt-local help output', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-adapt-help-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-adapt-help-'));
     try {
       const mainHelp = runOmx(cwd, ['--help']);
       assert.equal(mainHelp.status, 0, mainHelp.stderr || mainHelp.stdout);
-      assert.match(mainHelp.stdout, /omx adapt\s+Scaffold OMX-owned adapter foundations for persistent external targets/i);
+      assert.match(mainHelp.stdout, /owx adapt\s+Scaffold OWX-owned adapter foundations for persistent external targets/i);
 
       const adaptHelp = runOmx(cwd, ['adapt', '--help']);
       assert.equal(adaptHelp.status, 0, adaptHelp.stderr || adaptHelp.stdout);
-      assert.match(adaptHelp.stdout, /Usage: omx adapt <target> <probe\|status\|init\|envelope\|doctor>/i);
+      assert.match(adaptHelp.stdout, /Usage: owx adapt <target> <probe\|status\|init\|envelope\|doctor>/i);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

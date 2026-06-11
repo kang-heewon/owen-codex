@@ -6,12 +6,12 @@ import { spawnSync } from 'node:child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..', '..');
-const manifestPath = process.env.OMX_SPARKSHELL_MANIFEST ?? join(projectRoot, 'crates', 'omx-sparkshell', 'Cargo.toml');
+const manifestPath = process.env.OWX_SPARKSHELL_MANIFEST ?? join(projectRoot, 'crates', 'owx-sparkshell', 'Cargo.toml');
 const extraArgs = process.argv.slice(2);
 const args = ['test', '--manifest-path', manifestPath, ...extraArgs];
 
 if (!existsSync(manifestPath)) {
-  console.error(`omx sparkshell test: missing Rust manifest at ${manifestPath}`);
+  console.error(`owx sparkshell test: missing Rust manifest at ${manifestPath}`);
   process.exit(1);
 }
 
@@ -22,7 +22,7 @@ const result = spawnSync('cargo', args, {
 });
 
 if (result.error) {
-  console.error(`omx sparkshell test: failed to launch cargo: ${result.error.message}`);
+  console.error(`owx sparkshell test: failed to launch cargo: ${result.error.message}`);
   process.exit(1);
 }
 

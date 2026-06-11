@@ -7,16 +7,16 @@ import {
 } from '../explore-routing.js';
 
 describe('explore-routing', () => {
-  it('defaults USE_OMX_EXPLORE_CMD to disabled compatibility mode and honors explicit values', () => {
+  it('defaults USE_OWX_EXPLORE_CMD to disabled compatibility mode and honors explicit values', () => {
     assert.equal(isExploreCommandRoutingEnabled({}), false);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: '1' }), true);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'true' }), true);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'yes' }), true);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'on' }), true);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: '0' }), false);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'false' }), false);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'no' }), false);
-    assert.equal(isExploreCommandRoutingEnabled({ USE_OMX_EXPLORE_CMD: 'off' }), false);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: '1' }), true);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'true' }), true);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'yes' }), true);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'on' }), true);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: '0' }), false);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'false' }), false);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'no' }), false);
+    assert.equal(isExploreCommandRoutingEnabled({ USE_OWX_EXPLORE_CMD: 'off' }), false);
   });
 
   it('detects simple exploration prompts', () => {
@@ -38,8 +38,8 @@ describe('explore-routing', () => {
     const guidance = buildExploreRoutingGuidance();
     assert.ok(guidance.startsWith('**Repository Lookup Routing:**'));
     assert.match(guidance, /normal Codex repository inspection/i);
-    assert.match(guidance, /omx sparkshell -- <command>/);
-    assert.doesNotMatch(guidance, /omx explore/i);
-    assert.doesNotMatch(guidance, /USE_OMX_EXPLORE_CMD/);
+    assert.match(guidance, /owx sparkshell -- <command>/);
+    assert.doesNotMatch(guidance, /owx explore/i);
+    assert.doesNotMatch(guidance, /USE_OWX_EXPLORE_CMD/);
   });
 });

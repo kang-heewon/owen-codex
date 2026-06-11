@@ -7,7 +7,7 @@ import { performanceGoalCommand, PERFORMANCE_GOAL_HELP } from '../performance-go
 import { HELP } from '../index.js';
 
 async function withCwd<T>(run: (cwd: string) => Promise<T>): Promise<T> {
-  const cwd = await mkdtemp(join(tmpdir(), 'omx-performance-goal-cli-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'owx-performance-goal-cli-'));
   const previous = process.cwd();
   try {
     process.chdir(cwd);
@@ -40,7 +40,7 @@ describe('cli/performance-goal', () => {
     assert.match(PERFORMANCE_GOAL_HELP, /evaluator-gated performance optimization/i);
     assert.match(PERFORMANCE_GOAL_HELP, /get_goal\/create_goal\/update_goal/);
     assert.match(PERFORMANCE_GOAL_HELP, /passing checkpoint/i);
-    assert.match(HELP, /omx performance-goal[\s\S]*evaluator-backed performance goals/);
+    assert.match(HELP, /owx performance-goal[\s\S]*evaluator-backed performance goals/);
   });
 
   it('creates artifacts and emits a truthful Codex goal handoff', async () => {
@@ -62,13 +62,13 @@ describe('cli/performance-goal', () => {
       assert.match(output, /call create_goal/);
       assert.match(output, /Do not treat this shell command as hidden Codex goal mutation/);
       assert.match(output, /update_goal\(\{status: "complete"\}\)/);
-      assert.ok(output.indexOf('update_goal({status: "complete"})') < output.indexOf('omx performance-goal complete --slug startup-latency'));
+      assert.ok(output.indexOf('update_goal({status: "complete"})') < output.indexOf('owx performance-goal complete --slug startup-latency'));
       assert.match(output, /--codex-goal-json/);
       assert.match(output, /npm run perf:startup/);
 
-      const state = JSON.parse(await readFile(join(cwd, '.omx/goals/performance/startup-latency/state.json'), 'utf-8')) as { status: string; artifactPaths: { evaluator: string } };
+      const state = JSON.parse(await readFile(join(cwd, '.owx/goals/performance/startup-latency/state.json'), 'utf-8')) as { status: string; artifactPaths: { evaluator: string } };
       assert.equal(state.status, 'in_progress');
-      assert.equal(state.artifactPaths.evaluator, '.omx/goals/performance/startup-latency/evaluator.md');
+      assert.equal(state.artifactPaths.evaluator, '.owx/goals/performance/startup-latency/evaluator.md');
     });
   });
 

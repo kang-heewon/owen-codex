@@ -8,7 +8,7 @@ import { atomicWriteFile, addSlotFromAuthFile, listSlots, readAuthMetadata, useS
 import { resolveLiveAuthPath, resolveOmxAuthDir, resolveSlotPath, validateSlotName } from "../paths.js";
 
 async function tempHome(): Promise<string> {
-  return await mkdtemp(join(tmpdir(), "omx-auth-storage-"));
+  return await mkdtemp(join(tmpdir(), "owx-auth-storage-"));
 }
 
 describe("auth slot storage", () => {
@@ -62,8 +62,8 @@ describe("auth slot storage", () => {
     const home = await tempHome();
     const outside = await tempHome();
     try {
-      await mkdir(join(home, ".omx"), { recursive: true });
-      await symlink(outside, join(home, ".omx", "auth"));
+      await mkdir(join(home, ".owx"), { recursive: true });
+      await symlink(outside, join(home, ".owx", "auth"));
       const live = join(home, ".codex", "auth.json");
       await mkdir(join(home, ".codex"), { recursive: true });
       await writeFile(live, "{}\n");
@@ -97,11 +97,11 @@ describe("auth slot storage", () => {
 
   it("resolves CODEX_HOME, project-scope, and default auth paths", async () => {
     const home = await tempHome();
-    const wd = await mkdtemp(join(tmpdir(), "omx-auth-project-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-auth-project-"));
     try {
       assert.equal(resolveLiveAuthPath(wd, { CODEX_HOME: join(home, "custom") }, home), join(home, "custom", "auth.json"));
-      await mkdir(join(wd, ".omx"), { recursive: true });
-      await writeFile(join(wd, ".omx", "setup-scope.json"), '{"scope":"project"}\n');
+      await mkdir(join(wd, ".owx"), { recursive: true });
+      await writeFile(join(wd, ".owx", "setup-scope.json"), '{"scope":"project"}\n');
       assert.equal(resolveLiveAuthPath(wd, {}, home), join(wd, ".codex", "auth.json"));
       assert.equal(resolveLiveAuthPath(wd, { CODEX_HOME: "" }, home), join(wd, ".codex", "auth.json"));
     } finally {

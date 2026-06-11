@@ -32,7 +32,7 @@ function classifyChangedPaths(paths: string[]): Record<string, string> {
   const match = changesJob.match(/node <<'NODE'\n(?<script>[\s\S]*?)\n\s+NODE/);
   assert.ok(match?.groups?.script, 'missing inline changed-path classifier script');
 
-  const cwd = mkdtempSync(join(tmpdir(), 'omx-ci-classifier-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'owx-ci-classifier-'));
   const outputPath = join(cwd, 'github-output.txt');
   try {
     writeFileSync(
@@ -83,8 +83,6 @@ describe('CI Rust gates', () => {
     assert.match(workflow, /changes:\s*\n\s+name:\s*Detect CI lanes/);
     for (const outputName of [
       'full_suite',
-      'docs_changed',
-      'docs_only',
       'ts_changed',
       'rust_changed',
       'native_changed',
@@ -103,15 +101,12 @@ describe('CI Rust gates', () => {
     assert.match(changesJob, /shared config, workflow, manifest, lockfile, or packaging change/);
   });
 
-  it('classifies docs, TypeScript, Rust/native, shared config, renames, and unknown paths explicitly', () => {
+  it('classifies TypeScript, Rust/native, shared config, renames, and unknown paths explicitly', () => {
     const workflow = readCiWorkflow();
     const changesJob = jobBlock(workflow, 'changes');
 
     assert.match(changesJob, /function pathsFromNameStatus/);
     assert.match(changesJob, /if \(\/\^\[RC\]\/\.test\(status\)\) return parts\.slice\(1, 3\)/);
-    assert.match(changesJob, /function isDocs\(path\)/);
-    assert.match(changesJob, /\^docs\\\//);
-    assert.match(changesJob, /README\|CHANGELOG\|CONTRIBUTING\|COVERAGE\|DEMO\|RELEASE_BODY\|RELEASE_PROTOCOL/);
     assert.match(changesJob, /function isTs\(path\)/);
     assert.match(changesJob, /\^src\\\/\.\*\\\.\(ts\|tsx\|mts\|cts\)\$/);
     assert.match(changesJob, /function isRust\(path\)/);
@@ -185,7 +180,6 @@ describe('CI Rust gates', () => {
   it('gates expensive jobs by lane while preserving full-suite fail-closed behavior', () => {
     const workflow = readCiWorkflow();
 
-    assertJobIf(workflow, 'docs-check', /full_suite == 'true'.*docs_changed == 'true'/s);
     for (const jobName of ['rustfmt', 'clippy', 'rust-tests']) {
       assertJobIf(workflow, jobName, /full_suite == 'true'.*rust_changed == 'true'.*native_changed == 'true'/s);
     }
@@ -217,8 +211,8 @@ describe('CI Rust gates', () => {
     assert.match(workflow, /components:\s*llvm-tools-preview/);
     assert.match(workflow, /taiki-e\/install-action@cargo-llvm-cov/);
     assert.match(workflow, /cargo llvm-cov --workspace --summary-only/);
-    assert.match(workflow, /cargo llvm-cov --manifest-path crates\/omx-sparkshell\/Cargo\.toml --summary-only/);
-    assert.match(workflow, /cat coverage\/rust\/omx-sparkshell-summary\.txt/);
+    assert.match(workflow, /cargo llvm-cov --manifest-path crates\/owx-sparkshell\/Cargo\.toml --summary-only/);
+    assert.match(workflow, /cat coverage\/rust\/owx-sparkshell-summary\.txt/);
     assert.doesNotMatch(rustTestsJob, /--lcov|output-path|Upload Rust coverage artifact/);
 
     assert.match(
@@ -276,7 +270,7 @@ describe('CI Rust gates', () => {
 
     assert.match(
       workflow,
-      /needs:\s*\[changes, docs-check, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
+      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
     );
   });
 
@@ -293,7 +287,6 @@ describe('CI Rust gates', () => {
     const ciStatusJob = jobBlock(workflow, 'ci-status');
     const requiredJobs = [
       'changes',
-      'docs-check',
       'rustfmt',
       'clippy',
       'rust-tests',
@@ -308,7 +301,7 @@ describe('CI Rust gates', () => {
 
     assert.match(
       ciStatusJob,
-      /needs:\s*\[changes, docs-check, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
+      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
     );
 
     for (const jobName of requiredJobs) {
@@ -320,7 +313,6 @@ describe('CI Rust gates', () => {
     assert.match(ciStatusJob, /check_job\(\) \{/);
     assert.match(ciStatusJob, /must succeed when active/);
     assert.match(ciStatusJob, /inactive lane should be success or skipped/);
-    assert.match(ciStatusJob, /docs_active=false/);
     assert.match(ciStatusJob, /rust_active=false/);
     assert.match(ciStatusJob, /ts_active=false/);
     assert.match(ciStatusJob, /dist_active=false/);
@@ -350,7 +342,6 @@ describe('CI Rust gates', () => {
 
     for (const jobName of [
       'changes',
-      'docs-check',
       'rustfmt',
       'clippy',
       'rust-tests',

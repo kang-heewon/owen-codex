@@ -23,7 +23,7 @@ import {
 import { steeringFixtures, type SteeringFixtureProposal } from './steering-fixtures.js';
 
 async function withTempRepo<T>(run: (cwd: string) => Promise<T>): Promise<T> {
-  const cwd = await mkdtemp(join(tmpdir(), 'omx-ultragoal-'));
+  const cwd = await mkdtemp(join(tmpdir(), 'owx-ultragoal-'));
   try {
     return await run(cwd);
   } finally {
@@ -48,10 +48,10 @@ function cleanQualityGate(): object {
 }
 
 async function writeFixturePlan(cwd: string, plan: UltragoalPlan): Promise<void> {
-  await mkdir(join(cwd, '.omx/ultragoal'), { recursive: true });
-  await writeFile(join(cwd, '.omx/ultragoal/brief.md'), 'G001-core-steering-model fixture for .omx/ultragoal steering behavior.\n');
-  await writeFile(join(cwd, '.omx/ultragoal/goals.json'), `${JSON.stringify(plan, null, 2)}\n`);
-  await writeFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), '');
+  await mkdir(join(cwd, '.owx/ultragoal'), { recursive: true });
+  await writeFile(join(cwd, '.owx/ultragoal/brief.md'), 'G001-core-steering-model fixture for .owx/ultragoal steering behavior.\n');
+  await writeFile(join(cwd, '.owx/ultragoal/goals.json'), `${JSON.stringify(plan, null, 2)}\n`);
+  await writeFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), '');
 }
 
 function asChildGoals(after: unknown): Array<{ title: string; objective: string }> | undefined {
@@ -108,7 +108,7 @@ describe('ultragoal artifacts', () => {
   it('creates brief, goals, and ledger artifacts from a brief', async () => {
     await withTempRepo(async (cwd) => {
       const plan = await createUltragoalPlan(cwd, {
-        brief: '- Build the CLI\n- Add tests\n- Write docs',
+        brief: '- Build the CLI\n- Add tests\n- Add telemetry',
         now: new Date('2026-05-04T10:00:00Z'),
       });
 
@@ -118,9 +118,9 @@ describe('ultragoal artifacts', () => {
       assert.doesNotMatch(plan.codexObjective ?? '', /G001-build-the-cli/);
       assert.equal(plan.goals[0]?.id, 'G001-build-the-cli');
       assert.equal(plan.goals[0]?.status, 'pending');
-      assert.equal(await readFile(join(cwd, '.omx/ultragoal/brief.md'), 'utf-8'), '- Build the CLI\n- Add tests\n- Write docs\n');
+      assert.equal(await readFile(join(cwd, '.owx/ultragoal/brief.md'), 'utf-8'), '- Build the CLI\n- Add tests\n- Add telemetry\n');
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"plan_created"/);
     });
   });
@@ -272,7 +272,7 @@ describe('ultragoal artifacts', () => {
       assert.match(instruction, /--codex-goal-json/);
       assert.match(instruction, /Complete the durable ultragoal plan/);
       assert.match(instruction, /including later accepted\/appended stories/);
-      assert.match(instruction, /\.omx\/ultragoal\/ledger\.jsonl/);
+      assert.match(instruction, /\.owx\/ultragoal\/ledger\.jsonl/);
       assert.match(instruction, /Complete first milestone/);
       assert.match(instruction, /does not call \/goal clear/);
       assert.match(instruction, /manually run \/goal clear/);
@@ -362,7 +362,7 @@ describe('ultragoal artifacts', () => {
 
       const plan = await readUltragoalPlan(cwd);
       assert.equal(plan.goals[0]?.evidence, 'unit tests passed');
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"goal_completed"/);
       assert.match(ledger, /"event":"goal_failed"/);
       assert.match(ledger, /"event":"goal_retried"/);
@@ -372,7 +372,7 @@ describe('ultragoal artifacts', () => {
 
   it('reconciles completed task-scoped Codex proof to finish exploded aggregate ultragoal bookkeeping', async () => {
     await withTempRepo(async (cwd) => {
-      const taskObjective = 'Fix the mismatch between Codex immutable completed goal snapshots and OMX ultragoal checkpoint reconciliation.';
+      const taskObjective = 'Fix the mismatch between Codex immutable completed goal snapshots and OWX ultragoal checkpoint reconciliation.';
       await createUltragoalPlan(cwd, {
         brief: taskObjective,
         goals: Array.from({ length: 136 }, (_, index) => ({
@@ -387,7 +387,7 @@ describe('ultragoal artifacts', () => {
       const reconciled = await checkpointUltragoal(cwd, {
         goalId: first.goal!.id,
         status: 'complete',
-        evidence: 'Actual planned work done for .omx/ultragoal/goals.json G001-micro-goal-1; validation complete; reviews clean.',
+        evidence: 'Actual planned work done for .owx/ultragoal/goals.json G001-micro-goal-1; validation complete; reviews clean.',
         codexGoal: { goal: { objective: taskObjective, status: 'complete' } },
         qualityGate: cleanQualityGate(),
         now: new Date('2026-05-04T10:04:00Z'),
@@ -405,7 +405,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(next.goal, null);
       assert.equal(next.done, true);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /microgoal ledger progress remains independent/);
       assert.equal((ledger.match(/"event":"aggregate_completed"/g) ?? []).length, 1);
       assert.equal((ledger.match(/"event":"goal_completed"/g) ?? []).length, 0);
@@ -428,7 +428,7 @@ describe('ultragoal artifacts', () => {
         () => checkpointUltragoal(cwd, {
           goalId: first.goal!.id,
           status: 'complete',
-          evidence: 'Actual planned work done for .omx/ultragoal/goals.json G001-first; validation complete; reviews clean.',
+          evidence: 'Actual planned work done for .owx/ultragoal/goals.json G001-first; validation complete; reviews clean.',
           codexGoal: { goal: { objective: 'Unrelated completed task', status: 'complete' } },
           qualityGate: cleanQualityGate(),
         }),
@@ -450,7 +450,7 @@ describe('ultragoal artifacts', () => {
         () => checkpointUltragoal(cwd, {
           goalId: first.goal!.id,
           status: 'complete',
-          evidence: 'Actual planned work done for .omx/ultragoal/goals.json G001-first; validation complete; reviews clean.',
+          evidence: 'Actual planned work done for .owx/ultragoal/goals.json G001-first; validation complete; reviews clean.',
           codexGoal: { goal: { objective: taskObjective, status: 'complete' } },
         }),
         /quality-gate-json|quality gate/i,
@@ -460,7 +460,7 @@ describe('ultragoal artifacts', () => {
 
   it('fails closed for task-scoped aggregate completion on a non-active microgoal id', async () => {
     await withTempRepo(async (cwd) => {
-      const taskObjective = 'Fix the mismatch between Codex immutable completed goal snapshots and OMX ultragoal checkpoint reconciliation.';
+      const taskObjective = 'Fix the mismatch between Codex immutable completed goal snapshots and OWX ultragoal checkpoint reconciliation.';
       await createUltragoalPlan(cwd, {
         brief: taskObjective,
         goals: [
@@ -477,7 +477,7 @@ describe('ultragoal artifacts', () => {
         () => checkpointUltragoal(cwd, {
           goalId: 'G002-second',
           status: 'complete',
-          evidence: 'Actual planned work done for .omx/ultragoal/goals.json G002-second; validation complete; reviews clean.',
+          evidence: 'Actual planned work done for .owx/ultragoal/goals.json G002-second; validation complete; reviews clean.',
           codexGoal: { goal: { objective: taskObjective, status: 'complete' } },
           qualityGate: cleanQualityGate(),
         }),
@@ -490,7 +490,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(plan.goals.find((goal) => goal.id === 'G001-first')?.status, 'in_progress');
       assert.equal(plan.goals.find((goal) => goal.id === 'G002-second')?.status, 'pending');
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"aggregate_completed"/g) ?? []).length, 0);
     });
   });
@@ -540,7 +540,7 @@ describe('ultragoal artifacts', () => {
       });
       delete created.codexGoalMode;
       delete created.codexObjective;
-      await writeFile(join(cwd, '.omx/ultragoal/goals.json'), `${JSON.stringify(created, null, 2)}\n`);
+      await writeFile(join(cwd, '.owx/ultragoal/goals.json'), `${JSON.stringify(created, null, 2)}\n`);
 
       const first = await startNextUltragoal(cwd);
       const instruction = buildCodexGoalInstruction(first.goal!, first.plan);
@@ -580,22 +580,22 @@ describe('ultragoal artifacts', () => {
       assert.equal(added.plan.codexObjective, objective);
       assert.doesNotMatch(added.plan.codexObjective ?? '', /G002-resolve-final-code-review-blockers/);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"goal_added"/);
     });
   });
 
   it('migrates legacy enumerated aggregate objectives to the pointer contract', async () => {
     await withTempRepo(async (cwd) => {
-      await mkdir(join(cwd, '.omx/ultragoal'), { recursive: true });
-      const legacyObjective = 'Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-first First; G002-second Second';
-      await writeFile(join(cwd, '.omx/ultragoal/goals.json'), `${JSON.stringify({
+      await mkdir(join(cwd, '.owx/ultragoal'), { recursive: true });
+      const legacyObjective = 'Complete all ultragoal stories in .owx/ultragoal/goals.json: G001-first First; G002-second Second';
+      await writeFile(join(cwd, '.owx/ultragoal/goals.json'), `${JSON.stringify({
         version: 1,
         createdAt: '2026-05-04T10:00:00.000Z',
         updatedAt: '2026-05-04T10:00:00.000Z',
-        briefPath: '.omx/ultragoal/brief.md',
-        goalsPath: '.omx/ultragoal/goals.json',
-        ledgerPath: '.omx/ultragoal/ledger.jsonl',
+        briefPath: '.owx/ultragoal/brief.md',
+        goalsPath: '.owx/ultragoal/goals.json',
+        ledgerPath: '.owx/ultragoal/ledger.jsonl',
         codexGoalMode: 'aggregate',
         codexObjective: legacyObjective,
         goals: [
@@ -603,17 +603,17 @@ describe('ultragoal artifacts', () => {
           { id: 'G002-second', title: 'Second', objective: 'Complete second.', status: 'pending', attempt: 0, createdAt: '2026-05-04T10:00:00.000Z', updatedAt: '2026-05-04T10:00:00.000Z' },
         ],
       }, null, 2)}\n`);
-      await writeFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), '');
+      await writeFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), '');
 
       const plan = await readUltragoalPlan(cwd);
 
       assert.equal(plan.codexObjective, ULTRAGOAL_AGGREGATE_CODEX_OBJECTIVE);
       assert.deepEqual(plan.codexObjectiveAliases, [legacyObjective]);
       assert.doesNotMatch(plan.codexObjective ?? '', /G001-first/);
-      const persisted = JSON.parse(await readFile(join(cwd, '.omx/ultragoal/goals.json'), 'utf-8')) as UltragoalPlan;
+      const persisted = JSON.parse(await readFile(join(cwd, '.owx/ultragoal/goals.json'), 'utf-8')) as UltragoalPlan;
       assert.equal(persisted.codexObjective, ULTRAGOAL_AGGREGATE_CODEX_OBJECTIVE);
       assert.deepEqual(persisted.codexObjectiveAliases, [legacyObjective]);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"aggregate_objective_migrated"/);
       assert.match(ledger, /legacy enumerated aggregate Codex objective/);
     });
@@ -621,7 +621,7 @@ describe('ultragoal artifacts', () => {
 
   it('accepts migrated legacy aggregate objective aliases for active Codex snapshots', async () => {
     await withTempRepo(async (cwd) => {
-      const legacyObjective = 'Complete all ultragoal stories in .omx/ultragoal/goals.json: G001-first First; G002-second Second';
+      const legacyObjective = 'Complete all ultragoal stories in .owx/ultragoal/goals.json: G001-first First; G002-second Second';
       await createUltragoalPlan(cwd, {
         brief: 'brief',
         goals: [
@@ -629,7 +629,7 @@ describe('ultragoal artifacts', () => {
           { title: 'Second', objective: 'Complete second.' },
         ],
       });
-      const planPath = join(cwd, '.omx/ultragoal/goals.json');
+      const planPath = join(cwd, '.owx/ultragoal/goals.json');
       const legacyPlan = JSON.parse(await readFile(planPath, 'utf-8')) as UltragoalPlan;
       legacyPlan.codexObjective = legacyObjective;
       await writeFile(planPath, `${JSON.stringify(legacyPlan, null, 2)}\n`);
@@ -703,7 +703,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(secondSteer.plan.goals.filter((goal) => goal.id === 'G004-core-steering-schema').length, 1);
       assert.equal(secondSteer.plan.goals.filter((goal) => goal.id === 'G005-core-steering-scheduler-semantics').length, 1);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 1);
     });
   });
@@ -733,7 +733,7 @@ describe('ultragoal artifacts', () => {
       const next = await startNextUltragoal(cwd);
       assert.equal(next.goal?.id, result.addedGoal.id);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"final_review_failed"/);
       assert.match(ledger, /"event":"goal_review_blocked"/);
     });
@@ -878,7 +878,7 @@ describe('ultragoal artifacts', () => {
       });
       const plan = await readUltragoalPlan(cwd);
       assert.equal(isUltragoalDone(plan), true);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"qualityGate"/);
       assert.match(ledger, /"aiSlopCleaner"/);
       assert.match(ledger, /"codeReview"/);
@@ -909,7 +909,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(blocked.goals[0]?.failureReason, undefined);
       assert.equal(blocked.goals[0]?.failedAt, undefined);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"goal_blocked"/);
       assert.match(ledger, /completed aggregate Codex goal blocks create_goal/);
     });
@@ -988,7 +988,7 @@ describe('ultragoal artifacts', () => {
       }, { now: new Date('2026-05-04T10:15:00Z') });
       assert.equal(annotated.accepted, true);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 5);
       assert.match(ledger, /"kind":"add_subgoal"/);
       assert.match(ledger, /"kind":"split_subgoal"/);
@@ -1027,7 +1027,7 @@ describe('ultragoal artifacts', () => {
 
       const unchanged = await readUltragoalPlan(cwd);
       assert.equal(unchanged.goals[0]?.objective, 'Complete first milestone with tests.');
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"steering_rejected"/);
     });
   });
@@ -1052,7 +1052,7 @@ describe('ultragoal artifacts', () => {
       const rejected = await steerUltragoal(cwd, proposal);
       assert.equal(rejected.accepted, false);
       assert.match(rejected.rejectedReasons.join('\n'), /Invalid steering mutation kind/);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"steering_rejected"/);
       assert.doesNotMatch(ledger, /"event":"steering_accepted"/);
     });
@@ -1084,7 +1084,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(second.deduped, true);
       assert.equal(second.plan.goals.filter((goal) => goal.title === 'Add regression').length, 1);
       assert.deepEqual(secondPlan, firstPlan);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 1);
       assert.equal((ledger.match(/"event":"steering_rejected"/g) ?? []).length, 0);
       assert.equal((ledger.match(/same-prompt-signature/g) ?? []).length, 1);
@@ -1202,7 +1202,7 @@ describe('ultragoal artifacts', () => {
       assert.match(rejected.rejectedReasons.join(' | '), /duplicate goal id/);
       assert.deepEqual(await readUltragoalPlan(cwd), plan);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_rejected"/g) ?? []).length, 1);
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 0);
     });
@@ -1277,13 +1277,13 @@ describe('ultragoal artifacts', () => {
       const plan = await readUltragoalPlan(cwd);
       assert.equal(plan.goals.length, 1);
       assert.equal(plan.goals[0]?.steeringStatus, undefined);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_rejected"/g) ?? []).length, 5);
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 0);
     });
   });
 
-  it('replays the G001-core-steering-model fixture matrix against .omx/ultragoal steering behavior', async () => {
+  it('replays the G001-core-steering-model fixture matrix against .owx/ultragoal steering behavior', async () => {
     for (const fixture of steeringFixtures) {
       await withTempRepo(async (cwd) => {
         await writeFixturePlan(cwd, fixture.before as UltragoalPlan);
@@ -1299,7 +1299,7 @@ describe('ultragoal artifacts', () => {
         assert.equal(result.audit.before !== undefined, true, fixture.case);
         assert.equal(isUltragoalDone(result.plan), fixture.expected.isDoneAfterMutation, fixture.case);
 
-        const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+        const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
         assert.match(ledger, new RegExp(`"event":"${fixture.expected.ledgerEvent}"`), fixture.case);
         assert.match(ledger, new RegExp(`"kind":"${fixture.expected.mutationKind}"`), fixture.case);
 
@@ -1437,7 +1437,7 @@ describe('ultragoal artifacts', () => {
 
       assert.equal(plan.goals[0]?.status, 'in_progress');
       assert.match(plan.goals[0]?.failureReason ?? '', /get_goal unavailable/);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"goal_blocked"/);
       assert.match(ledger, /no such table: thread_goals/);
       assert.match(ledger, /strict completion reconciliation is deferred/);
@@ -1456,7 +1456,7 @@ describe('ultragoal artifacts', () => {
       });
 
       const first = await startNextUltragoal(cwd);
-      const evidence = 'aggregate Codex goal already complete and unreconcilable while repo-native .omx/ultragoal/goals.json still has an in-progress microgoal; stop the recovery loop';
+      const evidence = 'aggregate Codex goal already complete and unreconcilable while repo-native .owx/ultragoal/goals.json still has an in-progress microgoal; stop the recovery loop';
       const plan = await checkpointUltragoal(cwd, {
         goalId: first.goal!.id,
         status: 'blocked',
@@ -1467,7 +1467,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(plan.goals[0]?.status, 'in_progress');
       assert.equal(plan.activeGoalId, first.goal!.id);
       assert.match(plan.goals[0]?.failureReason ?? '', /aggregate Codex goal already complete/);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"goal_blocked"/);
       assert.match(ledger, /safe-recovery blocker/);
       assert.match(ledger, /impossible checkpoint loop/);
@@ -1510,7 +1510,7 @@ describe('ultragoal artifacts', () => {
   it('steers a split pending goal through superseded lifecycle without weakening completion gates', async () => {
     await withTempRepo(async (cwd) => {
       await createUltragoalPlan(cwd, {
-        brief: 'G001-core-steering-model .omx/ultragoal split lifecycle coverage',
+        brief: 'G001-core-steering-model .owx/ultragoal split lifecycle coverage',
         codexGoalMode: 'per_story',
         goals: [{ title: 'Original', objective: 'Implement the original broad steering objective.' }],
       });
@@ -1519,7 +1519,7 @@ describe('ultragoal artifacts', () => {
         kind: 'split_subgoal',
         source: 'finding',
         targetGoalIds: ['G001-original'],
-        evidence: 'G001-core-steering-model review found .omx/ultragoal needs smaller replacement children.',
+        evidence: 'G001-core-steering-model review found .owx/ultragoal needs smaller replacement children.',
         rationale: 'Split preserves the original objective while scheduling verifiable child goals.',
         after: {
           children: [
@@ -1543,7 +1543,7 @@ describe('ultragoal artifacts', () => {
       await checkpointUltragoal(cwd, {
         goalId: 'G002-child-a',
         status: 'complete',
-        evidence: 'child A tests passed for .omx/ultragoal G001-core-steering-model',
+        evidence: 'child A tests passed for .owx/ultragoal G001-core-steering-model',
         codexGoal: { goal: { objective: first.goal!.objective, status: 'complete' } },
       });
       const second = await startNextUltragoal(cwd);
@@ -1553,13 +1553,13 @@ describe('ultragoal artifacts', () => {
       const done = await checkpointUltragoal(cwd, {
         goalId: 'G003-child-b',
         status: 'complete',
-        evidence: 'child B tests passed for .omx/ultragoal G001-core-steering-model',
+        evidence: 'child B tests passed for .owx/ultragoal G001-core-steering-model',
         codexGoal: { goal: { objective: second.goal!.objective, status: 'complete' } },
         qualityGate: cleanQualityGate(),
       });
       assert.equal(isUltragoalDone(done), true);
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"steering_accepted"/);
       assert.match(ledger, /split-g001-core-steering-model/);
     });
@@ -1568,7 +1568,7 @@ describe('ultragoal artifacts', () => {
   it('skips blocked-without-replacement steering while keeping completion blocked', async () => {
     await withTempRepo(async (cwd) => {
       await createUltragoalPlan(cwd, {
-        brief: 'G001-core-steering-model .omx/ultragoal blocked lifecycle coverage',
+        brief: 'G001-core-steering-model .owx/ultragoal blocked lifecycle coverage',
         codexGoalMode: 'per_story',
         goals: [
           { title: 'Blocked', objective: 'Investigate blocked steering dependency.' },
@@ -1580,7 +1580,7 @@ describe('ultragoal artifacts', () => {
         kind: 'mark_blocked_superseded',
         source: 'finding',
         targetGoalIds: ['G001-blocked'],
-        evidence: 'G001-core-steering-model evidence names .omx/ultragoal blocker without replacement.',
+        evidence: 'G001-core-steering-model evidence names .owx/ultragoal blocker without replacement.',
         rationale: 'Avoid retry churn while preserving the unresolved blocker for final completion.',
       });
       assert.equal(blocked.accepted, true);
@@ -1593,7 +1593,7 @@ describe('ultragoal artifacts', () => {
       const afterNext = await checkpointUltragoal(cwd, {
         goalId: 'G002-next',
         status: 'complete',
-        evidence: 'independent tests passed for .omx/ultragoal G001-core-steering-model',
+        evidence: 'independent tests passed for .owx/ultragoal G001-core-steering-model',
         codexGoal: { goal: { objective: next.goal!.objective, status: 'complete' } },
       });
       assert.equal(isUltragoalDone(afterNext), false);
@@ -1607,7 +1607,7 @@ describe('ultragoal artifacts', () => {
   it('rejects protected steering payloads and records a rejected audit without mutation', async () => {
     await withTempRepo(async (cwd) => {
       const created = await createUltragoalPlan(cwd, {
-        brief: 'G001-core-steering-model protected .omx/ultragoal invariants',
+        brief: 'G001-core-steering-model protected .owx/ultragoal invariants',
         goals: [{ title: 'First', objective: 'Keep original objective.' }],
       });
 
@@ -1615,7 +1615,7 @@ describe('ultragoal artifacts', () => {
         kind: 'revise_pending_wording',
         source: 'cli',
         targetGoalIds: ['G001-first'],
-        evidence: 'attempt references .omx/ultragoal G001-core-steering-model',
+        evidence: 'attempt references .owx/ultragoal G001-core-steering-model',
         rationale: 'malicious protected edit should be rejected',
         after: { objective: 'new wording', codexObjective: 'weakened end goal' } as never,
       });
@@ -1626,7 +1626,7 @@ describe('ultragoal artifacts', () => {
       assert.equal(plan.codexObjective, created.codexObjective);
       assert.equal(plan.goals[0]?.objective, 'Keep original objective.');
 
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.match(ledger, /"event":"steering_rejected"/);
     });
   });
@@ -1634,7 +1634,7 @@ describe('ultragoal artifacts', () => {
   it('dedupes accepted steering by idempotency key', async () => {
     await withTempRepo(async (cwd) => {
       await createUltragoalPlan(cwd, {
-        brief: 'G001-core-steering-model idempotent .omx/ultragoal audit',
+        brief: 'G001-core-steering-model idempotent .owx/ultragoal audit',
         goals: [{ title: 'First', objective: 'First objective.' }],
       });
       const proposal = {
@@ -1642,7 +1642,7 @@ describe('ultragoal artifacts', () => {
         source: 'user_prompt_submit' as const,
         title: 'Follow-up',
         objective: 'Follow-up objective.',
-        evidence: 'prompt-submit evidence for .omx/ultragoal G001-core-steering-model',
+        evidence: 'prompt-submit evidence for .owx/ultragoal G001-core-steering-model',
         rationale: 'bounded explicit directive requires one follow-up only',
         idempotencyKey: 'same-prompt-submit',
       };
@@ -1655,7 +1655,7 @@ describe('ultragoal artifacts', () => {
 
       const plan = await readUltragoalPlan(cwd);
       assert.equal(plan.goals.filter((goal) => goal.title === 'Follow-up').length, 1);
-      const ledger = await readFile(join(cwd, '.omx/ultragoal/ledger.jsonl'), 'utf-8');
+      const ledger = await readFile(join(cwd, '.owx/ultragoal/ledger.jsonl'), 'utf-8');
       assert.equal((ledger.match(/"event":"steering_accepted"/g) ?? []).length, 1);
     });
   });

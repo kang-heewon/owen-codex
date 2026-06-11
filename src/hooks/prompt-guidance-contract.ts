@@ -17,7 +17,7 @@ const ROOT_TEMPLATE_PATTERNS = [
   rx('ASK only.*destructive.*irreversible.*credential-gated.*external-production.*materially scope-changing'),
   rx('AUTO-CONTINUE branches.*permission-handoff phrasing'),
   rx('do not ask or instruct humans.*ordinary non-destructive.*reversible actions'),
-  rx('OMX runtime manipulation.*agent responsibilities'),
+  rx('OWX runtime manipulation.*agent responsibilities'),
   rx('Keep going unless blocked'),
   rx('Ask only when blocked|Ask only when progress is impossible'),
   rx('local overrides?.*non-conflicting instructions'),
@@ -112,7 +112,7 @@ const ULTRAQA_SKILL_PATTERNS = [
   rx('temporary tests.*harnesses|temporary harnesses'),
   rx('Use absolute repo imports[^\\n]*pathToFileURL\\(join\\(repoRoot, \"dist\", \\.\\.\\.\\)\\)\\.href[^\\n]*Never rely on[^\\n]*\\./dist'),
   rx('Use a safe file writer[^\\n]*non-interpolating file-write mechanism[^\\n]*do not use interpolating heredocs'),
-  rx('Sanitize OMX runtime env for isolated probes[^\\n]*OMX_ROOT[^\\n]*OMX_STATE_ROOT[^\\n]*unset[^\\n]*env -u OMX_ROOT -u OMX_STATE_ROOT'),
+  rx('Sanitize OWX runtime env for isolated probes[^\\n]*OWX_ROOT[^\\n]*OWX_STATE_ROOT[^\\n]*unset[^\\n]*env -u OWX_ROOT -u OWX_STATE_ROOT'),
   rx('Classify harness setup failures separately[^\\n]*record it as harness debris[^\\n]*fix the harness[^\\n]*rerun the scenario[^\\n]*before declaring a product defect'),
   rx('malformed input'),
   rx('repeated interruptions'),
@@ -272,7 +272,7 @@ export const SKILL_CONTRACTS: GuidanceSurfaceContract[] = [
   },
   {
     id: 'ultraqa-plugin',
-    path: 'plugins/oh-my-codex/skills/ultraqa/SKILL.md',
+    path: 'plugins/owen-codex/skills/ultraqa/SKILL.md',
     requiredPatterns: ULTRAQA_SKILL_PATTERNS,
   },
   {
@@ -285,22 +285,22 @@ export const SKILL_CONTRACTS: GuidanceSurfaceContract[] = [
 export const PROMPT_REFACTOR_MARKER_CONTRACTS = [
   {
     id: 'runtime-overlay-markers',
-    markers: ['<!-- OMX:RUNTIME:START -->', '<!-- OMX:RUNTIME:END -->'],
+    markers: ['<!-- OWX:RUNTIME:START -->', '<!-- OWX:RUNTIME:END -->'],
     requiredPaths: ['templates/AGENTS.md', 'src/hooks/agents-overlay.ts'],
   },
   {
     id: 'team-worker-overlay-markers',
-    markers: ['<!-- OMX:TEAM:WORKER:START -->', '<!-- OMX:TEAM:WORKER:END -->'],
+    markers: ['<!-- OWX:TEAM:WORKER:START -->', '<!-- OWX:TEAM:WORKER:END -->'],
     requiredPaths: ['templates/AGENTS.md', 'src/team/worker-bootstrap.ts', 'src/hooks/agents-overlay.ts'],
   },
   {
     id: 'model-table-markers',
-    markers: ['<!-- OMX:MODELS:START -->', '<!-- OMX:MODELS:END -->'],
+    markers: ['<!-- OWX:MODELS:START -->', '<!-- OWX:MODELS:END -->'],
     requiredPaths: ['templates/AGENTS.md', 'src/utils/agents-model-table.ts'],
   },
   {
     id: 'generated-agents-marker',
-    markers: ['<!-- omx:generated:agents-md -->'],
+    markers: ['<!-- owx:generated:agents-md -->'],
     requiredPaths: ['src/utils/agents-md.ts'],
   },
 ];
@@ -344,7 +344,7 @@ export const PROMPT_REFACTOR_INVARIANT_CONTRACTS: GuidanceSurfaceContract[] = [
   {
     id: 'deep-interview-question-gate',
     path: 'skills/deep-interview/SKILL.md',
-    requiredPatterns: [rx('omx\\s+question'), rx('Socratic|interview'), rx('ambiguity')],
+    requiredPatterns: [rx('owx\\s+question'), rx('Socratic|interview'), rx('ambiguity')],
   },
   {
     id: 'cancel-safety-boundary',

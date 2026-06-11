@@ -112,7 +112,7 @@ function spawnEntrypoint(entrypoint: EntryPoint): {
 } {
   const child = spawn(process.execPath, [join(process.cwd(), 'dist', 'mcp', entrypoint.file)], {
     cwd: process.cwd(),
-    env: { ...process.env, OMX_MCP_LIFECYCLE_LOG: 'off' },
+    env: { ...process.env, OWX_MCP_LIFECYCLE_LOG: 'off' },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
@@ -219,10 +219,10 @@ describe('MCP stdio lifecycle runtime regression (built entrypoints)', () => {
     const entrypoint = IDLE_ENTRYPOINTS[0];
     const sharedEnv = {
       ...process.env,
-      OMX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '500',
-      OMX_MCP_LIFECYCLE_LOG: 'off',
+      OWX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '500',
+      OWX_MCP_LIFECYCLE_LOG: 'off',
     };
     const older = spawn(process.execPath, [join(process.cwd(), 'dist', 'mcp', entrypoint.file)], {
       cwd: process.cwd(),
@@ -275,10 +275,10 @@ describe('MCP stdio lifecycle runtime regression (built entrypoints)', () => {
     const entrypoint = IDLE_ENTRYPOINTS[0];
     const sharedEnv = {
       ...process.env,
-      OMX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '500',
-      OMX_MCP_LIFECYCLE_LOG: 'off',
+      OWX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '500',
+      OWX_MCP_LIFECYCLE_LOG: 'off',
     };
     const older = spawn(process.execPath, [join(process.cwd(), 'dist', 'mcp', entrypoint.file)], {
       cwd: process.cwd(),
@@ -335,15 +335,15 @@ describe('MCP stdio lifecycle runtime regression (built entrypoints)', () => {
 
   it('pre-traffic sibling hard cap cleans up no-traffic app-server children and records telemetry', async () => {
     const entrypoint = IDLE_ENTRYPOINTS[0];
-    const logDir = await mkdtemp(join(tmpdir(), 'omx-mcp-runtime-lifecycle-'));
+    const logDir = await mkdtemp(join(tmpdir(), 'owx-mcp-runtime-lifecycle-'));
     const sharedEnv = {
       ...process.env,
-      OMX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_INITIAL_DELAY_MS: '0',
-      OMX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
-      OMX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '60000',
-      OMX_MCP_MAX_SIBLINGS_PER_ENTRYPOINT: '4',
-      OMX_MCP_LIFECYCLE_LOG_DIR: logDir,
+      OWX_MCP_PARENT_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_INITIAL_DELAY_MS: '0',
+      OWX_MCP_DUPLICATE_SIBLING_WATCHDOG_INTERVAL_MS: '250',
+      OWX_MCP_DUPLICATE_SIBLING_PRE_TRAFFIC_GRACE_MS: '60000',
+      OWX_MCP_MAX_SIBLINGS_PER_ENTRYPOINT: '4',
+      OWX_MCP_LIFECYCLE_LOG_DIR: logDir,
     };
     const children: ChildProcess[] = [];
     const stdout: string[] = [];

@@ -1,8 +1,8 @@
 /**
- * Update orchestration for oh-my-codex.
+ * Update orchestration for owen-codex.
  *
  * The launch-time checker is intentionally passive, non-fatal, and throttled.
- * The explicit `omx update` command uses the same executor but bypasses the
+ * The explicit `owx update` command uses the same executor but bypasses the
  * launch-time cadence so a user request always checks npm immediately.
  */
 
@@ -13,7 +13,7 @@ import { tmpdir } from 'os';
 import { spawn, spawnSync } from 'child_process';
 import { createInterface } from 'readline/promises';
 import { getPackageRoot } from '../utils/package.js';
-import { omxUserInstallStampPath } from '../utils/paths.js';
+import { owxUserInstallStampPath } from '../utils/paths.js';
 import { readPersistedSetupPreferencesSync } from './setup-preferences.js';
 
 export interface UpdateState {
@@ -60,11 +60,11 @@ type SpawnSyncOptions = NonNullable<Parameters<SpawnSyncLike>[2]>;
 type SpawnLike = typeof spawn;
 export type AutoUpdateMode = 'disabled' | 'prompt' | 'defer';
 
-const PACKAGE_NAME = 'oh-my-codex';
+const PACKAGE_NAME = 'owen-codex';
 const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12h
 const STABLE_INSTALL_SOURCE = `${PACKAGE_NAME}@latest`;
-const DEV_INSTALL_SOURCE = 'github:Yeachan-Heo/oh-my-codex#dev';
-const DEV_REPOSITORY_URL = 'https://github.com/Yeachan-Heo/oh-my-codex.git';
+const DEV_INSTALL_SOURCE = 'github:kang-heewon/owen-codex#dev';
+const DEV_REPOSITORY_URL = 'https://github.com/kang-heewon/owen-codex.git';
 const DEV_REPOSITORY_BRANCH = 'dev';
 const DEV_UPDATE_TIMEOUT_MS = 300000;
 
@@ -75,7 +75,7 @@ export function resolveUpdateChannelConfig(channel: UpdateChannel = 'stable'): U
   return { channel: 'stable', installSource: STABLE_INSTALL_SOURCE };
 }
 
-export function resolveAutoUpdateMode(value = process.env.OMX_AUTO_UPDATE): AutoUpdateMode {
+export function resolveAutoUpdateMode(value = process.env.OWX_AUTO_UPDATE): AutoUpdateMode {
   const normalized = (value ?? '').trim().toLowerCase();
   if (!normalized) return 'prompt';
   if (normalized === '0') return 'disabled';
@@ -110,7 +110,7 @@ export function shouldCheckForUpdates(
 }
 
 function updateStatePath(cwd: string): string {
-  return join(cwd, '.omx', 'state', 'update-check.json');
+  return join(cwd, '.owx', 'state', 'update-check.json');
 }
 
 async function readUpdateState(cwd: string): Promise<UpdateState | null> {
@@ -125,7 +125,7 @@ async function readUpdateState(cwd: string): Promise<UpdateState | null> {
 }
 
 async function writeUpdateState(cwd: string, state: UpdateState): Promise<void> {
-  const stateDir = join(cwd, '.omx', 'state');
+  const stateDir = join(cwd, '.owx', 'state');
   await mkdir(stateDir, { recursive: true });
   await writeFile(updateStatePath(cwd), JSON.stringify(state, null, 2));
 }
@@ -191,7 +191,7 @@ function runDevGlobalUpdate(
   spawnProcess: SpawnSyncLike = spawnSync,
   platform: NodeJS.Platform = process.platform,
 ): RunGlobalUpdateResult {
-  const tempRoot = mkdtempSync(join(tmpdir(), 'omx-dev-update-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'owx-dev-update-'));
   const checkoutDir = join(tempRoot, 'checkout');
 
   try {
@@ -430,20 +430,20 @@ export function runDeferredGlobalUpdate(
   platform: NodeJS.Platform = process.platform,
   parentPid = process.pid,
 ): RunDeferredUpdateResult {
-  const logPath = join(cwd, '.omx', 'logs', formatUpdateLogPath());
+  const logPath = join(cwd, '.owx', 'logs', formatUpdateLogPath());
   // Snapshot the current setup delivery mode when the update is scheduled.
   // The detached process runs after this CLI exits, so the refresh should replay
   // the setup mode that was active when the user accepted/scheduled the update.
   const setupArgs = resolveSetupRefreshArgs(cwd);
-  const setupCommand = formatDeferredSetupCommand(platform, 'omx', setupArgs);
+  const setupCommand = formatDeferredSetupCommand(platform, 'owx', setupArgs);
 
   try {
     mkdirSync(dirname(logPath), { recursive: true });
 
     const env = {
       ...process.env,
-      OMX_DEFERRED_UPDATE_LOG: logPath,
-      OMX_DEFERRED_UPDATE_PARENT_PID: String(parentPid),
+      OWX_DEFERRED_UPDATE_LOG: logPath,
+      OWX_DEFERRED_UPDATE_PARENT_PID: String(parentPid),
     };
 
     const command = platform === 'win32' ? 'powershell.exe' : 'sh';
@@ -455,19 +455,19 @@ export function runDeferredGlobalUpdate(
           '-Command',
           [
             '$ErrorActionPreference = "Continue"',
-            '$log = $env:OMX_DEFERRED_UPDATE_LOG',
-            '$parentPid = [int]$env:OMX_DEFERRED_UPDATE_PARENT_PID',
+            '$log = $env:OWX_DEFERRED_UPDATE_LOG',
+            '$parentPid = [int]$env:OWX_DEFERRED_UPDATE_PARENT_PID',
             'while (Get-Process -Id $parentPid -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 1 }',
-            'npm install -g oh-my-codex@latest *>> $log',
+            'npm install -g owen-codex@latest *>> $log',
             `if ($LASTEXITCODE -eq 0) { ${setupCommand} *>> $log }`,
           ].join('; '),
         ]
       : [
           '-c',
           [
-            'while kill -0 "$OMX_DEFERRED_UPDATE_PARENT_PID" 2>/dev/null; do sleep 1; done',
-            'npm install -g oh-my-codex@latest >> "$OMX_DEFERRED_UPDATE_LOG" 2>&1',
-            `if [ "$?" -eq 0 ]; then ${setupCommand} >> "$OMX_DEFERRED_UPDATE_LOG" 2>&1; fi`,
+            'while kill -0 "$OWX_DEFERRED_UPDATE_PARENT_PID" 2>/dev/null; do sleep 1; done',
+            'npm install -g owen-codex@latest >> "$OWX_DEFERRED_UPDATE_LOG" 2>&1',
+            `if [ "$?" -eq 0 ]; then ${setupCommand} >> "$OWX_DEFERRED_UPDATE_LOG" 2>&1; fi`,
           ].join('; '),
         ];
 
@@ -482,7 +482,7 @@ export function runDeferredGlobalUpdate(
       try {
         appendFileSync(
           logPath,
-          `[omx] Deferred update launcher failed: ${error.message}\n`,
+          `[owx] Deferred update launcher failed: ${error.message}\n`,
           'utf-8',
         );
       } catch {
@@ -502,10 +502,10 @@ export function runDeferredGlobalUpdate(
 
 function formatDeferredUpdateFailure(stderr: string, logPath?: string): string {
   return [
-    '[omx] Failed to schedule the deferred update.',
-    stderr.trim() ? `[omx] scheduler error: ${stderr.trim()}` : undefined,
-    logPath ? `[omx] Intended log: ${logPath}` : undefined,
-    '[omx] You can retry manually with: npm install -g oh-my-codex@latest && omx setup',
+    '[owx] Failed to schedule the deferred update.',
+    stderr.trim() ? `[owx] scheduler error: ${stderr.trim()}` : undefined,
+    logPath ? `[owx] Intended log: ${logPath}` : undefined,
+    '[owx] You can retry manually with: npm install -g owen-codex@latest && owx setup',
   ].filter((line): line is string => typeof line === 'string').join('\n');
 }
 
@@ -517,17 +517,17 @@ function summarizeUpdateFailure(
   const details = stderr.trim().split(/\r?\n/).filter(Boolean).slice(0, 3).join(' | ');
   if (installSource === DEV_INSTALL_SOURCE) {
     return [
-      `[omx] Update failed while building and installing the dev channel from ${DEV_REPOSITORY_URL}#${DEV_REPOSITORY_BRANCH}.`,
-      details ? `[omx] update stderr: ${details}` : undefined,
-      logPath ? `[omx] Full log: ${logPath}` : undefined,
-      '[omx] You can retry manually with: omx update --dev',
+      `[owx] Update failed while building and installing the dev channel from ${DEV_REPOSITORY_URL}#${DEV_REPOSITORY_BRANCH}.`,
+      details ? `[owx] update stderr: ${details}` : undefined,
+      logPath ? `[owx] Full log: ${logPath}` : undefined,
+      '[owx] You can retry manually with: owx update --dev',
     ].filter((line): line is string => typeof line === 'string').join('\n');
   }
   return [
-    `[omx] Update failed while running npm install -g ${installSource}.`,
-    details ? `[omx] npm stderr: ${details}` : undefined,
-    logPath ? `[omx] Full log: ${logPath}` : undefined,
-    `[omx] You can retry manually with: npm install -g ${installSource} && omx setup`,
+    `[owx] Update failed while running npm install -g ${installSource}.`,
+    details ? `[owx] npm stderr: ${details}` : undefined,
+    logPath ? `[owx] Full log: ${logPath}` : undefined,
+    `[owx] You can retry manually with: npm install -g ${installSource} && owx setup`,
   ].filter((line): line is string => typeof line === 'string').join('\n');
 }
 
@@ -591,7 +591,7 @@ async function writeSuccessfulInstallStamp(
 }
 
 export async function readUserInstallStamp(
-  path = omxUserInstallStampPath(),
+  path = owxUserInstallStampPath(),
 ): Promise<UserInstallStamp | null> {
   if (!existsSync(path)) return null;
   try {
@@ -623,7 +623,7 @@ export async function readUserInstallStamp(
 
 export async function writeUserInstallStamp(
   stamp: UserInstallStamp,
-  path = omxUserInstallStampPath(),
+  path = owxUserInstallStampPath(),
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(stamp, null, 2));
@@ -703,7 +703,7 @@ async function getInstalledRevisionAfterUpdate(): Promise<string | null> {
 export async function resolveInstalledCliEntry(globalInstallRoot: string): Promise<string | null> {
   const packageRoot = join(globalInstallRoot, PACKAGE_NAME);
   const packageJsonPath = join(packageRoot, 'package.json');
-  let cliRelativePath = join('dist', 'cli', 'omx.js');
+  let cliRelativePath = join('dist', 'cli', 'owx.js');
 
   try {
     const content = await readFile(packageJsonPath, 'utf-8');
@@ -713,10 +713,10 @@ export async function resolveInstalledCliEntry(globalInstallRoot: string): Promi
     } else if (
       pkg.bin &&
       typeof pkg.bin === 'object' &&
-      typeof pkg.bin.omx === 'string' &&
-      pkg.bin.omx.trim() !== ''
+      typeof pkg.bin.owx === 'string' &&
+      pkg.bin.owx.trim() !== ''
     ) {
-      cliRelativePath = pkg.bin.omx;
+      cliRelativePath = pkg.bin.owx;
     }
   } catch {
     // Fall back to the published contract used in package.json today.
@@ -765,7 +765,7 @@ async function runSetupRefresh(cwd: string): Promise<RunSetupRefreshResult> {
   if (!cliEntry) {
     return {
       ok: false,
-      stderr: `Unable to find the updated OMX CLI entry under ${join(globalInstallRoot, PACKAGE_NAME)}.`,
+      stderr: `Unable to find the updated OWX CLI entry under ${join(globalInstallRoot, PACKAGE_NAME)}.`,
     };
   }
 
@@ -810,7 +810,7 @@ async function executeUpdate(
 
   if (!forceInstall && (!current || !latest)) {
     if (immediate) {
-      console.log('[omx] Unable to determine the latest oh-my-codex version. Try again later.');
+      console.log('[owx] Unable to determine the latest owen-codex version. Try again later.');
     }
     return { status: 'unavailable', currentVersion: current, latestVersion: latest };
   }
@@ -820,23 +820,23 @@ async function executeUpdate(
       const installStamp = await dependencies.readUserInstallStamp();
       if (!doesSetupStampMatchVersion(current, installStamp)) {
         console.log(
-          `[omx] oh-my-codex is already up to date (v${current}). Running setup refresh...`,
+          `[owx] owen-codex is already up to date (v${current}). Running setup refresh...`,
         );
         const setupRefreshResult = await dependencies.runSetupRefresh(cwd);
         if (!setupRefreshResult.ok) {
           console.log(
-            `[omx] Update installed, but the setup refresh failed. Run \`omx setup\` with the new install. (${setupRefreshResult.stderr})`,
+            `[owx] Update installed, but the setup refresh failed. Run \`owx setup\` with the new install. (${setupRefreshResult.stderr})`,
           );
           return { status: 'failed', currentVersion: current, latestVersion: latest };
         }
         await writeSuccessfulInstallStamp(current);
-        console.log(`[omx] Setup refresh completed for v${current}. Restart to use current code.`);
+        console.log(`[owx] Setup refresh completed for v${current}. Restart to use current code.`);
         return { status: 'up-to-date', currentVersion: current, latestVersion: latest };
       }
     }
 
     if (immediate) {
-      console.log(`[omx] oh-my-codex is already up to date (v${current}).`);
+      console.log(`[owx] owen-codex is already up to date (v${current}).`);
     }
     return { status: 'up-to-date', currentVersion: current, latestVersion: latest };
   }
@@ -844,8 +844,8 @@ async function executeUpdate(
   if (prompt) {
     const approved = await dependencies.askYesNo(
       immediate
-        ? `[omx] Update available: v${current} → v${latest}. Update now? [Y/n] `
-        : `[omx] Update available: v${current} → v${latest}. Update after this session exits? [Y/n] `,
+        ? `[owx] Update available: v${current} → v${latest}. Update now? [Y/n] `
+        : `[owx] Update available: v${current} → v${latest}. Update after this session exits? [Y/n] `,
     );
     if (!approved) {
       return { status: 'declined', currentVersion: current, latestVersion: latest };
@@ -858,19 +858,19 @@ async function executeUpdate(
       console.log(formatDeferredUpdateFailure(deferredResult.stderr, deferredResult.logPath));
       return { status: 'failed', currentVersion: current, latestVersion: latest };
     }
-    console.log('[omx] Update scheduled after this session exits.');
+    console.log('[owx] Update scheduled after this session exits.');
     if (deferredResult.logPath) {
-      console.log(`[omx] Log: ${deferredResult.logPath}`);
+      console.log(`[owx] Log: ${deferredResult.logPath}`);
     }
     return { status: 'scheduled', currentVersion: current, latestVersion: latest };
   }
 
-  console.log(`[omx] Selected update channel: ${channelConfig.channel}`);
-  console.log(`[omx] Install source: ${channelConfig.installSource}`);
+  console.log(`[owx] Selected update channel: ${channelConfig.channel}`);
+  console.log(`[owx] Install source: ${channelConfig.installSource}`);
   if (channelConfig.channel === 'dev') {
-    console.log('[omx] Running: clone dev branch, run prepack, then npm install -g the packed tarball');
+    console.log('[owx] Running: clone dev branch, run prepack, then npm install -g the packed tarball');
   } else {
-    console.log(`[omx] Running: npm install -g ${channelConfig.installSource}`);
+    console.log(`[owx] Running: npm install -g ${channelConfig.installSource}`);
   }
   const result = dependencies.runGlobalUpdate(channelConfig.installSource);
 
@@ -882,7 +882,7 @@ async function executeUpdate(
   const setupRefreshResult = await dependencies.runSetupRefresh(cwd);
   if (!setupRefreshResult.ok) {
     console.log(
-      `[omx] Update installed, but the setup refresh failed. Run \`omx setup\` with the new install. (${setupRefreshResult.stderr})`,
+      `[owx] Update installed, but the setup refresh failed. Run \`owx setup\` with the new install. (${setupRefreshResult.stderr})`,
     );
     return { status: 'failed', currentVersion: current, latestVersion: latest };
   }
@@ -902,14 +902,14 @@ async function executeUpdate(
     });
   } else if (channelConfig.channel === 'dev') {
     console.log(
-      '[omx] Dev update completed, but the installed package version could not be determined for the setup stamp.',
+      '[owx] Dev update completed, but the installed package version could not be determined for the setup stamp.',
     );
   }
   const versionSummary = channelConfig.channel === 'stable' && latest
     ? ` to v${latest}`
     : '';
   console.log(
-    `[omx] Updated ${channelConfig.channel} channel${versionSummary}. Restart to use new code.`,
+    `[owx] Updated ${channelConfig.channel} channel${versionSummary}. Restart to use new code.`,
   );
   return { status: 'updated', currentVersion: current, latestVersion: latest };
 }

@@ -226,7 +226,7 @@ export function composeRoleInstructions(
   const metadataLines = [];
   if (metadata) {
     metadataLines.push(
-      "## OMX Agent Metadata",
+      "## OWX Agent Metadata",
       `- role: ${metadata.name}`,
       `- posture: ${metadata.posture}`,
       `- model_class: ${metadata.modelClass}`,
@@ -238,7 +238,7 @@ export function composeRoleInstructions(
   }
   if (resolvedModel) {
     if (metadataLines.length === 0) {
-      metadataLines.push("## OMX Agent Metadata");
+      metadataLines.push("## OWX Agent Metadata");
     }
     metadataLines.push(`- resolved_model: ${resolvedModel}`);
   }
@@ -297,7 +297,7 @@ export function generateStandaloneAgentToml(
   config: GeneratedNativeAgentConfig,
 ): string {
   const lines = [
-    `# oh-my-codex agent: ${config.name}`,
+    `# owen-codex agent: ${config.name}`,
     `name = "${escapeTomlBasicString(config.name)}"`,
     `description = "${escapeTomlBasicString(config.description)}"`,
   ];
@@ -326,7 +326,7 @@ export function generateStandaloneAgentToml(
 }
 
 /**
- * Generate TOML content for a prompt-backed OMX role agent.
+ * Generate TOML content for a prompt-backed OWX role agent.
  */
 export function generateAgentToml(
   agent: AgentDefinition,

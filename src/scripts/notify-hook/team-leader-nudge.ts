@@ -53,7 +53,7 @@ function normalizeValidTeamName(value) {
 }
 
 export function resolveLeaderNudgeIntervalMs() {
-  const raw = safeString(process.env.OMX_TEAM_LEADER_NUDGE_MS || '');
+  const raw = safeString(process.env.OWX_TEAM_LEADER_NUDGE_MS || '');
   const parsed = asNumber(raw);
   // Default: 30 seconds for stale-leader follow-up. Guard against spam.
   if (parsed !== null && parsed >= 10_000 && parsed <= 30 * 60_000) return parsed;
@@ -61,7 +61,7 @@ export function resolveLeaderNudgeIntervalMs() {
 }
 
 export function resolveLeaderAllIdleNudgeCooldownMs() {
-  const raw = safeString(process.env.OMX_TEAM_LEADER_ALL_IDLE_COOLDOWN_MS || '');
+  const raw = safeString(process.env.OWX_TEAM_LEADER_ALL_IDLE_COOLDOWN_MS || '');
   const parsed = asNumber(raw);
   // Default: 30 seconds.
   if (parsed !== null && parsed >= 5_000 && parsed <= 10 * 60_000) return parsed;
@@ -69,7 +69,7 @@ export function resolveLeaderAllIdleNudgeCooldownMs() {
 }
 
 export function resolveLeaderStalenessThresholdMs() {
-  const raw = safeString(process.env.OMX_TEAM_LEADER_STALE_MS || '');
+  const raw = safeString(process.env.OWX_TEAM_LEADER_STALE_MS || '');
   const parsed = asNumber(raw);
   // Default: 3 minutes. Guard against unreasonable values.
   if (parsed !== null && parsed >= 10_000 && parsed <= 30 * 60_000) return parsed;
@@ -77,15 +77,15 @@ export function resolveLeaderStalenessThresholdMs() {
 }
 
 function buildStatusCheckReminder(teamName) {
-  return `Next: check messages; keep orchestrating; if done, gracefully shut down: omx team shutdown ${teamName}.`;
+  return `Next: check messages; keep orchestrating; if done, gracefully shut down: owx team shutdown ${teamName}.`;
 }
 
 function buildMailboxCheckReminder(teamName) {
-  return `Next: read messages; keep orchestrating; if done, gracefully shut down: omx team shutdown ${teamName}.`;
+  return `Next: read messages; keep orchestrating; if done, gracefully shut down: owx team shutdown ${teamName}.`;
 }
 
 function buildWorkerStartEvidenceReminder(teamName, workerName) {
-  return `Next: check ${workerName} msg/output, confirm task in omx team status ${teamName}, then reassign/nudge.`;
+  return `Next: check ${workerName} msg/output, confirm task in owx team status ${teamName}, then reassign/nudge.`;
 }
 
 function buildLeaderActionGuidance(teamName, {
@@ -105,10 +105,10 @@ function buildLeaderActionGuidance(teamName, {
       : 'Next: launch a new team for the next task set.';
   }
   if (leaderActionState === 'done_waiting_on_leader') {
-    return `Next: decide whether to reconcile/merge results or gracefully shut down: omx team shutdown ${teamName}.`;
+    return `Next: decide whether to reconcile/merge results or gracefully shut down: owx team shutdown ${teamName}.`;
   }
   if (leaderActionState === 'stuck_waiting_on_leader') {
-    return `Next: omx team status ${teamName}; read worker messages; unblock/reassign or shutdown.`;
+    return `Next: owx team status ${teamName}; read worker messages; unblock/reassign or shutdown.`;
   }
   return buildStatusCheckReminder(teamName);
 }
@@ -226,7 +226,7 @@ async function syncScopedTeamStateFromPhase(teamStatePath, teamName, phaseSnapsh
 
 async function resolveCurrentSessionId(stateDir) {
   const fromEnv = safeString(
-    process.env.OMX_SESSION_ID
+    process.env.OWX_SESSION_ID
     || process.env.CODEX_SESSION_ID
     || process.env.SESSION_ID
     || '',
@@ -424,8 +424,8 @@ function formatMailboxBodyForLeader(body, maxLength = 40) {
 function normalizeVisibleLeaderStateText(text) {
   return safeString(text)
     .toLowerCase()
-    .replace(/\[omx_tmux_inject\]/g, ' ')
-    .replace(/\[omx_intent:[^\]]+\]/g, ' ')
+    .replace(/\[owx_tmux_inject\]/g, ' ')
+    .replace(/\[owx_intent:[^\]]+\]/g, ' ')
     .replace(/said\s+"[^"]*"/g, 'said "<content>"')
     .replace(/said\s+'[^']*'/g, 'said "<content>"')
     .replace(/\b\d+[smhd](?:\s+\d+[smhd])*\b/g, '<duration>')
@@ -496,7 +496,7 @@ async function getAckWithoutStartEvidence(stateDir, teamName, msg) {
 }
 
 export async function emitTeamNudgeEvent(cwd, teamName, reason, orchestrationIntent, nowIso) {
-  const eventsDir = join(cwd, '.omx', 'state', 'team', teamName, 'events');
+  const eventsDir = join(cwd, '.owx', 'state', 'team', teamName, 'events');
   const eventsPath = join(eventsDir, 'events.ndjson');
   try {
     await mkdir(eventsDir, { recursive: true });
@@ -516,7 +516,7 @@ export async function emitTeamNudgeEvent(cwd, teamName, reason, orchestrationInt
 }
 
 async function emitLeaderNudgeDeferredEvent(cwd, teamName, reason, orchestrationIntent, nowIso, { tmuxSession = '', leaderPaneId = '', paneCurrentCommand = '', sourceType = 'leader_nudge' } = {}) {
-  const eventsDir = join(cwd, '.omx', 'state', 'team', teamName, 'events');
+  const eventsDir = join(cwd, '.owx', 'state', 'team', teamName, 'events');
   const eventsPath = join(eventsDir, 'events.ndjson');
   try {
     await mkdir(eventsDir, { recursive: true });
@@ -553,7 +553,7 @@ export async function maybeNudgeTeamLeader({
   const idleCooldownMs = resolveLeaderAllIdleNudgeCooldownMs();
   const nowMs = Date.now();
   const nowIso = new Date().toISOString();
-  const omxDir = join(cwd, '.omx');
+  const owxDir = join(cwd, '.owx');
   const nudgeStatePath = join(stateDir, 'team-leader-nudge.json');
 
   let nudgeState = await readJsonIfExists(nudgeStatePath, null);
@@ -618,8 +618,8 @@ export async function maybeNudgeTeamLeader({
     let ownerSessionId = '';
     let workers = [];
     try {
-      const manifestPath = join(omxDir, 'state', 'team', teamName, 'manifest.v2.json');
-      const configPath = join(omxDir, 'state', 'team', teamName, 'config.json');
+      const manifestPath = join(owxDir, 'state', 'team', teamName, 'manifest.v2.json');
+      const configPath = join(owxDir, 'state', 'team', teamName, 'config.json');
       const srcPath = existsSync(manifestPath) ? manifestPath : configPath;
       if (existsSync(srcPath)) {
         const raw = JSON.parse(await readFile(srcPath, 'utf-8'));
@@ -634,7 +634,7 @@ export async function maybeNudgeTeamLeader({
     if (currentSessionId && ownerSessionId && ownerSessionId !== currentSessionId) continue;
     let mailbox = null;
     try {
-      const mailboxPath = join(omxDir, 'state', 'team', teamName, 'mailbox', 'leader-fixed.json');
+      const mailboxPath = join(owxDir, 'state', 'team', teamName, 'mailbox', 'leader-fixed.json');
       mailbox = await readJsonIfExists(mailboxPath, null);
     } catch {
       mailbox = null;
@@ -750,7 +750,7 @@ export async function maybeNudgeTeamLeader({
         taskCounts: progressSnapshot.taskCounts,
         leaderActionState,
       });
-      text = `[OMX] All ${N} worker${N === 1 ? '' : 's'} idle.${waitingText} ${leaderActionGuidance}`;
+      text = `[OWX] All ${N} worker${N === 1 ? '' : 's'} idle.${waitingText} ${leaderActionGuidance}`;
     } else if (ackWithoutStartEvidence) {
       nudgeReason = ACK_WITHOUT_START_EVIDENCE_REASON;
       text =

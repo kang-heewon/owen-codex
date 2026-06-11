@@ -41,7 +41,7 @@ export function isSetupMcpMode(value: string): value is SetupMcpMode {
 }
 
 export function getSetupScopeFilePath(projectRoot: string): string {
-	return join(projectRoot, ".omx", "setup-scope.json");
+	return join(projectRoot, ".owx", "setup-scope.json");
 }
 
 function parsePersistedSetupPreferences(
@@ -98,7 +98,7 @@ export async function readPersistedSetupPreferences(
 			options.warnOnLegacyScope
 				? (from, to) => {
 						console.warn(
-							`[omx] Migrating persisted setup scope "${from}" → "${to}" ` +
+							`[owx] Migrating persisted setup scope "${from}" → "${to}" ` +
 								`(see issue #243: simplified to user/project).`,
 						);
 					}

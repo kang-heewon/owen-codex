@@ -35,7 +35,7 @@ describe('exploreCommand (hard-deprecated tombstone)', () => {
     assert.equal(result.threw, false);
     assert.match(result.stdout, /Hard-deprecated legacy command surface/);
     assert.match(result.stdout, /all fail intentionally/);
-    assert.match(result.stdout, /omx sparkshell/);
+    assert.match(result.stdout, /owx sparkshell/);
   });
 
   it('throws the deprecation message for bare invocation', async () => {
@@ -66,9 +66,9 @@ describe('getBuiltinExploreHarnessUnsupportedReason', () => {
     assert.match(reason ?? '', /not ready on Windows/);
   });
 
-  it('returns undefined on Windows when OMX_EXPLORE_BIN is set', () => {
+  it('returns undefined on Windows when OWX_EXPLORE_BIN is set', () => {
     assert.equal(
-      getBuiltinExploreHarnessUnsupportedReason('win32', { OMX_EXPLORE_BIN: '/tmp/harness' } as NodeJS.ProcessEnv),
+      getBuiltinExploreHarnessUnsupportedReason('win32', { OWX_EXPLORE_BIN: '/tmp/harness' } as NodeJS.ProcessEnv),
       undefined,
     );
   });
@@ -81,12 +81,12 @@ describe('getBuiltinExploreHarnessUnsupportedReason', () => {
 
 describe('resolvePackagedExploreHarnessCommand', () => {
   it('uses a packaged native binary when metadata matches the current platform', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-explore-packaged-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-explore-packaged-'));
     try {
       const binDir = join(wd, 'bin');
       await mkdir(binDir, { recursive: true });
       await writeFile(join(wd, 'package.json'), '{}\n');
-      await writeFile(join(binDir, 'omx-explore-harness.meta.json'), JSON.stringify({
+      await writeFile(join(binDir, 'owx-explore-harness.meta.json'), JSON.stringify({
         binaryName: packagedExploreHarnessBinaryName(),
         platform: process.platform,
         arch: process.arch,
@@ -103,12 +103,12 @@ describe('resolvePackagedExploreHarnessCommand', () => {
   });
 
   it('ignores packaged binaries built for a different platform', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-explore-packaged-mismatch-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-explore-packaged-mismatch-'));
     try {
       const binDir = join(wd, 'bin');
       await mkdir(binDir, { recursive: true });
       await writeFile(join(wd, 'package.json'), '{}\n');
-      await writeFile(join(binDir, 'omx-explore-harness.meta.json'), JSON.stringify({
+      await writeFile(join(binDir, 'owx-explore-harness.meta.json'), JSON.stringify({
         binaryName: packagedExploreHarnessBinaryName('linux'),
         platform: process.platform === 'win32' ? 'linux' : 'win32',
         arch: process.arch,

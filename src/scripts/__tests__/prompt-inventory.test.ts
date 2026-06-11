@@ -7,27 +7,23 @@ import { buildPromptInventory, listPromptSurfacePaths, renderPromptInventoryMark
 
 describe('prompt inventory', () => {
   it('counts prompt surfaces, absolute directives, markers, and duplicate fragments', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'omx-prompt-inventory-'));
+    const root = await mkdtemp(join(tmpdir(), 'owx-prompt-inventory-'));
     try {
       await mkdir(join(root, 'templates'), { recursive: true });
       await mkdir(join(root, 'prompts'), { recursive: true });
       await mkdir(join(root, 'skills', 'worker'), { recursive: true });
-      await mkdir(join(root, 'docs', 'prompt-guidance-fragments'), { recursive: true });
       await mkdir(join(root, 'src', 'hooks'), { recursive: true });
       await mkdir(join(root, 'src', 'config'), { recursive: true });
       await mkdir(join(root, 'src', 'cli'), { recursive: true });
 
       const repeated = 'AUTO-CONTINUE for clear, already-requested, low-risk, reversible local work with evidence.';
-      await writeFile(join(root, 'AGENTS.md'), `# Root\n${repeated}\n<!-- omx:generated:agents-md -->\n`);
+      await writeFile(join(root, 'AGENTS.md'), `# Root\n${repeated}\n<!-- owx:generated:agents-md -->\n`);
       await writeFile(
         join(root, 'templates', 'AGENTS.md'),
-        `# Template\nMUST preserve markers.\n${repeated}\n<!-- OMX:RUNTIME:START -->\n<!-- OMX:RUNTIME:END -->\n`,
+        `# Template\nMUST preserve markers.\n${repeated}\n<!-- OWX:RUNTIME:START -->\n<!-- OWX:RUNTIME:END -->\n`,
       );
       await writeFile(join(root, 'prompts', 'executor.md'), `# Executor\nDO NOT stop early.\n${repeated}\n`);
       await writeFile(join(root, 'skills', 'worker', 'SKILL.md'), '# Worker\nALWAYS claim tasks.\n');
-      await writeFile(join(root, 'docs', 'prompt-guidance-contract.md'), '# Contract\n');
-      await writeFile(join(root, 'docs', 'guidance-schema.md'), '# Schema\n');
-      await writeFile(join(root, 'docs', 'prompt-guidance-fragments', 'core.md'), 'fragment\n');
       await writeFile(join(root, 'src', 'hooks', 'prompt-guidance-contract.ts'), 'export {};\n');
       await writeFile(join(root, 'src', 'config', 'generator.ts'), 'export {};\n');
       await writeFile(join(root, 'src', 'cli', 'setup.ts'), 'export {};\n');
@@ -35,9 +31,6 @@ describe('prompt inventory', () => {
       const paths = listPromptSurfacePaths(root);
       assert.deepEqual(paths, [
         'AGENTS.md',
-        'docs/guidance-schema.md',
-        'docs/prompt-guidance-contract.md',
-        'docs/prompt-guidance-fragments/core.md',
         'prompts/executor.md',
         'skills/worker/SKILL.md',
         'src/cli/setup.ts',
@@ -52,7 +45,7 @@ describe('prompt inventory', () => {
       assert.ok(report.totals.approximateTokens > 0);
       assert.equal(report.totals.absoluteDirectiveCount, 6);
       assert.equal(
-        report.surfaces.find((surface) => surface.path === 'templates/AGENTS.md')?.markers['<!-- OMX:RUNTIME:START -->'],
+        report.surfaces.find((surface) => surface.path === 'templates/AGENTS.md')?.markers['<!-- OWX:RUNTIME:START -->'],
         1,
       );
       assert.equal(report.duplicateFragmentFamilies[0]?.count, 3);

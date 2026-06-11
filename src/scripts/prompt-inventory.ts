@@ -32,8 +32,6 @@ export interface PromptInventoryReport {
 const PROMPT_SURFACE_FILES = [
   'AGENTS.md',
   'templates/AGENTS.md',
-  'docs/prompt-guidance-contract.md',
-  'docs/guidance-schema.md',
   'src/hooks/prompt-guidance-contract.ts',
   'src/config/generator.ts',
   'src/cli/setup.ts',
@@ -43,17 +41,16 @@ const PROMPT_SURFACE_DIRS = [
   'prompts',
   'skills',
   'templates/model-instructions',
-  'docs/prompt-guidance-fragments',
 ];
 
 const MARKERS = [
-  '<!-- OMX:RUNTIME:START -->',
-  '<!-- OMX:RUNTIME:END -->',
-  '<!-- OMX:TEAM:WORKER:START -->',
-  '<!-- OMX:TEAM:WORKER:END -->',
-  '<!-- OMX:MODELS:START -->',
-  '<!-- OMX:MODELS:END -->',
-  '<!-- omx:generated:agents-md -->',
+  '<!-- OWX:RUNTIME:START -->',
+  '<!-- OWX:RUNTIME:END -->',
+  '<!-- OWX:TEAM:WORKER:START -->',
+  '<!-- OWX:TEAM:WORKER:END -->',
+  '<!-- OWX:MODELS:START -->',
+  '<!-- OWX:MODELS:END -->',
+  '<!-- owx:generated:agents-md -->',
 ];
 
 const ABSOLUTE_DIRECTIVE_PATTERN = /\b(MUST(?:\s+NOT)?|DO NOT|DON'T|NEVER|ALWAYS|REQUIRED|REQUIRE|ONLY|STOP|ASK only|AUTO-CONTINUE|KEEP GOING)\b/i;

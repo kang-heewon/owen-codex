@@ -21,8 +21,8 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error?: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync('node', [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync('node', [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env, ...envOverrides },
@@ -40,13 +40,13 @@ function shouldSkipForSpawnPermissions(err?: string): boolean {
 }
 
 describe('resolveApiBinaryPath', () => {
-  it('prefers OMX_API_BIN override', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-override-'));
+  it('prefers OWX_API_BIN override', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-override-'));
     try {
       assert.equal(
         resolveApiBinaryPath({
           cwd,
-          env: { OMX_API_BIN: './bin/custom-api' },
+          env: { OWX_API_BIN: './bin/custom-api' },
           packageRoot: '/unused',
         }),
         join(cwd, 'bin', 'custom-api'),
@@ -60,9 +60,9 @@ describe('resolveApiBinaryPath', () => {
     assert.deepEqual(
       packagedApiBinaryCandidatePaths('/repo', 'linux', 'x64', {}, ['musl', 'glibc']),
       [
-        '/repo/bin/native/linux-x64-musl/omx-api',
-        '/repo/bin/native/linux-x64-glibc/omx-api',
-        '/repo/bin/native/linux-x64/omx-api',
+        '/repo/bin/native/linux-x64-musl/owx-api',
+        '/repo/bin/native/linux-x64-glibc/owx-api',
+        '/repo/bin/native/linux-x64/owx-api',
       ],
     );
   });
@@ -93,13 +93,13 @@ describe('resolveApiBinaryPath', () => {
   });
 
 
-  it('prefers a cached hydrated omx-api binary before packaged and repo-local paths', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-cached-'));
+  it('prefers a cached hydrated owx-api binary before packaged and repo-local paths', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-cached-'));
     try {
       await writeFile(join(cwd, 'package.json'), JSON.stringify({ version: '0.8.15' }));
       const cacheDir = join(cwd, 'cache');
-      const cachedDir = join(cacheDir, '0.8.15', 'linux-x64-musl', 'omx-api');
-      const cachedBinary = join(cachedDir, 'omx-api');
+      const cachedDir = join(cacheDir, '0.8.15', 'linux-x64-musl', 'owx-api');
+      const cachedBinary = join(cachedDir, 'owx-api');
       await mkdir(cachedDir, { recursive: true });
       await writeFile(cachedBinary, '#!/bin/sh\n');
       await chmod(cachedBinary, 0o755);
@@ -110,7 +110,7 @@ describe('resolveApiBinaryPath', () => {
           platform: 'linux',
           arch: 'x64',
           linuxLibcPreference: ['musl', 'glibc'],
-          env: { OMX_NATIVE_CACHE_DIR: cacheDir, OMX_NATIVE_AUTO_FETCH: '0' },
+          env: { OWX_NATIVE_CACHE_DIR: cacheDir, OWX_NATIVE_AUTO_FETCH: '0' },
         }),
         cachedBinary,
       );
@@ -123,7 +123,7 @@ describe('resolveApiBinaryPath', () => {
 describe('runApiBinary', () => {
   it('forwards argv, cwd, and env to the native binary', () => {
     const calls: { binary: string; args: string[]; options: unknown }[] = [];
-    const result = runApiBinary('/fake/omx-api', ['generate', 'text', 'hello'], {
+    const result = runApiBinary('/fake/owx-api', ['generate', 'text', 'hello'], {
       cwd: '/work',
       env: { TEST_ENV: '1' },
       spawnImpl: ((binary: string, args: string[], options: unknown) => {
@@ -133,7 +133,7 @@ describe('runApiBinary', () => {
     });
 
     assert.equal(result.stdout, 'ok\n');
-    assert.equal(calls[0]?.binary, '/fake/omx-api');
+    assert.equal(calls[0]?.binary, '/fake/owx-api');
     assert.deepEqual(calls[0]?.args, ['generate', 'text', 'hello']);
     assert.deepEqual(calls[0]?.options, {
       cwd: '/work',
@@ -144,29 +144,29 @@ describe('runApiBinary', () => {
   });
 });
 
-describe('omx api', () => {
+describe('owx api', () => {
   it('includes api in top-level help output', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-help-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-help-'));
     try {
       const result = runOmx(cwd, ['--help']);
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stdout, /omx api\s+Run native omx-api localhost gateway commands \(serve\|status\|stop\|generate\)/);
+      assert.match(result.stdout, /owx api\s+Run native owx-api localhost gateway commands \(serve\|status\|stop\|generate\)/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
   });
 
   it('prints api usage when invoked with top-level or nested --help', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-subhelp-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-subhelp-'));
     try {
       for (const argv of [['api', '--help'], ['api', 'serve', '--help'], ['api', 'generate', '--help']]) {
         const result = runOmx(cwd, argv);
         if (shouldSkipForSpawnPermissions(result.error)) return;
 
         assert.equal(result.status, 0, `${argv.join(' ')} stderr=${result.stderr} stdout=${result.stdout}`);
-        assert.match(result.stdout, /Usage: omx api <command> \[args\.\.\.\]/);
+        assert.match(result.stdout, /Usage: owx api <command> \[args\.\.\.\]/);
         assert.match(result.stdout, /generate text <prompt\.\.\.>/);
       }
     } finally {
@@ -175,10 +175,10 @@ describe('omx api', () => {
   });
 
   it('preserves child stdout, stderr, and exit code through the JS bridge', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-bridge-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-bridge-'));
     try {
       const binDir = join(cwd, 'bin');
-      const stubPath = join(binDir, process.platform === 'win32' ? 'omx-api.cmd' : 'omx-api');
+      const stubPath = join(binDir, process.platform === 'win32' ? 'owx-api.cmd' : 'owx-api');
       await mkdir(binDir, { recursive: true });
       if (process.platform === 'win32') {
         await writeFile(stubPath, '@echo off\r\necho api-stdout\r\n>&2 echo api-stderr\r\nexit /b 7\r\n');
@@ -187,7 +187,7 @@ describe('omx api', () => {
         await chmod(stubPath, 0o755);
       }
 
-      const result = runOmx(cwd, ['api', 'generate', 'text', 'hello'], { OMX_API_BIN: stubPath });
+      const result = runOmx(cwd, ['api', 'generate', 'text', 'hello'], { OWX_API_BIN: stubPath });
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
       assert.equal(result.status, 7, result.stderr || result.stdout);
@@ -199,9 +199,9 @@ describe('omx api', () => {
   });
 
   it('fails clearly when the configured native binary path does not exist', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-api-missing-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-api-missing-'));
     try {
-      const result = runOmx(cwd, ['api', 'status'], { OMX_API_BIN: join(cwd, 'bin', 'missing-api') });
+      const result = runOmx(cwd, ['api', 'status'], { OWX_API_BIN: join(cwd, 'bin', 'missing-api') });
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
       assert.equal(result.status, 1, result.stderr || result.stdout);

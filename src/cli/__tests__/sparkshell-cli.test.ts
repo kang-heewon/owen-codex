@@ -28,8 +28,8 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error?: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync('node', [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync('node', [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env, ...envOverrides },
@@ -47,14 +47,14 @@ function shouldSkipForSpawnPermissions(err?: string): boolean {
 }
 
 describe('resolveSparkShellBinaryPath', () => {
-  it('prefers OMX_SPARKSHELL_BIN override', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-override-'));
+  it('prefers OWX_SPARKSHELL_BIN override', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-override-'));
     try {
       const binary = join(cwd, 'bin', 'custom-sparkshell');
       assert.equal(
         resolveSparkShellBinaryPath({
           cwd,
-          env: { OMX_SPARKSHELL_BIN: './bin/custom-sparkshell' },
+          env: { OWX_SPARKSHELL_BIN: './bin/custom-sparkshell' },
           packageRoot: '/unused',
         }),
         binary,
@@ -66,7 +66,7 @@ describe('resolveSparkShellBinaryPath', () => {
 
   it('falls back from packaged binary to repo-local build artifact', () => {
     const packageRoot = '/repo';
-    const packaged = join(packageRoot, 'bin', 'native', `${process.platform}-${process.arch}`, process.platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell');
+    const packaged = join(packageRoot, 'bin', 'native', `${process.platform}-${process.arch}`, process.platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell');
     const repoLocal = repoLocalSparkShellBinaryPath(packageRoot);
 
     assert.equal(
@@ -83,9 +83,9 @@ describe('resolveSparkShellBinaryPath', () => {
     assert.deepEqual(
       packagedSparkShellBinaryCandidatePaths('/repo', 'linux', 'x64', {}, ['musl', 'glibc']),
       [
-        '/repo/bin/native/linux-x64-musl/omx-sparkshell',
-        '/repo/bin/native/linux-x64-glibc/omx-sparkshell',
-        '/repo/bin/native/linux-x64/omx-sparkshell',
+        '/repo/bin/native/linux-x64-musl/owx-sparkshell',
+        '/repo/bin/native/linux-x64-glibc/owx-sparkshell',
+        '/repo/bin/native/linux-x64/owx-sparkshell',
       ],
     );
   });
@@ -93,7 +93,7 @@ describe('resolveSparkShellBinaryPath', () => {
   it('tries Linux musl packaged binaries before glibc fallbacks', () => {
     const packageRoot = '/repo';
     const seen: string[] = [];
-    const glibcPath = '/repo/bin/native/linux-x64-glibc/omx-sparkshell';
+    const glibcPath = '/repo/bin/native/linux-x64-glibc/owx-sparkshell';
 
     assert.equal(
       resolveSparkShellBinaryPath({
@@ -111,8 +111,8 @@ describe('resolveSparkShellBinaryPath', () => {
     assert.deepEqual(
       seen.slice(0, 2),
       [
-        '/repo/bin/native/linux-x64-musl/omx-sparkshell',
-        '/repo/bin/native/linux-x64-glibc/omx-sparkshell',
+        '/repo/bin/native/linux-x64-musl/owx-sparkshell',
+        '/repo/bin/native/linux-x64-glibc/owx-sparkshell',
       ],
     );
   });
@@ -138,7 +138,7 @@ describe('resolveSparkShellBinaryPath', () => {
   });
 
   it('hydrates a native binary when packaged and repo-local binaries are absent', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-hydrated-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-hydrated-'));
     try {
       const assetRoot = join(wd, 'assets');
       const cacheDir = join(wd, 'cache');
@@ -147,19 +147,19 @@ describe('resolveSparkShellBinaryPath', () => {
       await mkdir(stagingDir, { recursive: true });
       await writeFile(join(wd, 'package.json'), JSON.stringify({
         version: '0.8.15',
-        repository: { url: 'git+https://github.com/Yeachan-Heo/oh-my-codex.git' },
+        repository: { url: 'git+https://github.com/kang-heewon/owen-codex.git' },
       }));
-      const stagedBinary = join(stagingDir, process.platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell');
+      const stagedBinary = join(stagingDir, process.platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell');
       await writeFile(stagedBinary, process.platform === 'win32' ? '@echo off\r\necho hydrated\r\n' : '#!/bin/sh\necho hydrated\n');
       if (process.platform !== 'win32') await chmod(stagedBinary, 0o755);
 
       const archiveName = process.platform === 'win32'
-        ? 'omx-sparkshell-x86_64-pc-windows-msvc.zip'
-        : 'omx-sparkshell-x86_64-unknown-linux-musl.tar.gz';
+        ? 'owx-sparkshell-x86_64-pc-windows-msvc.zip'
+        : 'owx-sparkshell-x86_64-unknown-linux-musl.tar.gz';
       const archivePath = join(assetRoot, archiveName);
       const buildArchive = process.platform === 'win32'
         ? spawnSync('powershell', ['-NoLogo', '-NoProfile', '-Command', `Compress-Archive -Path '${stagedBinary.replace(/'/g, "''")}' -DestinationPath '${archivePath.replace(/'/g, "''")}' -Force`], { encoding: 'utf-8' })
-        : spawnSync('tar', ['-czf', archivePath, '-C', stagingDir, 'omx-sparkshell'], { encoding: 'utf-8' });
+        : spawnSync('tar', ['-czf', archivePath, '-C', stagingDir, 'owx-sparkshell'], { encoding: 'utf-8' });
       assert.equal(buildArchive.status, 0, buildArchive.stderr || buildArchive.stdout);
       const archiveBuffer = await readFile(archivePath);
       const checksum = createHash('sha256').update(archiveBuffer).digest('hex');
@@ -190,13 +190,13 @@ describe('resolveSparkShellBinaryPath', () => {
         await writeFile(join(assetRoot, 'native-release-manifest.json'), JSON.stringify({
           version: '0.8.15',
           assets: [{
-            product: 'omx-sparkshell',
+            product: 'owx-sparkshell',
             version: '0.8.15',
             platform: process.platform === 'win32' ? 'win32' : 'linux',
             arch: 'x64',
             archive: archiveName,
-            binary: process.platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell',
-            binary_path: process.platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell',
+            binary: process.platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell',
+            binary_path: process.platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell',
             sha256: checksum,
             size: archiveBuffer.length,
             download_url: `${server.baseUrl}/${archiveName}`,
@@ -208,8 +208,8 @@ describe('resolveSparkShellBinaryPath', () => {
           platform: process.platform === 'win32' ? 'win32' : 'linux',
           arch: 'x64',
           env: {
-            OMX_NATIVE_MANIFEST_URL: `${server.baseUrl}/native-release-manifest.json`,
-            OMX_NATIVE_CACHE_DIR: cacheDir,
+            OWX_NATIVE_MANIFEST_URL: `${server.baseUrl}/native-release-manifest.json`,
+            OWX_NATIVE_CACHE_DIR: cacheDir,
           },
           exists: () => false,
         });
@@ -223,13 +223,13 @@ describe('resolveSparkShellBinaryPath', () => {
   });
 
   it('falls back cleanly when hydration manifest is unavailable', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-hydration-missing-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-hydration-missing-'));
     try {
       const missingRoot = join(wd, 'missing-assets');
       await mkdir(missingRoot, { recursive: true });
       await writeFile(join(wd, 'package.json'), JSON.stringify({
         version: '0.8.15',
-        repository: { url: 'git+https://github.com/Yeachan-Heo/oh-my-codex.git' },
+        repository: { url: 'git+https://github.com/kang-heewon/owen-codex.git' },
       }));
 
       const server = await new Promise<{ baseUrl: string; close: () => Promise<void> }>((resolve) => {
@@ -254,8 +254,8 @@ describe('resolveSparkShellBinaryPath', () => {
             platform: process.platform === 'win32' ? 'win32' : 'linux',
             arch: 'x64',
             env: {
-              OMX_NATIVE_MANIFEST_URL: `${server.baseUrl}/native-release-manifest.json`,
-              OMX_NATIVE_CACHE_DIR: join(wd, 'cache'),
+              OWX_NATIVE_MANIFEST_URL: `${server.baseUrl}/native-release-manifest.json`,
+              OWX_NATIVE_CACHE_DIR: join(wd, 'cache'),
             },
             exists: () => false,
           }),
@@ -273,7 +273,7 @@ describe('resolveSparkShellBinaryPath', () => {
 describe('runSparkShellBinary', () => {
   it('passes argv directly to the native sidecar', () => {
     let invoked: { binaryPath: string; args: string[]; stdio: unknown } | undefined;
-    runSparkShellBinary('/fake/omx-sparkshell', ['git', 'diff --stat', 'a|b'], {
+    runSparkShellBinary('/fake/owx-sparkshell', ['git', 'diff --stat', 'a|b'], {
       cwd: '/tmp/example',
       env: { TEST_ENV: '1' },
       spawnImpl: ((binaryPath: string, args: string[], options: { stdio?: unknown }) => {
@@ -290,30 +290,30 @@ describe('runSparkShellBinary', () => {
     });
 
     assert.deepEqual(invoked, {
-      binaryPath: '/fake/omx-sparkshell',
+      binaryPath: '/fake/owx-sparkshell',
       args: ['git', 'diff --stat', 'a|b'],
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   });
 
-  it('merges .omx-config.json env overrides behind explicit shell env', async () => {
-    const codexHome = await mkdtemp(join(tmpdir(), 'omx-sparkshell-config-env-'));
-    await writeFile(join(codexHome, '.omx-config.json'), JSON.stringify({
+  it('merges .owx-config.json env overrides behind explicit shell env', async () => {
+    const codexHome = await mkdtemp(join(tmpdir(), 'owx-sparkshell-config-env-'));
+    await writeFile(join(codexHome, '.owx-config.json'), JSON.stringify({
       env: {
-        OMX_DEFAULT_FRONTIER_MODEL: 'frontier-local',
-        OMX_DEFAULT_STANDARD_MODEL: 'standard-local',
-        OMX_DEFAULT_SPARK_MODEL: 'spark-local',
-        OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE: '/config/sparkshell-instructions.md',
+        OWX_DEFAULT_FRONTIER_MODEL: 'frontier-local',
+        OWX_DEFAULT_STANDARD_MODEL: 'standard-local',
+        OWX_DEFAULT_SPARK_MODEL: 'spark-local',
+        OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE: '/config/sparkshell-instructions.md',
       },
     }));
 
     try {
       let invokedEnv: NodeJS.ProcessEnv | undefined;
-      runSparkShellBinary('/fake/omx-sparkshell', ['git', 'status'], {
+      runSparkShellBinary('/fake/owx-sparkshell', ['git', 'status'], {
         cwd: codexHome,
         env: {
           CODEX_HOME: codexHome,
-          OMX_DEFAULT_FRONTIER_MODEL: 'frontier-shell',
+          OWX_DEFAULT_FRONTIER_MODEL: 'frontier-shell',
         },
         spawnImpl: ((_: string, __: string[], options: { env?: NodeJS.ProcessEnv }) => {
           invokedEnv = options.env;
@@ -328,10 +328,10 @@ describe('runSparkShellBinary', () => {
         }) as unknown as typeof spawnSync,
       });
 
-      assert.equal(invokedEnv?.OMX_DEFAULT_FRONTIER_MODEL, 'frontier-shell');
-      assert.equal(invokedEnv?.OMX_DEFAULT_STANDARD_MODEL, 'standard-local');
-      assert.equal(invokedEnv?.OMX_DEFAULT_SPARK_MODEL, 'spark-local');
-      assert.equal(invokedEnv?.OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE, '/config/sparkshell-instructions.md');
+      assert.equal(invokedEnv?.OWX_DEFAULT_FRONTIER_MODEL, 'frontier-shell');
+      assert.equal(invokedEnv?.OWX_DEFAULT_STANDARD_MODEL, 'standard-local');
+      assert.equal(invokedEnv?.OWX_DEFAULT_SPARK_MODEL, 'spark-local');
+      assert.equal(invokedEnv?.OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE, '/config/sparkshell-instructions.md');
     } finally {
       await rm(codexHome, { recursive: true, force: true });
     }
@@ -339,7 +339,7 @@ describe('runSparkShellBinary', () => {
 
   it('defaults to packaged lightweight instructions outside the role prompts directory', () => {
     let invokedEnv: NodeJS.ProcessEnv | undefined;
-    runSparkShellBinary('/fake/omx-sparkshell', ['git', 'status'], {
+    runSparkShellBinary('/fake/owx-sparkshell', ['git', 'status'], {
       cwd: '/tmp/example',
       env: {},
       spawnImpl: ((_: string, __: readonly string[], options: { env?: NodeJS.ProcessEnv }) => {
@@ -356,7 +356,7 @@ describe('runSparkShellBinary', () => {
     });
 
     assert.match(
-      invokedEnv?.OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE || '',
+      invokedEnv?.OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE || '',
       /templates[\\/]+model-instructions[\\/]+sparkshell-lightweight-AGENTS\.md$/,
     );
   });
@@ -369,7 +369,7 @@ describe('isSparkShellNativeCompatibilityFailure', () => {
         pid: 1,
         output: [],
         stdout: '',
-        stderr: "omx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found\n",
+        stderr: "owx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found\n",
         status: 1,
         signal: null,
       }),
@@ -383,7 +383,7 @@ describe('isSparkShellNativeCompatibilityFailure', () => {
         pid: 1,
         output: [],
         stdout: '',
-        stderr: 'omx sparkshell: summary unavailable (tmux failed)\n',
+        stderr: 'owx sparkshell: summary unavailable (tmux failed)\n',
         status: 1,
         signal: null,
       }),
@@ -454,17 +454,17 @@ describe('parseSparkShellFallbackInvocation', () => {
   });
 });
 
-describe('omx sparkshell', () => {
+describe('owx sparkshell', () => {
   it('includes sparkshell in top-level help output', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-help-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-help-'));
     try {
       const result = runOmx(cwd, ['--help']);
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stdout, /omx explore\s+DEPRECATED compatibility command; use normal repo inspection or omx sparkshell/);
-      assert.match(result.stdout, /omx sparkshell <command> \[args\.\.\.\]/);
-      assert.match(result.stdout, /omx sparkshell --tmux-pane <pane-id> \[--tail-lines <100-1000>\]/);
+      assert.match(result.stdout, /owx explore\s+DEPRECATED compatibility command; use normal repo inspection or owx sparkshell/);
+      assert.match(result.stdout, /owx sparkshell <command> \[args\.\.\.\]/);
+      assert.match(result.stdout, /owx sparkshell --tmux-pane <pane-id> \[--tail-lines <100-1000>\]/);
       assert.match(result.stdout, /explicit tmux-pane summarization/i);
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -472,26 +472,26 @@ describe('omx sparkshell', () => {
   });
 
   it('prints sparkshell usage when invoked with --help', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-subhelp-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-subhelp-'));
     try {
       const result = runOmx(cwd, ['sparkshell', '--help']);
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stdout, /Usage: omx sparkshell <command> \[args\.\.\.\]/);
-      assert.match(result.stdout, /or: omx sparkshell --tmux-pane <pane-id> \[--tail-lines <100-1000>\]/);
-      assert.match(result.stdout, /OMX_SPARKSHELL_BIN overrides the native binary/);
-      assert.match(result.stdout, /OMX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE overrides packaged summary instructions/);
+      assert.match(result.stdout, /Usage: owx sparkshell <command> \[args\.\.\.\]/);
+      assert.match(result.stdout, /or: owx sparkshell --tmux-pane <pane-id> \[--tail-lines <100-1000>\]/);
+      assert.match(result.stdout, /OWX_SPARKSHELL_BIN overrides the native binary/);
+      assert.match(result.stdout, /OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE overrides packaged summary instructions/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
   });
 
   it('preserves child stdout, stderr, and exit code through the JS bridge', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-bridge-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-bridge-'));
     try {
       const binDir = join(cwd, 'bin');
-      const stubPath = join(binDir, process.platform === 'win32' ? 'omx-sparkshell.cmd' : 'omx-sparkshell');
+      const stubPath = join(binDir, process.platform === 'win32' ? 'owx-sparkshell.cmd' : 'owx-sparkshell');
       await mkdir(binDir, { recursive: true });
       if (process.platform === 'win32') {
         await writeFile(
@@ -507,7 +507,7 @@ describe('omx sparkshell', () => {
       }
 
       const result = runOmx(cwd, ['sparkshell', 'git', 'status'], {
-        OMX_SPARKSHELL_BIN: stubPath,
+        OWX_SPARKSHELL_BIN: stubPath,
       });
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
@@ -520,25 +520,25 @@ describe('omx sparkshell', () => {
   });
 
   it('falls back to raw execution when the packaged native binary is GLIBC-incompatible', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-glibc-fallback-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-glibc-fallback-'));
     try {
       const testDir = dirname(fileURLToPath(import.meta.url));
       const repoRoot = join(testDir, '..', '..', '..');
       const packageJson = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf-8')) as { version: string };
       const cacheDir = join(cwd, 'cache');
-      const binDir = join(cacheDir, packageJson.version, `${process.platform}-${process.arch}`, 'omx-sparkshell');
+      const binDir = join(cacheDir, packageJson.version, `${process.platform}-${process.arch}`, 'owx-sparkshell');
       await mkdir(binDir, { recursive: true });
-      const stubPath = join(binDir, process.platform === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell');
+      const stubPath = join(binDir, process.platform === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell');
       await writeFile(
         stubPath,
         process.platform === 'win32'
-          ? '@echo off\r\n>&2 echo omx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39\' not found\r\nexit /b 1\r\n'
-          : "#!/bin/sh\necho \"omx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version \\`GLIBC_2.39' not found\" 1>&2\nexit 1\n",
+          ? '@echo off\r\n>&2 echo owx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39\' not found\r\nexit /b 1\r\n'
+          : "#!/bin/sh\necho \"owx-sparkshell: /lib/x86_64-linux-gnu/libc.so.6: version \\`GLIBC_2.39' not found\" 1>&2\nexit 1\n",
       );
       if (process.platform !== 'win32') await chmod(stubPath, 0o755);
 
       const result = runOmx(cwd, ['sparkshell', 'node', '-e', 'process.stdout.write("raw-fallback\\n")'], {
-        OMX_NATIVE_CACHE_DIR: cacheDir,
+        OWX_NATIVE_CACHE_DIR: cacheDir,
       });
       if (shouldSkipForSpawnPermissions(result.error)) return;
 
@@ -552,11 +552,11 @@ describe('omx sparkshell', () => {
   });
 
   it('fails clearly when the configured native binary path does not exist', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-sparkshell-missing-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-sparkshell-missing-'));
     try {
       const missingBinary = join(cwd, 'bin', 'does-not-exist');
       const result = runOmx(cwd, ['sparkshell', 'ls'], {
-        OMX_SPARKSHELL_BIN: missingBinary,
+        OWX_SPARKSHELL_BIN: missingBinary,
       });
       if (shouldSkipForSpawnPermissions(result.error)) return;
 

@@ -5,9 +5,9 @@ import {
   hasOmxAgentsContract,
   hasOmxManagedAgentsSections,
   isOmxGeneratedAgentsMd,
-  OMX_GENERATED_AGENTS_MARKER,
-  OMX_MANAGED_AGENTS_END_MARKER,
-  OMX_MANAGED_AGENTS_START_MARKER,
+  OWX_GENERATED_AGENTS_MARKER,
+  OWX_MANAGED_AGENTS_END_MARKER,
+  OWX_MANAGED_AGENTS_START_MARKER,
 } from '../agents-md.js';
 
 describe('agents-md helpers', () => {
@@ -18,36 +18,36 @@ describe('agents-md helpers', () => {
       'DO NOT STOP TO ASK "SHOULD I PROCEED?" — PROCEED. DO NOT WAIT FOR CONFIRMATION ON OBVIOUS NEXT STEPS.',
       'IF BLOCKED, TRY AN ALTERNATIVE APPROACH. ONLY ASK WHEN TRULY AMBIGUOUS OR DESTRUCTIVE.',
       '<!-- END AUTONOMY DIRECTIVE -->',
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
     ].join('\n');
 
     const result = addGeneratedAgentsMarker(content);
 
     assert.match(
       result,
-      /<!-- END AUTONOMY DIRECTIVE -->\n<!-- omx:generated:agents-md -->\n# oh-my-codex - Intelligent Multi-Agent Orchestration/,
+      /<!-- END AUTONOMY DIRECTIVE -->\n<!-- owx:generated:agents-md -->\n# owen-codex - Intelligent Multi-Agent Orchestration/,
     );
   });
 
   it('does not duplicate an existing generated marker', () => {
-    const content = `header\n${OMX_GENERATED_AGENTS_MARKER}\nbody\n`;
+    const content = `header\n${OWX_GENERATED_AGENTS_MARKER}\nbody\n`;
     assert.equal(addGeneratedAgentsMarker(content), content);
   });
 
-  it('does not treat a standalone generated marker as the full OMX contract', () => {
-    const content = `header\n${OMX_GENERATED_AGENTS_MARKER}\nbody\n`;
+  it('does not treat a standalone generated marker as the full OWX contract', () => {
+    const content = `header\n${OWX_GENERATED_AGENTS_MARKER}\nbody\n`;
 
     assert.equal(isOmxGeneratedAgentsMd(content), true);
     assert.equal(hasOmxAgentsContract(content), false);
   });
 
-  it('treats autonomy-directive generated files as OMX-managed once marked', () => {
+  it('treats autonomy-directive generated files as OWX-managed once marked', () => {
     const content = [
       '<!-- AUTONOMY DIRECTIVE — DO NOT REMOVE -->',
       'directive body',
       '<!-- END AUTONOMY DIRECTIVE -->',
-      OMX_GENERATED_AGENTS_MARKER,
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      OWX_GENERATED_AGENTS_MARKER,
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
       'AGENTS.md is the top-level operating contract for the workspace.',
     ].join('\n');
 
@@ -55,11 +55,11 @@ describe('agents-md helpers', () => {
     assert.equal(hasOmxAgentsContract(content), true);
   });
 
-  it('does not treat title-only user AGENTS.md content as OMX-generated', () => {
+  it('does not treat title-only user AGENTS.md content as OWX-generated', () => {
     const content = [
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
       '',
-      'User-authored guidance without any OMX ownership markers.',
+      'User-authored guidance without any OWX ownership markers.',
     ].join('\n');
 
     assert.equal(isOmxGeneratedAgentsMd(content), false);
@@ -67,13 +67,13 @@ describe('agents-md helpers', () => {
     assert.equal(hasOmxAgentsContract(content), false);
   });
 
-  it('recognizes explicit OMX-owned model table blocks as managed sections', () => {
+  it('recognizes explicit OWX-owned model table blocks as managed sections', () => {
     const content = [
       '# Shared ownership AGENTS',
       '',
-      '<!-- OMX:MODELS:START -->',
+      '<!-- OWX:MODELS:START -->',
       'managed table',
-      '<!-- OMX:MODELS:END -->',
+      '<!-- OWX:MODELS:END -->',
     ].join('\n');
 
     assert.equal(isOmxGeneratedAgentsMd(content), false);
@@ -81,17 +81,17 @@ describe('agents-md helpers', () => {
     assert.equal(hasOmxAgentsContract(content), false);
   });
 
-  it('recognizes merged AGENTS blocks as carrying the OMX contract only when the generated marker is inside', () => {
+  it('recognizes merged AGENTS blocks as carrying the OWX contract only when the generated marker is inside', () => {
     const content = [
       '# Shared ownership AGENTS',
       '',
-      OMX_MANAGED_AGENTS_START_MARKER,
+      OWX_MANAGED_AGENTS_START_MARKER,
       '<!-- AUTONOMY DIRECTIVE — DO NOT REMOVE -->',
       '<!-- END AUTONOMY DIRECTIVE -->',
-      OMX_GENERATED_AGENTS_MARKER,
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      OWX_GENERATED_AGENTS_MARKER,
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
       'AGENTS.md is the top-level operating contract for the workspace.',
-      OMX_MANAGED_AGENTS_END_MARKER,
+      OWX_MANAGED_AGENTS_END_MARKER,
     ].join('\n');
 
     assert.equal(isOmxGeneratedAgentsMd(content), true);
@@ -101,8 +101,8 @@ describe('agents-md helpers', () => {
 
   it('does not accept a generated marker plus heading without the semantic contract text', () => {
     const content = [
-      OMX_GENERATED_AGENTS_MARKER,
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      OWX_GENERATED_AGENTS_MARKER,
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
       'User-authored text that happens to reuse the title.',
     ].join('\n');
 
@@ -113,10 +113,10 @@ describe('agents-md helpers', () => {
     const content = [
       '# Shared ownership AGENTS',
       '',
-      OMX_MANAGED_AGENTS_START_MARKER,
-      '# oh-my-codex - Intelligent Multi-Agent Orchestration',
+      OWX_MANAGED_AGENTS_START_MARKER,
+      '# owen-codex - Intelligent Multi-Agent Orchestration',
       'AGENTS.md is the top-level operating contract for the workspace.',
-      OMX_MANAGED_AGENTS_END_MARKER,
+      OWX_MANAGED_AGENTS_END_MARKER,
     ].join('\n');
 
     assert.equal(hasOmxAgentsContract(content), false);

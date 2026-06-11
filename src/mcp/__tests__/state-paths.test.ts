@@ -25,11 +25,11 @@ import {
 
 
 const isolatedEnvKeys = [
-  'OMX_MCP_WORKDIR_ROOTS',
-  'OMX_ROOT',
-  'OMX_STATE_ROOT',
-  'OMX_TEAM_STATE_ROOT',
-  'OMX_SESSION_ID',
+  'OWX_MCP_WORKDIR_ROOTS',
+  'OWX_ROOT',
+  'OWX_STATE_ROOT',
+  'OWX_TEAM_STATE_ROOT',
+  'OWX_SESSION_ID',
   'CODEX_SESSION_ID',
   'SESSION_ID',
 ] as const;
@@ -93,45 +93,45 @@ describe('validateStateFileName', () => {
 });
 
 describe('state paths', () => {
-  it('uses explicit OMX_TEAM_STATE_ROOT before boxed roots and workingDirectory', () => {
-    const prevRoot = process.env.OMX_ROOT;
-    const prevStateRoot = process.env.OMX_STATE_ROOT;
-    const prevTeamRoot = process.env.OMX_TEAM_STATE_ROOT;
-    process.env.OMX_ROOT = '/tmp/omx-box';
-    process.env.OMX_STATE_ROOT = '/tmp/ignored-state-root';
-    process.env.OMX_TEAM_STATE_ROOT = '/tmp/explicit-team-state';
+  it('uses explicit OWX_TEAM_STATE_ROOT before boxed roots and workingDirectory', () => {
+    const prevRoot = process.env.OWX_ROOT;
+    const prevStateRoot = process.env.OWX_STATE_ROOT;
+    const prevTeamRoot = process.env.OWX_TEAM_STATE_ROOT;
+    process.env.OWX_ROOT = '/tmp/owx-box';
+    process.env.OWX_STATE_ROOT = '/tmp/ignored-state-root';
+    process.env.OWX_TEAM_STATE_ROOT = '/tmp/explicit-team-state';
     try {
       assert.equal(getBaseStateDir('/tmp/source'), '/tmp/explicit-team-state');
       assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1');
       assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1/ralph-state.json');
     } finally {
-      if (typeof prevRoot === 'string') process.env.OMX_ROOT = prevRoot;
-      else delete process.env.OMX_ROOT;
-      if (typeof prevStateRoot === 'string') process.env.OMX_STATE_ROOT = prevStateRoot;
-      else delete process.env.OMX_STATE_ROOT;
-      if (typeof prevTeamRoot === 'string') process.env.OMX_TEAM_STATE_ROOT = prevTeamRoot;
-      else delete process.env.OMX_TEAM_STATE_ROOT;
+      if (typeof prevRoot === 'string') process.env.OWX_ROOT = prevRoot;
+      else delete process.env.OWX_ROOT;
+      if (typeof prevStateRoot === 'string') process.env.OWX_STATE_ROOT = prevStateRoot;
+      else delete process.env.OWX_STATE_ROOT;
+      if (typeof prevTeamRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamRoot;
+      else delete process.env.OWX_TEAM_STATE_ROOT;
     }
   });
 
-  it('uses OMX_ROOT as boxed workspace root before workingDirectory when no team root is explicit', () => {
-    const prevRoot = process.env.OMX_ROOT;
-    const prevStateRoot = process.env.OMX_STATE_ROOT;
-    const prevTeamRoot = process.env.OMX_TEAM_STATE_ROOT;
-    process.env.OMX_ROOT = '/tmp/omx-box';
-    process.env.OMX_STATE_ROOT = '/tmp/ignored-state-root';
-    delete process.env.OMX_TEAM_STATE_ROOT;
+  it('uses OWX_ROOT as boxed workspace root before workingDirectory when no team root is explicit', () => {
+    const prevRoot = process.env.OWX_ROOT;
+    const prevStateRoot = process.env.OWX_STATE_ROOT;
+    const prevTeamRoot = process.env.OWX_TEAM_STATE_ROOT;
+    process.env.OWX_ROOT = '/tmp/owx-box';
+    process.env.OWX_STATE_ROOT = '/tmp/ignored-state-root';
+    delete process.env.OWX_TEAM_STATE_ROOT;
     try {
-      assert.equal(getBaseStateDir('/tmp/source'), '/tmp/omx-box/.omx/state');
-      assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/omx-box/.omx/state/sessions/sess1');
-      assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/omx-box/.omx/state/sessions/sess1/ralph-state.json');
+      assert.equal(getBaseStateDir('/tmp/source'), '/tmp/owx-box/.owx/state');
+      assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/owx-box/.owx/state/sessions/sess1');
+      assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/owx-box/.owx/state/sessions/sess1/ralph-state.json');
     } finally {
-      if (typeof prevRoot === 'string') process.env.OMX_ROOT = prevRoot;
-      else delete process.env.OMX_ROOT;
-      if (typeof prevStateRoot === 'string') process.env.OMX_STATE_ROOT = prevStateRoot;
-      else delete process.env.OMX_STATE_ROOT;
-      if (typeof prevTeamRoot === 'string') process.env.OMX_TEAM_STATE_ROOT = prevTeamRoot;
-      else delete process.env.OMX_TEAM_STATE_ROOT;
+      if (typeof prevRoot === 'string') process.env.OWX_ROOT = prevRoot;
+      else delete process.env.OWX_ROOT;
+      if (typeof prevStateRoot === 'string') process.env.OWX_STATE_ROOT = prevStateRoot;
+      else delete process.env.OWX_STATE_ROOT;
+      if (typeof prevTeamRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamRoot;
+      else delete process.env.OWX_TEAM_STATE_ROOT;
     }
   });
 
@@ -162,11 +162,11 @@ describe('state paths', () => {
     assert.throws(() => resolveWorkingDirectoryForState('bad\0path'), /NUL byte/);
   });
 
-  it('enforces OMX_MCP_WORKDIR_ROOTS allowlist when configured', async () => {
-    const allowedRoot = await mkRealTemp('omx-allowed-root-');
-    const disallowedRoot = await mkRealTemp('omx-disallowed-root-');
-    const prev = process.env.OMX_MCP_WORKDIR_ROOTS;
-    process.env.OMX_MCP_WORKDIR_ROOTS = allowedRoot;
+  it('enforces OWX_MCP_WORKDIR_ROOTS allowlist when configured', async () => {
+    const allowedRoot = await mkRealTemp('owx-allowed-root-');
+    const disallowedRoot = await mkRealTemp('owx-disallowed-root-');
+    const prev = process.env.OWX_MCP_WORKDIR_ROOTS;
+    process.env.OWX_MCP_WORKDIR_ROOTS = allowedRoot;
     try {
       assert.equal(
         resolveWorkingDirectoryForState(join(allowedRoot, 'nested')),
@@ -174,71 +174,71 @@ describe('state paths', () => {
       );
       assert.throws(
         () => resolveWorkingDirectoryForState(disallowedRoot),
-        /outside allowed roots \(OMX_MCP_WORKDIR_ROOTS\)/,
+        /outside allowed roots \(OWX_MCP_WORKDIR_ROOTS\)/,
       );
     } finally {
-      if (typeof prev === 'string') process.env.OMX_MCP_WORKDIR_ROOTS = prev;
-      else delete process.env.OMX_MCP_WORKDIR_ROOTS;
+      if (typeof prev === 'string') process.env.OWX_MCP_WORKDIR_ROOTS = prev;
+      else delete process.env.OWX_MCP_WORKDIR_ROOTS;
       await rm(allowedRoot, { recursive: true, force: true });
       await rm(disallowedRoot, { recursive: true, force: true });
     }
   });
 
   it('preserves symlinked workingDirectory spelling when no allowlist is configured', async () => {
-    const realRoot = await mkRealTemp('omx-real-root-');
-    const linkParent = await mkRealTemp('omx-link-parent-');
+    const realRoot = await mkRealTemp('owx-real-root-');
+    const linkParent = await mkRealTemp('owx-link-parent-');
     const link = join(linkParent, 'workspace-link');
-    const prev = process.env.OMX_MCP_WORKDIR_ROOTS;
-    delete process.env.OMX_MCP_WORKDIR_ROOTS;
+    const prev = process.env.OWX_MCP_WORKDIR_ROOTS;
+    delete process.env.OWX_MCP_WORKDIR_ROOTS;
     try {
       await symlink(realRoot, link);
 
       assert.equal(resolveWorkingDirectoryForState(link), link);
     } finally {
-      if (typeof prev === 'string') process.env.OMX_MCP_WORKDIR_ROOTS = prev;
-      else delete process.env.OMX_MCP_WORKDIR_ROOTS;
+      if (typeof prev === 'string') process.env.OWX_MCP_WORKDIR_ROOTS = prev;
+      else delete process.env.OWX_MCP_WORKDIR_ROOTS;
       await rm(realRoot, { recursive: true, force: true });
       await rm(linkParent, { recursive: true, force: true });
     }
   });
 
-  it('rejects symlinked workingDirectory candidates that escape OMX_MCP_WORKDIR_ROOTS', async () => {
-    const allowedRoot = await mkRealTemp('omx-allowed-root-');
-    const outsideRoot = await mkRealTemp('omx-outside-root-');
-    const prev = process.env.OMX_MCP_WORKDIR_ROOTS;
-    process.env.OMX_MCP_WORKDIR_ROOTS = allowedRoot;
+  it('rejects symlinked workingDirectory candidates that escape OWX_MCP_WORKDIR_ROOTS', async () => {
+    const allowedRoot = await mkRealTemp('owx-allowed-root-');
+    const outsideRoot = await mkRealTemp('owx-outside-root-');
+    const prev = process.env.OWX_MCP_WORKDIR_ROOTS;
+    process.env.OWX_MCP_WORKDIR_ROOTS = allowedRoot;
     try {
       const link = join(allowedRoot, 'link');
       await symlink(outsideRoot, link);
 
       assert.throws(
         () => resolveWorkingDirectoryForState(link),
-        /outside allowed roots \(OMX_MCP_WORKDIR_ROOTS\)/,
+        /outside allowed roots \(OWX_MCP_WORKDIR_ROOTS\)/,
       );
     } finally {
-      if (typeof prev === 'string') process.env.OMX_MCP_WORKDIR_ROOTS = prev;
-      else delete process.env.OMX_MCP_WORKDIR_ROOTS;
+      if (typeof prev === 'string') process.env.OWX_MCP_WORKDIR_ROOTS = prev;
+      else delete process.env.OWX_MCP_WORKDIR_ROOTS;
       await rm(allowedRoot, { recursive: true, force: true });
       await rm(outsideRoot, { recursive: true, force: true });
     }
   });
 
-  it('rejects symlinked OMX_MCP_WORKDIR_ROOTS entries instead of treating their targets as allowed roots', async () => {
-    const intendedRoot = await mkRealTemp('omx-intended-root-');
-    const outsideRoot = await mkRealTemp('omx-outside-root-');
-    const prev = process.env.OMX_MCP_WORKDIR_ROOTS;
+  it('rejects symlinked OWX_MCP_WORKDIR_ROOTS entries instead of treating their targets as allowed roots', async () => {
+    const intendedRoot = await mkRealTemp('owx-intended-root-');
+    const outsideRoot = await mkRealTemp('owx-outside-root-');
+    const prev = process.env.OWX_MCP_WORKDIR_ROOTS;
     const symlinkedRoot = join(intendedRoot, 'allowed-link');
-    process.env.OMX_MCP_WORKDIR_ROOTS = symlinkedRoot;
+    process.env.OWX_MCP_WORKDIR_ROOTS = symlinkedRoot;
     try {
       await symlink(outsideRoot, symlinkedRoot);
 
       assert.throws(
         () => resolveWorkingDirectoryForState(symlinkedRoot),
-        /OMX_MCP_WORKDIR_ROOTS root .* resolves through a symlink/,
+        /OWX_MCP_WORKDIR_ROOTS root .* resolves through a symlink/,
       );
     } finally {
-      if (typeof prev === 'string') process.env.OMX_MCP_WORKDIR_ROOTS = prev;
-      else delete process.env.OMX_MCP_WORKDIR_ROOTS;
+      if (typeof prev === 'string') process.env.OWX_MCP_WORKDIR_ROOTS = prev;
+      else delete process.env.OWX_MCP_WORKDIR_ROOTS;
       await rm(intendedRoot, { recursive: true, force: true });
       await rm(outsideRoot, { recursive: true, force: true });
     }
@@ -246,20 +246,20 @@ describe('state paths', () => {
 
   it('builds global state paths', () => {
     const base = getBaseStateDir('/repo');
-    assert.equal(base, '/repo/.omx/state');
-    assert.equal(getStateDir('/repo'), '/repo/.omx/state');
-    assert.equal(getStatePath('team', '/repo'), '/repo/.omx/state/team-state.json');
+    assert.equal(base, '/repo/.owx/state');
+    assert.equal(getStateDir('/repo'), '/repo/.owx/state');
+    assert.equal(getStatePath('team', '/repo'), '/repo/.owx/state/team-state.json');
   });
 
   it('builds session state paths', () => {
-    assert.equal(getStateDir('/repo', 'sess1'), '/repo/.omx/state/sessions/sess1');
+    assert.equal(getStateDir('/repo', 'sess1'), '/repo/.owx/state/sessions/sess1');
     assert.equal(
       getStatePath('ralph', '/repo', 'sess1'),
-      '/repo/.omx/state/sessions/sess1/ralph-state.json'
+      '/repo/.owx/state/sessions/sess1/ralph-state.json'
     );
     assert.equal(
       getStateFilePath('hud-state.json', '/repo', 'sess1'),
-      '/repo/.omx/state/sessions/sess1/hud-state.json'
+      '/repo/.owx/state/sessions/sess1/hud-state.json'
     );
   });
 
@@ -268,7 +268,7 @@ describe('state paths', () => {
   });
 
   it('enumerates global-only path', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const paths = await getAllScopedStatePaths('team', wd);
       assert.deepEqual(paths, [getStatePath('team', wd)]);
@@ -278,7 +278,7 @@ describe('state paths', () => {
   });
 
   it('enumerates session-scoped paths', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const sessionsRoot = join(getBaseStateDir(wd), 'sessions');
       await mkdir(join(sessionsRoot, 'sess1'), { recursive: true });
@@ -295,7 +295,7 @@ describe('state paths', () => {
   });
 
   it('enumerates state directories across all scopes', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const sessionsRoot = join(getBaseStateDir(wd), 'sessions');
       await mkdir(join(sessionsRoot, 'sess1'), { recursive: true });
@@ -312,7 +312,7 @@ describe('state paths', () => {
   });
 
   it('enumerates global and session-scoped paths together', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const sessionsRoot = join(getBaseStateDir(wd), 'sessions');
       await mkdir(join(sessionsRoot, 'sess1'), { recursive: true });
@@ -330,7 +330,7 @@ describe('state paths', () => {
   });
 
   it('ignores invalid session directory names', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const sessionsRoot = join(getBaseStateDir(wd), 'sessions');
       await mkdir(join(sessionsRoot, 'valid-session'), { recursive: true });
@@ -345,7 +345,7 @@ describe('state paths', () => {
   });
 
   it('reads session-sensitive runtime files from the current session without root fallback when requested', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
+    const wd = await mkRealTemp('owx-state-paths-');
     try {
       const stateDir = getBaseStateDir(wd);
       await mkdir(join(stateDir, 'sessions', 'sess-current'), { recursive: true });
@@ -361,9 +361,9 @@ describe('state paths', () => {
     }
   });
 
-  it('prefers OMX_SESSION_ID over stale session.json when resolving current session id', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
-    const previousSessionId = process.env.OMX_SESSION_ID;
+  it('prefers OWX_SESSION_ID over stale session.json when resolving current session id', async () => {
+    const wd = await mkRealTemp('owx-state-paths-');
+    const previousSessionId = process.env.OWX_SESSION_ID;
     try {
       const stateDir = getBaseStateDir(wd);
       await mkdir(stateDir, { recursive: true });
@@ -372,41 +372,41 @@ describe('state paths', () => {
         session_id: 'sess-stale',
         cwd: join(wd, '..', 'other-worktree'),
       }));
-      process.env.OMX_SESSION_ID = 'sess-env';
+      process.env.OWX_SESSION_ID = 'sess-env';
 
       assert.equal(await readCurrentSessionId(wd), 'sess-env');
     } finally {
-      if (typeof previousSessionId === 'string') process.env.OMX_SESSION_ID = previousSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
+      else delete process.env.OWX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it('maps native Codex session aliases to the canonical OMX session id', async () => {
-    const wd = await mkRealTemp('omx-state-paths-native-alias-');
-    const previousOmxSessionId = process.env.OMX_SESSION_ID;
+  it('maps native Codex session aliases to the canonical OWX session id', async () => {
+    const wd = await mkRealTemp('owx-state-paths-native-alias-');
+    const previousOmxSessionId = process.env.OWX_SESSION_ID;
     const previousCodexSessionId = process.env.CODEX_SESSION_ID;
     try {
       const stateDir = getBaseStateDir(wd);
       await mkdir(stateDir, { recursive: true });
-      await mkdir(join(stateDir, 'sessions', 'omx-canonical'), { recursive: true });
+      await mkdir(join(stateDir, 'sessions', 'owx-canonical'), { recursive: true });
       await writeFile(join(stateDir, 'session.json'), JSON.stringify({
-        session_id: 'omx-canonical',
+        session_id: 'owx-canonical',
         native_session_id: 'codex-native',
         codex_session_id: 'codex-current',
         previous_native_session_id: 'codex-previous',
         cwd: wd,
       }));
-      delete process.env.OMX_SESSION_ID;
+      delete process.env.OWX_SESSION_ID;
       process.env.CODEX_SESSION_ID = 'codex-previous';
 
-      assert.equal(await readCurrentSessionId(wd), 'omx-canonical');
+      assert.equal(await readCurrentSessionId(wd), 'owx-canonical');
       const scope = await resolveRuntimeStateScope(wd);
-      assert.equal(scope.sessionId, 'omx-canonical');
+      assert.equal(scope.sessionId, 'owx-canonical');
       assert.equal(scope.source, 'native-alias');
     } finally {
-      if (typeof previousOmxSessionId === 'string') process.env.OMX_SESSION_ID = previousOmxSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousOmxSessionId === 'string') process.env.OWX_SESSION_ID = previousOmxSessionId;
+      else delete process.env.OWX_SESSION_ID;
       if (typeof previousCodexSessionId === 'string') process.env.CODEX_SESSION_ID = previousCodexSessionId;
       else delete process.env.CODEX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
@@ -415,80 +415,80 @@ describe('state paths', () => {
 
 
   it('maps explicit native Codex session aliases through resolveStateScope', async () => {
-    const wd = await mkRealTemp('omx-state-paths-explicit-native-alias-');
+    const wd = await mkRealTemp('owx-state-paths-explicit-native-alias-');
     try {
       const stateDir = getBaseStateDir(wd);
       await mkdir(stateDir, { recursive: true });
-      await mkdir(join(stateDir, 'sessions', 'omx-canonical'), { recursive: true });
+      await mkdir(join(stateDir, 'sessions', 'owx-canonical'), { recursive: true });
       await writeFile(join(stateDir, 'session.json'), JSON.stringify({
-        session_id: 'omx-canonical',
+        session_id: 'owx-canonical',
         native_session_id: 'codex-native',
         previous_native_session_id: 'codex-previous',
         cwd: wd,
       }));
 
       const scope = await resolveStateScope(wd, 'codex-previous');
-      assert.equal(scope.sessionId, 'omx-canonical');
-      assert.equal(scope.stateDir, join(stateDir, 'sessions', 'omx-canonical'));
+      assert.equal(scope.sessionId, 'owx-canonical');
+      assert.equal(scope.stateDir, join(stateDir, 'sessions', 'owx-canonical'));
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it('resolves OMX_SESSION_ID even before the session directory exists', async () => {
-    const wd = await mkRealTemp('omx-state-paths-');
-    const previousSessionId = process.env.OMX_SESSION_ID;
+  it('resolves OWX_SESSION_ID even before the session directory exists', async () => {
+    const wd = await mkRealTemp('owx-state-paths-');
+    const previousSessionId = process.env.OWX_SESSION_ID;
     try {
       await mkdir(getBaseStateDir(wd), { recursive: true });
-      process.env.OMX_SESSION_ID = 'sess-not-yet-materialized';
+      process.env.OWX_SESSION_ID = 'sess-not-yet-materialized';
 
       assert.equal(await readCurrentSessionId(wd), 'sess-not-yet-materialized');
     } finally {
-      if (typeof previousSessionId === 'string') process.env.OMX_SESSION_ID = previousSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
+      else delete process.env.OWX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it('resolves current session from authoritative team state root without OMX_SESSION_ID', async () => {
-    const wd = await mkRealTemp('omx-state-paths-team-root-session-');
+  it('resolves current session from authoritative team state root without OWX_SESSION_ID', async () => {
+    const wd = await mkRealTemp('owx-state-paths-team-root-session-');
     const teamStateRoot = join(wd, 'team-state-root');
-    const previousTeamStateRoot = process.env.OMX_TEAM_STATE_ROOT;
-    const previousSessionId = process.env.OMX_SESSION_ID;
+    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+    const previousSessionId = process.env.OWX_SESSION_ID;
     try {
-      process.env.OMX_TEAM_STATE_ROOT = teamStateRoot;
-      delete process.env.OMX_SESSION_ID;
+      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
+      delete process.env.OWX_SESSION_ID;
       await mkdir(join(teamStateRoot, 'sessions', 'sess-team-current'), { recursive: true });
       await writeFile(join(teamStateRoot, 'session.json'), JSON.stringify({
         session_id: 'sess-team-current',
         cwd: wd,
       }));
-      await mkdir(join(wd, '.omx', 'state'), { recursive: true });
-      await writeFile(join(wd, '.omx', 'state', 'session.json'), JSON.stringify({
+      await mkdir(join(wd, '.owx', 'state'), { recursive: true });
+      await writeFile(join(wd, '.owx', 'state', 'session.json'), JSON.stringify({
         session_id: 'sess-stale-source-root',
         cwd: join(wd, '..', 'other-worktree'),
       }));
 
       assert.equal(await readCurrentSessionId(wd), 'sess-team-current');
     } finally {
-      if (typeof previousTeamStateRoot === 'string') process.env.OMX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OMX_TEAM_STATE_ROOT;
-      if (typeof previousSessionId === 'string') process.env.OMX_SESSION_ID = previousSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
+      else delete process.env.OWX_TEAM_STATE_ROOT;
+      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
+      else delete process.env.OWX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
     }
   });
 
   it('does not resolve current session from source root when a team state root is authoritative', async () => {
-    const wd = await mkRealTemp('omx-state-paths-ignore-source-session-');
+    const wd = await mkRealTemp('owx-state-paths-ignore-source-session-');
     const teamStateRoot = join(wd, 'team-state-root');
-    const previousTeamStateRoot = process.env.OMX_TEAM_STATE_ROOT;
-    const previousSessionId = process.env.OMX_SESSION_ID;
+    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+    const previousSessionId = process.env.OWX_SESSION_ID;
     try {
-      process.env.OMX_TEAM_STATE_ROOT = teamStateRoot;
-      delete process.env.OMX_SESSION_ID;
+      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
+      delete process.env.OWX_SESSION_ID;
       await mkdir(teamStateRoot, { recursive: true });
-      const sourceStateDir = join(wd, '.omx', 'state');
+      const sourceStateDir = join(wd, '.owx', 'state');
       await mkdir(join(sourceStateDir, 'sessions', 'sess-source-current'), { recursive: true });
       await writeFile(join(sourceStateDir, 'session.json'), JSON.stringify({
         session_id: 'sess-source-current',
@@ -497,10 +497,10 @@ describe('state paths', () => {
 
       assert.equal(await readCurrentSessionId(wd), undefined);
     } finally {
-      if (typeof previousTeamStateRoot === 'string') process.env.OMX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OMX_TEAM_STATE_ROOT;
-      if (typeof previousSessionId === 'string') process.env.OMX_SESSION_ID = previousSessionId;
-      else delete process.env.OMX_SESSION_ID;
+      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
+      else delete process.env.OWX_TEAM_STATE_ROOT;
+      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
+      else delete process.env.OWX_SESSION_ID;
       await rm(wd, { recursive: true, force: true });
     }
   });

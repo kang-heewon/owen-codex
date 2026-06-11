@@ -18,10 +18,10 @@ import {
 } from "./goal-workflow.js";
 import { normalizeTeamTaskCoordinationPlanForRender } from "./coordination-protocol.js";
 
-const TEAM_OVERLAY_START = "<!-- OMX:TEAM:WORKER:START -->";
-const TEAM_OVERLAY_END = "<!-- OMX:TEAM:WORKER:END -->";
+const TEAM_OVERLAY_START = "<!-- OWX:TEAM:WORKER:START -->";
+const TEAM_OVERLAY_END = "<!-- OWX:TEAM:WORKER:END -->";
 const SKILL_REFERENCE_PATTERN = /\/skills\/([^/\s`]+)\/SKILL\.md\b/g;
-const AGENTS_LOCK_PATH = [".omx", "state", "agents-md.lock"];
+const AGENTS_LOCK_PATH = [".owx", "state", "agents-md.lock"];
 const LOCK_OWNER_FILE = "owner.json";
 const LOCK_TIMEOUT_MS = 5000;
 const LOCK_POLL_INTERVAL_MS = 100;
@@ -53,7 +53,7 @@ function buildWorkerRootAgentsBackupPath(
   const gitPath = tryReadGitValue(worktreePath, [
     "rev-parse",
     "--git-path",
-    "omx/root-agents-backup.json",
+    "owx/root-agents-backup.json",
   ]);
   return gitPath
     ? gitPath
@@ -72,7 +72,7 @@ export function generateWorkerRootAgentsContent(
 ): string {
   return `# Team Worker Runtime Instructions
 
-This file is generated for a live OMX team worker run and is disposable.
+This file is generated for a live OWX team worker run and is disposable.
 
 ## Worker Identity
 - Team: ${options.teamName}
@@ -96,19 +96,19 @@ This file is generated for a live OMX team worker run and is disposable.
    - \`${options.leaderCwd}/skills/worker/SKILL.md\`
 3. Send startup ACK before task work:
 
-   \`omx team api send-message --input "{\"team_name\":\"${options.teamName}\",\"from_worker\":\"${options.workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: ${options.workerName} initialized\"}" --json\`
+   \`owx team api send-message --input "{\"team_name\":\"${options.teamName}\",\"from_worker\":\"${options.workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: ${options.workerName} initialized\"}" --json\`
 
-4. Resolve canonical team state root in this order: \`OMX_TEAM_STATE_ROOT\` env -> worker identity \`team_state_root\` -> config/manifest \`team_state_root\` -> local cwd fallback.
+4. Resolve canonical team state root in this order: \`OWX_TEAM_STATE_ROOT\` env -> worker identity \`team_state_root\` -> config/manifest \`team_state_root\` -> local cwd fallback.
 5. Read task files from \`${options.teamStateRoot}/team/${options.teamName}/tasks/task-<id>.json\` using bare \`task_id\` values in APIs.
 6. Use claim-safe lifecycle APIs only:
-   - \`omx team api claim-task --json\`
-   - \`omx team api transition-task-status --json\`
-   - \`omx team api release-task-claim --json\` only for rollback to pending
+   - \`owx team api claim-task --json\`
+   - \`owx team api transition-task-status --json\`
+   - \`owx team api release-task-claim --json\` only for rollback to pending
 7. Use mailbox delivery flow:
-   - \`omx team api mailbox-list --input "{\"team_name\":\"${options.teamName}\",\"worker\":\"${options.workerName}\"}" --json\`
-   - \`omx team api mailbox-mark-delivered --input "{\"team_name\":\"${options.teamName}\",\"worker\":\"${options.workerName}\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
+   - \`owx team api mailbox-list --input "{\"team_name\":\"${options.teamName}\",\"worker\":\"${options.workerName}\"}" --json\`
+   - \`owx team api mailbox-mark-delivered --input "{\"team_name\":\"${options.teamName}\",\"worker\":\"${options.workerName}\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
 8. Preserve leader steering via inbox/mailbox nudges; task payload stays in inbox/task JSON, not this file.
-9. Do not pass \`workingDirectory\` to legacy team_* MCP tools; use \`omx team api\` CLI interop.
+9. Do not pass \`workingDirectory\` to legacy team_* MCP tools; use \`owx team api\` CLI interop.
 
 ## Message Protocol
 - Always include \`from_worker: "${options.workerName}"\`
@@ -122,13 +122,13 @@ This file is generated for a live OMX team worker run and is disposable.
 - Follow task-specific edit scope from inbox/task JSON only.
 - If blocked on a shared file, update status with a blocked reason and report upward.
 
-<!-- OMX:TEAM:ROLE:START -->
+<!-- OWX:TEAM:ROLE:START -->
 <team_worker_role>
 You are operating as the **${options.workerRole}** role for this team run. Apply the following role-local guidance.
 
 ${options.rolePromptContent.trim()}
 </team_worker_role>
-<!-- OMX:TEAM:ROLE:END -->
+<!-- OWX:TEAM:ROLE:END -->
 `;
 }
 
@@ -313,31 +313,31 @@ You are a team worker in team "${teamName}". Your identity and assigned tasks ar
    - \`${"${CODEX_HOME:-~/.codex}"}/skills/worker/SKILL.md\`
    - \`<leader_cwd>/.codex/skills/worker/SKILL.md\`
    - \`<leader_cwd>/skills/worker/SKILL.md\` (repo fallback)
-3. Send an ACK to the lead using CLI interop \`omx team api send-message --json\` (to_worker="leader-fixed") once initialized
+3. Send an ACK to the lead using CLI interop \`owx team api send-message --json\` (to_worker="leader-fixed") once initialized
 4. Resolve canonical team state root in this order:
-   - OMX_TEAM_STATE_ROOT env
+   - OWX_TEAM_STATE_ROOT env
    - worker identity team_state_root
    - team config/manifest team_state_root
-   - local cwd fallback (.omx/state)
+   - local cwd fallback (.owx/state)
 5. Read your task from <team_state_root>/team/${teamName}/tasks/task-<id>.json (example: task-1.json)
 6. Task id format:
    - State/MCP APIs use task_id: "<id>" (example: "1"), never "task-1"
-7. Request a claim via CLI interop (\`omx team api claim-task --json\`); do not directly set lifecycle fields in the task file
+7. Request a claim via CLI interop (\`owx team api claim-task --json\`); do not directly set lifecycle fields in the task file
 8. Do the work using your tools
 9. After completing work, commit your changes before reporting completion:
    \`git add -A && git commit -m "task: <task-subject>"\`
    This ensures your changes are available for incremental integration into the leader branch.
 10. On completion/failure, use lifecycle transition APIs:
-   - \`omx team api transition-task-status --json\` with from \`"in_progress"\` to \`"completed"\` or \`"failed"\`
+   - \`owx team api transition-task-status --json\` with from \`"in_progress"\` to \`"completed"\` or \`"failed"\`
    - Include \`result\` (for completed) or \`error\` (for failed) in the transition patch
-11. Use \`omx team api release-task-claim --json\` only for rollback/requeue to \`pending\` (not for completion)
+11. Use \`owx team api release-task-claim --json\` only for rollback/requeue to \`pending\` (not for completion)
 12. Update your status: write {"state": "idle", "updated_at": "<current ISO timestamp>"} to <team_state_root>/team/${teamName}/workers/{your-name}/status.json
 13. Wait for new instructions (the lead will send them via your terminal)
 14. Check your mailbox for messages at <team_state_root>/team/${teamName}/mailbox/{your-name}.json
-15. For legacy team_* MCP tools (hard-deprecated), switch to \`omx team api\` CLI interop; do not pass workingDirectory unless the lead explicitly tells you to
+15. For legacy team_* MCP tools (hard-deprecated), switch to \`owx team api\` CLI interop; do not pass workingDirectory unless the lead explicitly tells you to
 
 ## Message Protocol
-When calling \`omx team api send-message\`, you MUST always include:
+When calling \`owx team api send-message\`, you MUST always include:
 - from_worker: "<your-worker-name>" (your identity — check your inbox file for your worker name, never omit this)
 - to_worker: "leader-fixed" (to message the leader) or "worker-N" (for peers)
 
@@ -346,13 +346,13 @@ Before doing any task work, send exactly one startup ACK to the leader.
 Keep the body short and deterministic so all worker CLIs (Codex/Claude) behave consistently.
 
 Example:
-omx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"<your-worker-name>\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: <your-worker-name> initialized\"}" --json
+owx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"<your-worker-name>\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: <your-worker-name> initialized\"}" --json
 
 CRITICAL: Never omit from_worker. The MCP server cannot auto-detect your identity.
 
 When your mailbox receives a message, process delivery explicitly:
-1. Read: \`omx team api mailbox-list --input "{\"team_name\":\"${teamName}\",\"worker\":\"<your-worker-name>\"}" --json\`
-2. Mark delivered: \`omx team api mailbox-mark-delivered --input "{\"team_name\":\"${teamName}\",\"worker\":\"<your-worker-name>\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
+1. Read: \`owx team api mailbox-list --input "{\"team_name\":\"${teamName}\",\"worker\":\"<your-worker-name>\"}" --json\`
+2. Mark delivered: \`owx team api mailbox-mark-delivered --input "{\"team_name\":\"${teamName}\",\"worker\":\"<your-worker-name>\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
 3. If you reply, include concrete progress and keep executing your assigned work or the next feasible task after replying.
 
 ## Team Coordination Gate
@@ -495,7 +495,7 @@ export async function writeTeamWorkerInstructionsFile(
 
   const outPath = join(
     cwd,
-    ".omx",
+    ".owx",
     "state",
     "team",
     teamName,
@@ -520,13 +520,13 @@ export async function writeWorkerRoleInstructionsFile(
 ): Promise<string> {
   const base = await readFile(baseInstructionsPath, "utf-8").catch(() => "");
   const roleOverlay = `
-<!-- OMX:TEAM:ROLE:START -->
+<!-- OWX:TEAM:ROLE:START -->
 <team_worker_role>
 You are operating as the **${workerRole}** role for this team run. Apply the following role-local guidance in addition to the team worker protocol.
 
 ${rolePromptContent.trim()}
 </team_worker_role>
-<!-- OMX:TEAM:ROLE:END -->
+<!-- OWX:TEAM:ROLE:END -->
 `;
   const composed =
     base.trim().length > 0
@@ -536,7 +536,7 @@ ${roleOverlay}`
       : roleOverlay.trimStart();
   const outPath = join(
     cwd,
-    ".omx",
+    ".owx",
     "state",
     "team",
     teamName,
@@ -558,7 +558,7 @@ export async function removeTeamWorkerInstructionsFile(
 ): Promise<void> {
   const outPath = join(
     cwd,
-    ".omx",
+    ".owx",
     "state",
     "team",
     teamName,
@@ -732,7 +732,7 @@ Subagent evidence reporting fields:
 - Serial searches before spawn: <number>
 
 Delegation compliance evidence (required for completion):
-- Include exactly one of these lines in the task completion \`result\` passed to \`omx team api transition-task-status\`:
+- Include exactly one of these lines in the task completion \`result\` passed to \`owx team api transition-task-status\`:
   - \`Subagent spawn evidence: <count, child task names/thread ids, and what findings were integrated>\`
   - \`Subagent skip reason: <why serial execution was safer/sufficient>\`
 - Completion is rejected with \`missing_delegation_compliance_evidence\` when this broad-task evidence is absent.
@@ -750,7 +750,7 @@ ${sections.join("\n")}`;
 
 /**
  * Generate initial inbox file content for worker bootstrap.
- * This is written to .omx/state/team/{team}/workers/{worker}/inbox.md by the lead.
+ * This is written to .owx/state/team/{team}/workers/{worker}/inbox.md by the lead.
  */
 export function generateInitialInbox(
   workerName: string,
@@ -850,41 +850,41 @@ ${approvedContextSection}${workerGoalSection}
    - \`${leaderCwd}/skills/worker/SKILL.md\` (repo fallback)
 2. Send startup ACK to the lead mailbox BEFORE any task work (run this exact command):
 
-   \`omx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"${workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: ${workerName} initialized\"}" --json\`
+   \`owx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"${workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: ${workerName} initialized\"}" --json\`
 
 3. Start with the first non-blocked task
-4. Resolve canonical team state root in this order: \`OMX_TEAM_STATE_ROOT\` env -> worker identity \`team_state_root\` -> config/manifest \`team_state_root\` -> local cwd fallback.
+4. Resolve canonical team state root in this order: \`OWX_TEAM_STATE_ROOT\` env -> worker identity \`team_state_root\` -> config/manifest \`team_state_root\` -> local cwd fallback.
 5. Read the task file for your selected task id at \`${teamStateRoot}/team/${teamName}/tasks/task-<id>.json\` (example: \`task-1.json\`)
 6. Task id format:
    - State/MCP APIs use \`task_id: "<id>"\` (example: \`"1"\`), not \`"task-1"\`.
-7. Request a claim via CLI interop (\`omx team api claim-task --json\`) to claim it
+7. Request a claim via CLI interop (\`owx team api claim-task --json\`) to claim it
 8. Complete the work described in the task
 9. After completing work, commit your changes before reporting completion:
    \`git add -A && git commit -m "task: <task-subject>"\`
    This ensures your changes are available for incremental integration into the leader branch.
-10. Complete/fail it via lifecycle transition API (\`omx team api transition-task-status --json\`) from \`"in_progress"\` to \`"completed"\` or \`"failed"\` (include \`result\`/\`error\`)
-11. Use \`omx team api release-task-claim --json\` only for rollback to \`pending\`
+10. Complete/fail it via lifecycle transition API (\`owx team api transition-task-status --json\`) from \`"in_progress"\` to \`"completed"\` or \`"failed"\` (include \`result\`/\`error\`)
+11. Use \`owx team api release-task-claim --json\` only for rollback to \`pending\`
 12. Write \`{"state": "idle", "updated_at": "<current ISO timestamp>"}\` to \`${teamStateRoot}/team/${teamName}/workers/${workerName}/status.json\`
 13. Wait for the next instruction from the lead
-14. For legacy team_* MCP tools (hard-deprecated), use \`omx team api\`; do not pass \`workingDirectory\` unless the lead explicitly asks (if resolution fails, use leader cwd: \`${leaderCwd}\`)
+14. For legacy team_* MCP tools (hard-deprecated), use \`owx team api\`; do not pass \`workingDirectory\` unless the lead explicitly asks (if resolution fails, use leader cwd: \`${leaderCwd}\`)
 
 ## Mailbox Delivery Protocol (Required)
 When you are notified about mailbox messages, always follow this exact flow:
 
 1. List mailbox:
-   \`omx team api mailbox-list --input "{\"team_name\":\"${teamName}\",\"worker\":\"${workerName}\"}" --json\`
+   \`owx team api mailbox-list --input "{\"team_name\":\"${teamName}\",\"worker\":\"${workerName}\"}" --json\`
 2. For each undelivered message, mark delivery:
-   \`omx team api mailbox-mark-delivered --input "{\"team_name\":\"${teamName}\",\"worker\":\"${workerName}\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
+   \`owx team api mailbox-mark-delivered --input "{\"team_name\":\"${teamName}\",\"worker\":\"${workerName}\",\"message_id\":\"<MESSAGE_ID>\"}" --json\`
 
 Use terse ACK bodies (single line) for consistent parsing across Codex and Claude workers.
 After any mailbox reply, continue executing your assigned work or the next feasible task; do not stop after sending the reply.
 
 ## Message Protocol
-When using \`omx team api send-message\`, ALWAYS include from_worker with YOUR worker name:
+When using \`owx team api send-message\`, ALWAYS include from_worker with YOUR worker name:
 - from_worker: "${workerName}"
 - to_worker: "leader-fixed" (for leader) or "worker-N" (for peers)
 
-Example: omx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"${workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: initialized\"}" --json
+Example: owx team api send-message --input "{\"team_name\":\"${teamName}\",\"from_worker\":\"${workerName}\",\"to_worker\":\"leader-fixed\",\"body\":\"ACK: initialized\"}" --json
 
 ${coordinationGateSection}
 ${coordinationSection}
@@ -944,7 +944,7 @@ export function generateTaskAssignmentInbox(
     : renderTeamWorkerGoalInstruction({
         teamName,
         workerName,
-        objective: `Complete assigned OMX team task ${taskOrId.id} with verified evidence, preserving leader-owned audit.`,
+        objective: `Complete assigned OWX team task ${taskOrId.id} with verified evidence, preserving leader-owned audit.`,
         taskIds: [taskOrId.id],
         taskReferences: [{
           id: taskOrId.id,
@@ -976,13 +976,13 @@ ${workerGoalSection}
 1. Resolve canonical team state root and read the task file at \`<team_state_root>/team/${teamName}/tasks/task-${taskId}.json\`
 2. Task id format:
    - State/MCP APIs use \`task_id: "${taskId}"\` (not \`"task-${taskId}"\`).
-3. Request a claim via CLI interop (\`omx team api claim-task --json\`)
+3. Request a claim via CLI interop (\`owx team api claim-task --json\`)
 4. Complete the work
 5. After completing work, commit your changes before reporting completion:
    \`git add -A && git commit -m "task: <task-subject>"\`
    This ensures your changes are available for incremental integration into the leader branch.
-6. Complete/fail via lifecycle transition API (\`omx team api transition-task-status --json\`) from \`"in_progress"\` to \`"completed"\` or \`"failed"\` (include \`result\`/\`error\`)
-7. Use \`omx team api release-task-claim --json\` only for rollback to \`pending\`
+6. Complete/fail via lifecycle transition API (\`owx team api transition-task-status --json\`) from \`"in_progress"\` to \`"completed"\` or \`"failed"\` (include \`result\`/\`error\`)
+7. Use \`owx team api release-task-claim --json\` only for rollback to \`pending\`
 8. Write \`{"state": "idle", "updated_at": "<current ISO timestamp>"}\` to your status file
 
 ${coordinationGateSection}
@@ -1028,7 +1028,7 @@ function buildInstructionPath(...parts: string[]): string {
 export function generateTriggerMessage(
   workerName: string,
   teamName: string,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): string {
   return buildTriggerDirective(workerName, teamName, teamStateRoot).text;
 }
@@ -1036,7 +1036,7 @@ export function generateTriggerMessage(
 export function buildTriggerDirective(
   workerName: string,
   teamName: string,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): TeamReminderDirective {
   const inboxPath = buildInstructionPath(
     teamStateRoot,
@@ -1046,7 +1046,7 @@ export function buildTriggerDirective(
     workerName,
     "inbox.md",
   );
-  if (teamStateRoot !== ".omx/state") {
+  if (teamStateRoot !== ".owx/state") {
     return {
       intent: "followup-relaunch",
       text: `Read ${inboxPath}, work now, report progress, continue assigned work or next feasible task.`,
@@ -1066,7 +1066,7 @@ export function generateMailboxTriggerMessage(
   workerName: string,
   teamName: string,
   count: number,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): string {
   return buildMailboxTriggerDirective(workerName, teamName, count, teamStateRoot).text;
 }
@@ -1075,7 +1075,7 @@ export function buildMailboxTriggerDirective(
   workerName: string,
   teamName: string,
   count: number,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): TeamReminderDirective {
   const n = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
   const mailboxPath = buildInstructionPath(
@@ -1085,7 +1085,7 @@ export function buildMailboxTriggerDirective(
     "mailbox",
     workerName + ".json",
   );
-  if (teamStateRoot !== ".omx/state") {
+  if (teamStateRoot !== ".owx/state") {
     return {
       intent: "pending-mailbox-review",
       text: `${n} new msg(s): read ${mailboxPath}, act, report progress, continue assigned work or next feasible task.`,
@@ -1100,7 +1100,7 @@ export function buildMailboxTriggerDirective(
 export function generateLeaderMailboxTriggerMessage(
   teamName: string,
   fromWorker: string,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): string {
   return buildLeaderMailboxTriggerDirective(teamName, fromWorker, teamStateRoot).text;
 }
@@ -1108,7 +1108,7 @@ export function generateLeaderMailboxTriggerMessage(
 export function buildLeaderMailboxTriggerDirective(
   teamName: string,
   fromWorker: string,
-  teamStateRoot: string = ".omx/state",
+  teamStateRoot: string = ".owx/state",
 ): TeamReminderDirective {
   const mailboxPath = buildInstructionPath(
     teamStateRoot,
@@ -1117,7 +1117,7 @@ export function buildLeaderMailboxTriggerDirective(
     "mailbox",
     "leader-fixed.json",
   );
-  if (teamStateRoot !== ".omx/state") {
+  if (teamStateRoot !== ".owx/state") {
     return {
       intent: "pending-mailbox-review",
       text: `Read ${mailboxPath}; new msg from ${fromWorker}. Review it; decide next step.`,

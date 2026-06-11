@@ -1,5 +1,5 @@
 /**
- * OMX HUD - Statusline composer
+ * OWX HUD - Statusline composer
  *
  * Renders HudRenderContext into formatted ANSI strings.
  */
@@ -470,7 +470,7 @@ export function renderHud(
     .filter((s): s is string => s !== null);
 
   const ver = ctx.version ? `#${ctx.version.replace(/^v/, '')}` : '';
-  const label = bold(`[OMX${ver}]`);
+  const label = bold(`[OWX${ver}]`);
   const renderOptions = {
     ...options,
     maxLines: clampHudMaxLines(ctx, options.maxLines),

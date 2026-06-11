@@ -91,7 +91,7 @@ export async function createQuestionRecord(
   const nowIso = now.toISOString();
   const runId = options.runId ?? resolveQuestionRunId();
   const record: QuestionRecord = {
-    kind: 'omx.question/v1',
+    kind: 'owx.question/v1',
     question_id: questionId,
     ...(sessionId ? { session_id: sessionId } : {}),
     created_at: nowIso,
@@ -232,7 +232,7 @@ async function listQuestionRecordsInDir(dir: string): Promise<Array<{ recordPath
     if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
     const recordPath = join(dir, entry.name);
     const record = await readQuestionRecord(recordPath).catch(() => null);
-    if (record?.kind === 'omx.question/v1') records.push({ recordPath, record });
+    if (record?.kind === 'owx.question/v1') records.push({ recordPath, record });
   }
   return records;
 }

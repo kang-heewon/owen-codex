@@ -302,7 +302,7 @@
       "internalRequired": false
     },
     {
-      "name": "omx-setup",
+      "name": "owx-setup",
       "category": "utility",
       "status": "active",
       "core": false,

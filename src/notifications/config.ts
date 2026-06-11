@@ -1,7 +1,7 @@
 /**
  * Notification Configuration Reader
  *
- * Reads notification config from .omx-config.json and provides
+ * Reads notification config from .owx-config.json and provides
  * backward compatibility with the old stopHookCallbacks format.
  */
 
@@ -28,7 +28,7 @@ import {
 } from "./temp-contract.js";
 
 function configFile(): string {
-  return join(codexHome(), ".omx-config.json");
+  return join(codexHome(), ".owx-config.json");
 }
 
 function readRawConfig(): Record<string, unknown> | null {
@@ -124,10 +124,10 @@ export function buildConfigFromEnv(): FullNotificationConfig | null {
   const config: FullNotificationConfig = { enabled: false };
   let hasAnyPlatform = false;
 
-  const discordMention = validateMention(process.env.OMX_DISCORD_MENTION);
+  const discordMention = validateMention(process.env.OWX_DISCORD_MENTION);
 
-  const discordBotToken = process.env.OMX_DISCORD_NOTIFIER_BOT_TOKEN;
-  const discordChannel = process.env.OMX_DISCORD_NOTIFIER_CHANNEL;
+  const discordBotToken = process.env.OWX_DISCORD_NOTIFIER_BOT_TOKEN;
+  const discordChannel = process.env.OWX_DISCORD_NOTIFIER_CHANNEL;
   if (discordBotToken && discordChannel) {
     config["discord-bot"] = {
       enabled: true,
@@ -138,7 +138,7 @@ export function buildConfigFromEnv(): FullNotificationConfig | null {
     hasAnyPlatform = true;
   }
 
-  const discordWebhook = process.env.OMX_DISCORD_WEBHOOK_URL;
+  const discordWebhook = process.env.OWX_DISCORD_WEBHOOK_URL;
   if (discordWebhook) {
     config.discord = {
       enabled: true,
@@ -149,12 +149,12 @@ export function buildConfigFromEnv(): FullNotificationConfig | null {
   }
 
   const telegramToken =
-    process.env.OMX_TELEGRAM_BOT_TOKEN ||
-    process.env.OMX_TELEGRAM_NOTIFIER_BOT_TOKEN;
+    process.env.OWX_TELEGRAM_BOT_TOKEN ||
+    process.env.OWX_TELEGRAM_NOTIFIER_BOT_TOKEN;
   const telegramChatId =
-    process.env.OMX_TELEGRAM_CHAT_ID ||
-    process.env.OMX_TELEGRAM_NOTIFIER_CHAT_ID ||
-    process.env.OMX_TELEGRAM_NOTIFIER_UID;
+    process.env.OWX_TELEGRAM_CHAT_ID ||
+    process.env.OWX_TELEGRAM_NOTIFIER_CHAT_ID ||
+    process.env.OWX_TELEGRAM_NOTIFIER_UID;
   if (telegramToken && telegramChatId) {
     config.telegram = {
       enabled: true,
@@ -164,9 +164,9 @@ export function buildConfigFromEnv(): FullNotificationConfig | null {
     hasAnyPlatform = true;
   }
 
-  const slackWebhook = process.env.OMX_SLACK_WEBHOOK_URL;
+  const slackWebhook = process.env.OWX_SLACK_WEBHOOK_URL;
   if (slackWebhook) {
-    const slackMention = validateSlackMention(process.env.OMX_SLACK_MENTION);
+    const slackMention = validateSlackMention(process.env.OWX_SLACK_MENTION);
     config.slack = {
       enabled: true,
       webhookUrl: slackWebhook,
@@ -249,7 +249,7 @@ function mergeEnvIntoFileConfig(
  *
  * Priority:
  *   1. Explicit `profileName` argument
- *   2. OMX_NOTIFY_PROFILE environment variable
+ *   2. OWX_NOTIFY_PROFILE environment variable
  *   3. `defaultProfile` field in config
  *   4. null (no profile selected → fall back to flat config)
  */
@@ -264,7 +264,7 @@ export function resolveProfileConfig(
 
   const name =
     profileName ||
-    process.env.OMX_NOTIFY_PROFILE ||
+    process.env.OWX_NOTIFY_PROFILE ||
     notifications.defaultProfile;
 
   if (!name) {
@@ -298,8 +298,8 @@ export function listProfiles(): string[] {
  * Returns null if no profile is active (flat config mode).
  */
 export function getActiveProfileName(): string | null {
-  if (process.env.OMX_NOTIFY_PROFILE) {
-    return process.env.OMX_NOTIFY_PROFILE;
+  if (process.env.OWX_NOTIFY_PROFILE) {
+    return process.env.OWX_NOTIFY_PROFILE;
   }
   const raw = readRawConfig();
   if (!raw) return null;
@@ -401,7 +401,7 @@ export function getNotificationConfig(
           normalizeCustomTransportGate(mergeEnvIntoFileConfig(notifications, envConfig)),
         );
       }
-      const envMention = validateMention(process.env.OMX_DISCORD_MENTION);
+      const envMention = validateMention(process.env.OWX_DISCORD_MENTION);
       if (envMention) {
         const patched = { ...notifications };
         if (patched["discord-bot"] && patched["discord-bot"].mention === undefined) {
@@ -457,7 +457,7 @@ const EVENT_MIN_VERBOSITY: Record<NotificationEvent, VerbosityLevel> = {
  * Priority: env var > config field > default ("session").
  */
 export function getVerbosity(config: FullNotificationConfig | null): VerbosityLevel {
-  const envVal = process.env.OMX_NOTIFY_VERBOSITY as string | undefined;
+  const envVal = process.env.OWX_NOTIFY_VERBOSITY as string | undefined;
   if (envVal && VALID_VERBOSITY_LEVELS.includes(envVal as VerbosityLevel)) {
     return envVal as VerbosityLevel;
   }
@@ -747,30 +747,30 @@ export function getReplyConfig(): import("./types.js").ReplyConfig | null {
   const raw = readRawConfig();
   const replyRaw = readReplySettings(raw);
 
-  const enabled = process.env.OMX_REPLY_ENABLED === "true" || replyRaw?.enabled === true;
+  const enabled = process.env.OWX_REPLY_ENABLED === "true" || replyRaw?.enabled === true;
   if (!enabled) return null;
 
   const authorizedDiscordUserIds = parseDiscordUserIds(
-    process.env.OMX_REPLY_DISCORD_USER_IDS,
+    process.env.OWX_REPLY_DISCORD_USER_IDS,
     replyRaw?.authorizedDiscordUserIds,
   );
 
   if (hasDiscordBot && authorizedDiscordUserIds.length === 0) {
     console.warn(
       "[notifications] Discord reply listening disabled: authorizedDiscordUserIds is empty. " +
-      "Set OMX_REPLY_DISCORD_USER_IDS or add to .omx-config.json notifications.reply.authorizedDiscordUserIds"
+      "Set OWX_REPLY_DISCORD_USER_IDS or add to .owx-config.json notifications.reply.authorizedDiscordUserIds"
     );
   }
 
   const pollIntervalMs = normalizeInteger(
-    parseIntegerInput(process.env.OMX_REPLY_POLL_INTERVAL_MS)
+    parseIntegerInput(process.env.OWX_REPLY_POLL_INTERVAL_MS)
       ?? parseIntegerInput(replyRaw?.pollIntervalMs),
     REPLY_POLL_INTERVAL_DEFAULT_MS,
     REPLY_POLL_INTERVAL_MIN_MS,
     REPLY_POLL_INTERVAL_MAX_MS,
   );
   const rateLimitPerMinute = normalizeInteger(
-    parseIntegerInput(process.env.OMX_REPLY_RATE_LIMIT)
+    parseIntegerInput(process.env.OWX_REPLY_RATE_LIMIT)
       ?? parseIntegerInput(replyRaw?.rateLimitPerMinute),
     REPLY_RATE_LIMIT_DEFAULT_PER_MINUTE,
     REPLY_RATE_LIMIT_MIN_PER_MINUTE,
@@ -787,7 +787,7 @@ export function getReplyConfig(): import("./types.js").ReplyConfig | null {
     pollIntervalMs,
     maxMessageLength,
     rateLimitPerMinute,
-    includePrefix: process.env.OMX_REPLY_INCLUDE_PREFIX !== "false" && (replyRaw?.includePrefix !== false),
+    includePrefix: process.env.OWX_REPLY_INCLUDE_PREFIX !== "false" && (replyRaw?.includePrefix !== false),
     authorizedDiscordUserIds,
   };
 }

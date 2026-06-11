@@ -17,26 +17,26 @@ import {
   type PerformanceValidationStatus,
 } from '../performance-goal/artifacts.js';
 
-export const PERFORMANCE_GOAL_HELP = `omx performance-goal - Evaluator-gated performance optimization workflow over Codex goal mode
+export const PERFORMANCE_GOAL_HELP = `owx performance-goal - Evaluator-gated performance optimization workflow over Codex goal mode
 
 Usage:
-  omx performance-goal create --objective <text> --evaluator-command <cmd> --evaluator-contract <text> [--slug <slug>] [--force] [--json]
-  omx performance-goal start --slug <slug> [--json]
-  omx performance-goal checkpoint --slug <slug> --status <pass|fail|blocked> --evidence <text> [--json]
-  omx performance-goal complete --slug <slug> [--evidence <text>] --codex-goal-json <json-or-path> [--json]
-  omx performance-goal status --slug <slug> [--codex-goal-json <json-or-path>] [--json]
+  owx performance-goal create --objective <text> --evaluator-command <cmd> --evaluator-contract <text> [--slug <slug>] [--force] [--json]
+  owx performance-goal start --slug <slug> [--json]
+  owx performance-goal checkpoint --slug <slug> --status <pass|fail|blocked> --evidence <text> [--json]
+  owx performance-goal complete --slug <slug> [--evidence <text>] --codex-goal-json <json-or-path> [--json]
+  owx performance-goal status --slug <slug> [--codex-goal-json <json-or-path>] [--json]
 
 Aliases:
   create/start/checkpoint/complete/status may be used as shown above.
 
 Artifacts:
-  .omx/goals/performance/<slug>/state.json
-  .omx/goals/performance/<slug>/evaluator.md
-  .omx/goals/performance/<slug>/ledger.jsonl
+  .owx/goals/performance/<slug>/state.json
+  .owx/goals/performance/<slug>/evaluator.md
+  .owx/goals/performance/<slug>/ledger.jsonl
 
 Codex goal integration:
   This command cannot directly invoke the interactive /goal tool from a shell.
-  start writes durable OMX state and prints a model-facing handoff that tells the
+  start writes durable OWX state and prints a model-facing handoff that tells the
   active Codex agent when to call get_goal/create_goal/update_goal safely.
   Performance goals cannot complete until evaluator artifacts have a passing checkpoint.
 `;

@@ -1,6 +1,6 @@
 /**
- * Config.toml generator/merger for oh-my-codex
- * Merges OMX MCP server entries and feature flags into existing config.toml
+ * Config.toml generator/merger for owen-codex
+ * Merges OWX MCP server entries and feature flags into existing config.toml
  *
  * TOML structure reminder: bare key=value pairs after a [table] header belong
  * to that table.  Top-level (root-table) keys MUST appear before the first
@@ -26,9 +26,9 @@ import {
   type CodexHookFeatureFlag,
 } from "./codex-feature-flags.js";
 import {
-  OMX_FIRST_PARTY_MCP_SERVER_NAMES,
+  OWX_FIRST_PARTY_MCP_SERVER_NAMES,
   getOmxFirstPartySetupMcpServers,
-} from "./omx-first-party-mcp.js";
+} from "./owx-first-party-mcp.js";
 import {
   buildManagedCodexHookTrustState,
   escapeTomlBasicString,
@@ -63,11 +63,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // ---------------------------------------------------------------------------
-// Top-level OMX keys (must live before any [table] header)
+// Top-level OWX keys (must live before any [table] header)
 // ---------------------------------------------------------------------------
 
 /** Keys we own at the TOML root level. Used for upsert + strip. */
-const OMX_TOP_LEVEL_KEYS = [
+const OWX_TOP_LEVEL_KEYS = [
   "notify",
   "model_reasoning_effort",
   "developer_instructions",
@@ -94,22 +94,22 @@ export function getModelContextRecommendation(
     modelAutoCompactTokenLimit: DEFAULT_SETUP_MODEL_AUTO_COMPACT_TOKEN_LIMIT,
   };
 }
-const OMX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER =
-  "# oh-my-codex seeded behavioral defaults (uninstall removes unchanged defaults)";
-const OMX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER =
-  "# End oh-my-codex seeded behavioral defaults";
+const OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER =
+  "# owen-codex seeded behavioral defaults (uninstall removes unchanged defaults)";
+const OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER =
+  "# End owen-codex seeded behavioral defaults";
 
-export const OMX_DEVELOPER_INSTRUCTIONS =
-  "You have oh-my-codex installed. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing, $name workflow invocation, and role-specialized subagents; when spawning native subagents, set `agent_type` to an installed role and never omit it for OMX work. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. Native subagents live in .codex/agents and may handle independent parallel subtasks within one Codex session or team pane. Skills load from .codex/skills, not native-agent TOMLs. Treat installed prompts as narrower execution surfaces under AGENTS.md authority.";
-export const OMX_PLUGIN_DEVELOPER_INSTRUCTIONS =
-  "You have oh-my-codex installed through Codex plugin mode. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing and $name workflow invocation. When spawning native subagents, set `agent_type` to an installed role and never omit it for OMX work. Registered Codex plugin marketplace surfaces supply OMX workflows and plugin-scoped companion resources when the plugin is installed; native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works. User-installed skills may still live under ~/.codex/skills. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail.";
-const SHARED_MCP_REGISTRY_MARKER = "oh-my-codex (OMX) Shared MCP Registry Sync";
+export const OWX_DEVELOPER_INSTRUCTIONS =
+  "You have owen-codex installed. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing, $name workflow invocation, and role-specialized subagents; when spawning native subagents, set `agent_type` to an installed role and never omit it for OWX work. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. Native subagents live in .codex/agents and may handle independent parallel subtasks within one Codex session or team pane. Skills load from .codex/skills, not native-agent TOMLs. Treat installed prompts as narrower execution surfaces under AGENTS.md authority.";
+export const OWX_PLUGIN_DEVELOPER_INSTRUCTIONS =
+  "You have owen-codex installed through Codex plugin mode. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing and $name workflow invocation. When spawning native subagents, set `agent_type` to an installed role and never omit it for OWX work. Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources when the plugin is installed; native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works. User-installed skills may still live under ~/.codex/skills. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail.";
+const SHARED_MCP_REGISTRY_MARKER = "owen-codex (OWX) Shared MCP Registry Sync";
 const SHARED_MCP_REGISTRY_END_MARKER =
-  "# End oh-my-codex shared MCP registry sync";
-const OMX_AGENTS_MAX_THREADS = 6;
-const OMX_AGENTS_MAX_DEPTH = 2;
-const OMX_EXPLORE_ROUTING_DEFAULT = "0";
-const OMX_EXPLORE_CMD_ENV = "USE_OMX_EXPLORE_CMD";
+  "# End owen-codex shared MCP registry sync";
+const OWX_AGENTS_MAX_THREADS = 6;
+const OWX_AGENTS_MAX_DEPTH = 2;
+const OWX_EXPLORE_ROUTING_DEFAULT = "0";
+const OWX_EXPLORE_CMD_ENV = "USE_OWX_EXPLORE_CMD";
 const DEFAULT_LAUNCHER_MCP_STARTUP_TIMEOUT_SEC = 15;
 const STATUS_LINE_FOCUSED_FIELDS: readonly string[] = [
   "model-with-reasoning",
@@ -140,35 +140,35 @@ export function statusLineForPreset(
   return `status_line = [${fields.map((field) => `"${field}"`).join(", ")}]`;
 }
 
-// Marker comment OMX emits immediately above any status_line it owns. New writes
+// Marker comment OWX emits immediately above any status_line it owns. New writes
 // always include it; the customized-section detector keys on this marker so a
 // user-edited status_line that happens to byte-match a preset literal (e.g.
 // `["model-with-reasoning", "git-branch"]` matching the `minimal` preset) is
 // still recognized as a user customization and preserved.
-const OMX_MANAGED_STATUS_LINE_MARKER = "# omx:managed-status-line";
+const OWX_MANAGED_STATUS_LINE_MARKER = "# owx:managed-status-line";
 
 // Pre-marker installs only ever shipped the seven-field `focused` array.
-// Treat that exact value as OMX-managed for backward compatibility so
+// Treat that exact value as OWX-managed for backward compatibility so
 // upgrades/preset switches still strip the legacy line. Any other preset
 // literal without the marker is assumed user-written.
-const LEGACY_OMX_STATUS_LINE = statusLineForPreset(
+const LEGACY_OWX_STATUS_LINE = statusLineForPreset(
   DEFAULT_STATUS_LINE_PRESET,
 );
 
-// Set of every status_line literal OMX itself can emit today. Used together
+// Set of every status_line literal OWX itself can emit today. Used together
 // with the marker comment: if a status_line is preceded by the marker AND
-// its value is a known OMX preset, it is OMX-managed. If the marker is
+// its value is a known OWX preset, it is OWX-managed. If the marker is
 // present but the value is something else, the user edited the value (and
 // left the marker untouched) — treat as a user customization and preserve.
-const OMX_PRESET_STATUS_LINE_VALUES: ReadonlySet<string> = new Set(
+const OWX_PRESET_STATUS_LINE_VALUES: ReadonlySet<string> = new Set(
   (Object.keys(STATUS_LINE_PRESETS) as HudPreset[]).map((preset) =>
     statusLineForPreset(preset),
   ),
 );
-const LEGACY_OMX_TEAM_RUN_TABLE_PATTERN =
-  /^\s*\[mcp_servers\.(?:"omx_team_run"|omx_team_run)\]\s*$/m;
-const OMX_CONFIG_MARKER = "oh-my-codex (OMX) Configuration";
-const OMX_CONFIG_END_MARKER = "# End oh-my-codex";
+const LEGACY_OWX_TEAM_RUN_TABLE_PATTERN =
+  /^\s*\[mcp_servers\.(?:"owx_team_run"|owx_team_run)\]\s*$/m;
+const OWX_CONFIG_MARKER = "owen-codex (OWX) Configuration";
+const OWX_CONFIG_END_MARKER = "# End owen-codex";
 
 const CODEX_MODEL_AVAILABILITY_NUX_TABLE_PATTERN = /^\s*\[tui\.model_availability_nux\]\s*(?:#.*)?$/;
 const TOML_TABLE_HEADER_PATTERN = /^\s*\[\[?[^\]]+\]?\]\s*(?:#.*)?$/;
@@ -209,7 +209,7 @@ export async function cleanCodexModelAvailabilityNuxIfNeeded(
 }
 
 export function hasLegacyOmxTeamRunTable(config: string): boolean {
-  return LEGACY_OMX_TEAM_RUN_TABLE_PATTERN.test(config);
+  return LEGACY_OWX_TEAM_RUN_TABLE_PATTERN.test(config);
 }
 
 function unwrapTomlString(value: string | undefined): string | undefined {
@@ -343,18 +343,18 @@ function isOmxDispatcherMetadataCommand(command: readonly string[] | null | unde
   }
   const metadataIndex = command.indexOf("--metadata");
   const metadataPath = metadataIndex >= 0 ? command[metadataIndex + 1] : undefined;
-  return typeof metadataPath === "string" && /(?:^|[\\/])(?:\.omx[\\/])?notify-dispatch\.json$/.test(metadataPath);
+  return typeof metadataPath === "string" && /(?:^|[\\/])(?:\.owx[\\/])?notify-dispatch\.json$/.test(metadataPath);
 }
 
 function isOmxManagedPayloadText(value: string): boolean {
   const containsManagedPackageNotify =
     /(?:^|[\\/])notify-(?:hook|dispatcher)\.js(?:\s|$|["'])/.test(
       value,
-    ) && /(?:^|[\\/])oh-my-codex(?:[\\/]|$)/.test(value);
+    ) && /(?:^|[\\/])owen-codex(?:[\\/]|$)/.test(value);
   const containsDispatcherMetadataNotify =
     /(?:^|[\\/])notify-dispatcher\.js(?:\s|$|["'])/.test(value) &&
     /--metadata(?:\s|=)/.test(value) &&
-    /(?:^|[\\/])(?:\.omx[\\/])?notify-dispatch\.json(?:\s|$|["'])/.test(value);
+    /(?:^|[\\/])(?:\.owx[\\/])?notify-dispatch\.json(?:\s|$|["'])/.test(value);
   return containsManagedPackageNotify || containsDispatcherMetadataNotify;
 }
 
@@ -440,7 +440,7 @@ export function isOmxManagedNotifyCommand(
       ])
     : new Set<string>();
   if (pkgRoot && managedScripts.has(resolve(entrypoint))) return true;
-  return /(?:^|[\\/])oh-my-codex(?:[\\/]|$)/.test(entrypoint);
+  return /(?:^|[\\/])owen-codex(?:[\\/]|$)/.test(entrypoint);
 }
 
 export function sanitizePreviousNotifyCommand(
@@ -462,12 +462,12 @@ function getOmxTopLevelLines(
   const rootValues = parseRootKeyValues(existingConfig);
 
   const lines = [
-    "# oh-my-codex top-level settings (must be before any [table])",
+    "# owen-codex top-level settings (must be before any [table])",
     ...(notifyCommand === false
       ? []
       : [`notify = ${formatTomlStringArray(notifyCommand)}`]),
     'model_reasoning_effort = "medium"',
-    `developer_instructions = "${escapeTomlString(OMX_DEVELOPER_INSTRUCTIONS)}"`,
+    `developer_instructions = "${escapeTomlString(OWX_DEVELOPER_INSTRUCTIONS)}"`,
   ];
 
   const existingModel = rootValues.get("model");
@@ -493,9 +493,9 @@ function getOmxTopLevelLines(
       );
     }
     if (seededBehavioralDefaults.length > 0) {
-      lines.push(OMX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER);
+      lines.push(OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER);
       lines.push(...seededBehavioralDefaults);
-      lines.push(OMX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER);
+      lines.push(OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER);
     }
   }
 
@@ -530,13 +530,13 @@ export function stripOmxSeededBehavioralDefaults(config: string): string {
 
     if (
       index < boundary &&
-      trimmed === OMX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER
+      trimmed === OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER
     ) {
       const endIndex = lines.findIndex(
         (line, candidateIndex) =>
           candidateIndex > index &&
           candidateIndex < boundary &&
-          line.trim() === OMX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER,
+          line.trim() === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER,
       );
 
       if (endIndex < 0) {
@@ -553,7 +553,7 @@ export function stripOmxSeededBehavioralDefaults(config: string): string {
 
     if (
       index < boundary &&
-      trimmed === OMX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER
+      trimmed === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER
     ) {
       continue;
     }
@@ -570,11 +570,11 @@ function stripRootLevelKeys(config: string, keys: readonly string[]): string {
   const filteredEntries = entries.filter((entry) => {
     if (
       keys.some((key) =>
-        OMX_TOP_LEVEL_KEYS.includes(key as (typeof OMX_TOP_LEVEL_KEYS)[number]),
+        OWX_TOP_LEVEL_KEYS.includes(key as (typeof OWX_TOP_LEVEL_KEYS)[number]),
       ) &&
       entry.lines.length === 1 &&
       entry.lines[0].trim() ===
-        "# oh-my-codex top-level settings (must be before any [table])"
+        "# owen-codex top-level settings (must be before any [table])"
     ) {
       return false;
     }
@@ -623,11 +623,11 @@ function stripOrphanedManagedNotify(config: string, pkgRoot: string): string {
 }
 
 /**
- * Remove any existing OMX-owned top-level keys so we can re-insert them
+ * Remove any existing OWX-owned top-level keys so we can re-insert them
  * cleanly. Also removes the comment line that precedes them.
  */
 export function stripOmxTopLevelKeys(config: string): string {
-  return stripRootLevelKeys(config, OMX_TOP_LEVEL_KEYS);
+  return stripRootLevelKeys(config, OWX_TOP_LEVEL_KEYS);
 }
 
 // ---------------------------------------------------------------------------
@@ -809,12 +809,12 @@ function upsertFeatureFlags(
   return lines.join("\n");
 }
 
-const OMX_HOOK_TRUST_START_MARKER = "# OMX-owned Codex hook trust state";
-const OMX_HOOK_TRUST_END_MARKER = "# End OMX-owned Codex hook trust state";
-const OMX_PROJECT_TRUST_START_MARKER =
-  "# OMX-synced Codex project trust state (from runtime CODEX_HOME)";
-const OMX_PROJECT_TRUST_END_MARKER =
-  "# End OMX-synced Codex project trust state";
+const OWX_HOOK_TRUST_START_MARKER = "# OWX-owned Codex hook trust state";
+const OWX_HOOK_TRUST_END_MARKER = "# End OWX-owned Codex hook trust state";
+const OWX_PROJECT_TRUST_START_MARKER =
+  "# OWX-synced Codex project trust state (from runtime CODEX_HOME)";
+const OWX_PROJECT_TRUST_END_MARKER =
+  "# End OWX-synced Codex project trust state";
 
 function extractMarkerBlockContent(
   config: string,
@@ -914,15 +914,15 @@ export function repairProjectScopeTrustStateForLaunch(
 ): string {
   const syncedTrustBlock = extractMarkerBlockContent(
     projectConfig,
-    OMX_PROJECT_TRUST_START_MARKER,
-    OMX_PROJECT_TRUST_END_MARKER,
+    OWX_PROJECT_TRUST_START_MARKER,
+    OWX_PROJECT_TRUST_END_MARKER,
   );
   if (!syncedTrustBlock) return projectConfig;
 
   const stripped = stripMarkerBlock(
     projectConfig,
-    OMX_PROJECT_TRUST_START_MARKER,
-    OMX_PROJECT_TRUST_END_MARKER,
+    OWX_PROJECT_TRUST_START_MARKER,
+    OWX_PROJECT_TRUST_END_MARKER,
   );
   const repaired = syncProjectScopeTrustStateFromRuntime(
     stripped,
@@ -955,8 +955,8 @@ export function syncProjectScopeTrustStateFromRuntime(
 
   const stripped = stripMarkerBlock(
     projectConfig,
-    OMX_PROJECT_TRUST_START_MARKER,
-    OMX_PROJECT_TRUST_END_MARKER,
+    OWX_PROJECT_TRUST_START_MARKER,
+    OWX_PROJECT_TRUST_END_MARKER,
   );
   const existingHookTrustStateKeys = collectProjectHookTrustStateKeys(stripped);
   const trustBlockLines: string[] = [];
@@ -1002,9 +1002,9 @@ export function syncProjectScopeTrustStateFromRuntime(
   }
 
   const block = [
-    OMX_PROJECT_TRUST_START_MARKER,
+    OWX_PROJECT_TRUST_START_MARKER,
     ...trustBlockLines,
-    OMX_PROJECT_TRUST_END_MARKER,
+    OWX_PROJECT_TRUST_END_MARKER,
     "",
   ].join("\n");
 
@@ -1122,17 +1122,17 @@ function stripManagedCodexHookTrustStateWithResult(
 
   for (let i = 0; i < lines.length;) {
     const trimmed = lines[i].trim();
-    if (trimmed !== OMX_HOOK_TRUST_START_MARKER) {
+    if (trimmed !== OWX_HOOK_TRUST_START_MARKER) {
       kept.push(lines[i]);
       i += 1;
       continue;
     }
 
     const nextEndIdx = lines.findIndex(
-      (line, index) => index > i && line.trim() === OMX_HOOK_TRUST_END_MARKER,
+      (line, index) => index > i && line.trim() === OWX_HOOK_TRUST_END_MARKER,
     );
     const nextStartIdx = lines.findIndex(
-      (line, index) => index > i && line.trim() === OMX_HOOK_TRUST_START_MARKER,
+      (line, index) => index > i && line.trim() === OWX_HOOK_TRUST_START_MARKER,
     );
 
     if (nextEndIdx === -1 || (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)) {
@@ -1213,10 +1213,10 @@ export function upsertManagedCodexHookTrustState(
   return [
     stripped,
     "",
-    OMX_HOOK_TRUST_START_MARKER,
+    OWX_HOOK_TRUST_START_MARKER,
     "# Trusts only setup-managed native hook wrappers.",
     hookTrustToml,
-    OMX_HOOK_TRUST_END_MARKER,
+    OWX_HOOK_TRUST_END_MARKER,
     "",
   ].filter((line, index) => index !== 0 || line.length > 0).join("\n");
 }
@@ -1425,11 +1425,11 @@ function upsertEnvSettings(config: string): string {
     const envLines = legacyEnvEntries.flatMap((entry) => entry.lines);
     if (
       legacyEnvEntries.every(
-        (entry) => entry.key !== OMX_EXPLORE_CMD_ENV,
+        (entry) => entry.key !== OWX_EXPLORE_CMD_ENV,
       )
     ) {
       envLines.push(
-        `${OMX_EXPLORE_CMD_ENV} = "${OMX_EXPLORE_ROUTING_DEFAULT}"`,
+        `${OWX_EXPLORE_CMD_ENV} = "${OWX_EXPLORE_ROUTING_DEFAULT}"`,
       );
     }
     const envBlock = [
@@ -1455,9 +1455,9 @@ function upsertEnvSettings(config: string): string {
     }
   }
 
-  if (!shellEnvKeys.has(OMX_EXPLORE_CMD_ENV)) {
+  if (!shellEnvKeys.has(OWX_EXPLORE_CMD_ENV)) {
     linesToInsert.push(
-      `${OMX_EXPLORE_CMD_ENV} = "${OMX_EXPLORE_ROUTING_DEFAULT}"`,
+      `${OWX_EXPLORE_CMD_ENV} = "${OWX_EXPLORE_ROUTING_DEFAULT}"`,
     );
   }
 
@@ -1478,8 +1478,8 @@ function upsertAgentsSettings(config: string): string {
     const base = config.trimEnd();
     const agentsBlock = [
       "[agents]",
-      `max_threads = ${OMX_AGENTS_MAX_THREADS}`,
-      `max_depth = ${OMX_AGENTS_MAX_DEPTH}`,
+      `max_threads = ${OWX_AGENTS_MAX_THREADS}`,
+      `max_depth = ${OWX_AGENTS_MAX_DEPTH}`,
       "",
     ].join("\n");
     if (base.length === 0) return agentsBlock;
@@ -1505,18 +1505,18 @@ function upsertAgentsSettings(config: string): string {
   }
 
   if (maxThreadsIdx < 0) {
-    lines.splice(sectionEnd, 0, `max_threads = ${OMX_AGENTS_MAX_THREADS}`);
+    lines.splice(sectionEnd, 0, `max_threads = ${OWX_AGENTS_MAX_THREADS}`);
     sectionEnd += 1;
   }
   if (maxDepthIdx < 0) {
-    lines.splice(sectionEnd, 0, `max_depth = ${OMX_AGENTS_MAX_DEPTH}`);
+    lines.splice(sectionEnd, 0, `max_depth = ${OWX_AGENTS_MAX_DEPTH}`);
   }
 
   return lines.join("\n");
 }
 
 /**
- * Remove OMX-owned feature flags from the [features] section.
+ * Remove OWX-owned feature flags from the [features] section.
  * If the section becomes empty after removal, remove the section header too.
  */
 export function stripOmxFeatureFlags(config: string): string {
@@ -1535,7 +1535,7 @@ export function stripOmxFeatureFlags(config: string): string {
     }
   }
 
-  const omxFlags = [
+  const owxFlags = [
     "multi_agent",
     "child_agents_md",
     "hooks",
@@ -1547,7 +1547,7 @@ export function stripOmxFeatureFlags(config: string): string {
   const filtered: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (i > featuresStart && i < sectionEnd) {
-      const isOmxFlag = omxFlags.some((f) =>
+      const isOmxFlag = owxFlags.some((f) =>
         new RegExp(`^\\s*${f}\\s*=`).test(lines[i]),
       );
       if (isOmxFlag) continue;
@@ -1577,7 +1577,7 @@ export function stripOmxFeatureFlags(config: string): string {
 }
 
 /**
- * Preserve native Codex hook enablement without re-adding other OMX feature
+ * Preserve native Codex hook enablement without re-adding other OWX feature
  * flags. Used by uninstall when user-owned hooks remain in hooks.json.
  */
 export function upsertCodexHooksFeatureFlag(
@@ -1618,21 +1618,21 @@ export function upsertCodexHooksFeatureFlag(
 
 export function stripOmxEnvSettings(config: string): string {
   let lines = config.split(/\r?\n/);
-  lines = stripTomlTableKey(lines, /^\s*\[env\]\s*$/, OMX_EXPLORE_CMD_ENV);
+  lines = stripTomlTableKey(lines, /^\s*\[env\]\s*$/, OWX_EXPLORE_CMD_ENV);
   lines = stripTomlTableKey(
     lines,
     /^\s*\[shell_environment_policy\.set\]\s*$/,
-    OMX_EXPLORE_CMD_ENV,
+    OWX_EXPLORE_CMD_ENV,
   );
   return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
-// Orphaned OMX table sections (no marker block)
+// Orphaned OWX table sections (no marker block)
 // ---------------------------------------------------------------------------
 
 /**
- * Check whether a TOML table name belongs to a legacy OMX-managed agent entry.
+ * Check whether a TOML table name belongs to a legacy OWX-managed agent entry.
  * Handles both `agents.name` and `agents."name"` forms.
  */
 
@@ -1641,8 +1641,8 @@ function isOmxFirstPartyMcpSection(tableName: string): boolean {
   const name = match?.[1] ?? match?.[2];
   return Boolean(
     name &&
-      ((OMX_FIRST_PARTY_MCP_SERVER_NAMES as readonly string[]).includes(name) ||
-        name === "omx_team_run"),
+      ((OWX_FIRST_PARTY_MCP_SERVER_NAMES as readonly string[]).includes(name) ||
+        name === "owx_team_run"),
   );
 }
 
@@ -1654,12 +1654,12 @@ function isLegacyOmxAgentSection(tableName: string): boolean {
 }
 
 /**
- * Strip OMX-owned table sections that exist outside the marker block.
+ * Strip OWX-owned table sections that exist outside the marker block.
  * This covers legacy configs that were written before markers were added,
  * or configs where the marker was accidentally removed.
  *
  * Targets: exact first-party [mcp_servers.<name>] entries, retired
- * [mcp_servers.omx_team_run], and legacy [agents.<name>] entries.
+ * [mcp_servers.owx_team_run], and legacy [agents.<name>] entries.
  */
 function stripOrphanedOmxSections(config: string): string {
   const lines = config.split(/\r?\n/);
@@ -1674,16 +1674,16 @@ function stripOrphanedOmxSections(config: string): string {
       const tableName = tableMatch[1];
       // Note: [tui] is NOT stripped here because it could be user-owned.
       // The marker-based stripExistingOmxBlocks already handles [tui]
-      // when it lives inside the OMX marker block.
+      // when it lives inside the OWX marker block.
       const isOmxSection =
         isOmxFirstPartyMcpSection(tableName) ||
         isLegacyOmxAgentSection(tableName);
 
       if (isOmxSection) {
-        // Remove preceding OMX comment lines and blank lines
+        // Remove preceding OWX comment lines and blank lines
         while (result.length > 0) {
           const last = result[result.length - 1];
-          if (last.trim() === "" || /^#\s*(OMX|oh-my-codex)/i.test(last)) {
+          if (last.trim() === "" || /^#\s*(OWX|owen-codex)/i.test(last)) {
             result.pop();
           } else {
             break;
@@ -1708,8 +1708,8 @@ function stripOrphanedOmxSections(config: string): string {
 
 export function hasFirstPartyOmxMcpRegistrations(config: string): boolean {
   const firstPartyNames = new Set<string>([
-    ...OMX_FIRST_PARTY_MCP_SERVER_NAMES,
-    "omx_team_run",
+    ...OWX_FIRST_PARTY_MCP_SERVER_NAMES,
+    "owx_team_run",
   ]);
   for (const line of config.split(/\r?\n/)) {
     const match = line.match(/^\s*\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/);
@@ -1770,10 +1770,10 @@ function extractCustomizedTuiSectionsFromOmxBlocks(config: string): string[] {
   let searchStart = 0;
 
   while (true) {
-    const markerIdx = config.indexOf(OMX_CONFIG_MARKER, searchStart);
+    const markerIdx = config.indexOf(OWX_CONFIG_MARKER, searchStart);
     if (markerIdx < 0) break;
 
-    const endIdx = config.indexOf(OMX_CONFIG_END_MARKER, markerIdx);
+    const endIdx = config.indexOf(OWX_CONFIG_END_MARKER, markerIdx);
     if (endIdx < 0) break;
 
     const blockLines = config.slice(markerIdx, endIdx).split(/\r?\n/);
@@ -1793,21 +1793,21 @@ function extractCustomizedTuiSectionsFromOmxBlocks(config: string): string[] {
 
         tuiLines.push(trimmed);
         if (/^status_line\s*=/.test(trimmed)) {
-          // OMX-managed when:
+          // OWX-managed when:
           //   1. Preceded by the managed-status-line marker AND the value is
-          //      a known OMX preset literal (post-marker installs). If the
+          //      a known OWX preset literal (post-marker installs). If the
           //      marker is present but the value isn't a preset, the user
           //      edited the value and left the marker — treat as customized.
           //   2. No marker but the value byte-matches the legacy seven-field
           //      default (pre-marker installs only ever shipped focused).
-          // Anything else inside an OMX-marker block is treated as a user
+          // Anything else inside an OWX-marker block is treated as a user
           // customization and preserved across rebuild.
           const hasMarker =
-            lastNonBlankBeforeStatusLine === OMX_MANAGED_STATUS_LINE_MARKER;
-          const matchesPreset = OMX_PRESET_STATUS_LINE_VALUES.has(trimmed);
+            lastNonBlankBeforeStatusLine === OWX_MANAGED_STATUS_LINE_MARKER;
+          const matchesPreset = OWX_PRESET_STATUS_LINE_VALUES.has(trimmed);
           const isManagedByMarker = hasMarker && matchesPreset;
           const isManagedByLegacyValue =
-            !hasMarker && trimmed === LEGACY_OMX_STATUS_LINE;
+            !hasMarker && trimmed === LEGACY_OWX_STATUS_LINE;
           if (!isManagedByMarker && !isManagedByLegacyValue) {
             hasCustomizedStatusLine = true;
           }
@@ -1820,7 +1820,7 @@ function extractCustomizedTuiSectionsFromOmxBlocks(config: string): string[] {
       }
     }
 
-    searchStart = endIdx + OMX_CONFIG_END_MARKER.length;
+    searchStart = endIdx + OWX_CONFIG_END_MARKER.length;
   }
 
   return sections;
@@ -1889,11 +1889,11 @@ function upsertTuiStatusLine(
         }
         const statusLineEntry = entryLines.join("\n");
         const hasMarker =
-          lastNonBlankBeforeStatusLine === OMX_MANAGED_STATUS_LINE_MARKER;
+          lastNonBlankBeforeStatusLine === OWX_MANAGED_STATUS_LINE_MARKER;
         const isManagedByMarker =
-          hasMarker && OMX_PRESET_STATUS_LINE_VALUES.has(statusLineEntry);
+          hasMarker && OWX_PRESET_STATUS_LINE_VALUES.has(statusLineEntry);
         const isManagedByLegacyValue =
-          !hasMarker && statusLineEntry === LEGACY_OMX_STATUS_LINE;
+          !hasMarker && statusLineEntry === LEGACY_OWX_STATUS_LINE;
         const isOmxManagedStatusLine =
           isManagedByMarker || isManagedByLegacyValue;
 
@@ -1913,7 +1913,7 @@ function upsertTuiStatusLine(
     }
   }
 
-  // When OMX is supplying the status_line (no user-preserved value),
+  // When OWX is supplying the status_line (no user-preserved value),
   // emit the managed-status-line marker comment alongside it so the
   // customized-section detector can unambiguously tell our writes apart
   // from a user edit on the next merge.
@@ -1922,7 +1922,7 @@ function upsertTuiStatusLine(
     : [
         "[tui]",
         ...preservedKeyLines,
-        OMX_MANAGED_STATUS_LINE_MARKER,
+        OWX_MANAGED_STATUS_LINE_MARKER,
         statusLineForPreset(preset),
       ];
   const firstStart = sections[0].start;
@@ -1952,7 +1952,7 @@ function upsertTuiStatusLine(
 }
 
 // ---------------------------------------------------------------------------
-// OMX [table] sections block (appended at end of file)
+// OWX [table] sections block (appended at end of file)
 // ---------------------------------------------------------------------------
 
 export function stripExistingOmxBlocks(config: string): {
@@ -1963,7 +1963,7 @@ export function stripExistingOmxBlocks(config: string): {
   let removed = 0;
 
   while (true) {
-    const markerIdx = cleaned.indexOf(OMX_CONFIG_MARKER);
+    const markerIdx = cleaned.indexOf(OWX_CONFIG_MARKER);
     if (markerIdx < 0) break;
 
     let blockStart = cleaned.lastIndexOf("\n", markerIdx);
@@ -1982,7 +1982,7 @@ export function stripExistingOmxBlocks(config: string): {
     }
 
     let blockEnd = cleaned.length;
-    const endIdx = cleaned.indexOf(OMX_CONFIG_END_MARKER, markerIdx);
+    const endIdx = cleaned.indexOf(OWX_CONFIG_END_MARKER, markerIdx);
     if (endIdx >= 0) {
       const endLineBreak = cleaned.indexOf("\n", endIdx);
       blockEnd = endLineBreak >= 0 ? endLineBreak + 1 : cleaned.length;
@@ -2189,7 +2189,7 @@ function findLauncherTimeoutRepairTargets(
     const [name, value] = Object.entries(mcpServers ?? {})[0] ?? [];
     if (
       !name ||
-      name.startsWith("omx_") ||
+      name.startsWith("owx_") ||
       typeof value !== "object" ||
       !value
     ) {
@@ -2262,7 +2262,7 @@ function getSharedMcpRegistryBlock(
   const lines = [
     "# ============================================================",
     `# ${SHARED_MCP_REGISTRY_MARKER}`,
-    "# Managed by omx setup - edit the registry file instead",
+    "# Managed by owx setup - edit the registry file instead",
   ];
   if (sourcePath) {
     lines.push(`# Source: ${sourcePath}`);
@@ -2317,7 +2317,7 @@ export function mergeSharedMcpRegistryBlock(
 }
 
 /**
- * OMX table-section block (MCP servers, TUI).
+ * OWX table-section block (MCP servers, TUI).
  * Contains ONLY [table] sections — no bare keys.
  */
 function getOmxTablesBlock(
@@ -2332,8 +2332,8 @@ function getOmxTablesBlock(
   const lines = [
     "",
     "# ============================================================",
-    "# oh-my-codex (OMX) Configuration",
-    "# Managed by omx setup - manual edits preserved on next setup",
+    "# owen-codex (OWX) Configuration",
+    "# Managed by owx setup - manual edits preserved on next setup",
     "# ============================================================",
   ];
 
@@ -2365,26 +2365,26 @@ function getOmxTablesBlock(
   );
   if (hookTrustToml) {
     lines.push("");
-    lines.push("# OMX-owned Codex hook trust state");
+    lines.push("# OWX-owned Codex hook trust state");
     lines.push("# Trusts only setup-managed native hook wrappers.");
     lines.push(hookTrustToml);
-    lines.push("# End OMX-owned Codex hook trust state");
+    lines.push("# End OWX-owned Codex hook trust state");
   }
 
   lines.push(
     ...(includeTui
       ? [
           "",
-          "# OMX TUI StatusLine (Codex CLI v0.101.0+)",
+          "# OWX TUI StatusLine (Codex CLI v0.101.0+)",
           "[tui]",
-          OMX_MANAGED_STATUS_LINE_MARKER,
+          OWX_MANAGED_STATUS_LINE_MARKER,
           statusLineForPreset(statusLinePreset),
           "",
         ]
       : [""]),
   );
   lines.push("# ============================================================");
-  lines.push("# End oh-my-codex");
+  lines.push("# End owen-codex");
   lines.push("");
   return lines.join("\n");
 }
@@ -2394,15 +2394,15 @@ function getOmxTablesBlock(
 // ---------------------------------------------------------------------------
 
 /**
- * Merge OMX config into existing config.toml
- * Preserves existing user settings, appends OMX block if not present.
+ * Merge OWX config into existing config.toml
+ * Preserves existing user settings, appends OWX block if not present.
  *
  * Layout:
- *   1. OMX top-level keys (notify, model_reasoning_effort, developer_instructions)
+ *   1. OWX top-level keys (notify, model_reasoning_effort, developer_instructions)
  *   2. [features] with multi_agent + child_agents_md + hooks + goals
  *   3. [shell_environment_policy.set] with defaulted deprecated explore-routing opt-out
  *   4. … user sections …
- *   5. OMX [table] sections (mcp_servers, tui)
+ *   5. OWX [table] sections (mcp_servers, tui)
  */
 export function buildMergedConfig(
   existingConfig: string,
@@ -2421,7 +2421,7 @@ export function buildMergedConfig(
   const customizedManagedTuiSections =
     extractCustomizedTuiSectionsFromOmxBlocks(existing);
 
-  if (existing.includes(OMX_CONFIG_MARKER)) {
+  if (existing.includes(OWX_CONFIG_MARKER)) {
     const stripped = stripExistingOmxBlocks(existing);
     existing = stripped.cleaned;
     if (customizedManagedTuiSections.length > 0) {
@@ -2511,10 +2511,10 @@ export function buildMergedConfig(
 /**
  * Detect and repair upgrade-era managed config incompatibilities in config.toml.
  *
- * After an omx version upgrade the OLD setup code (still loaded in memory)
+ * After an owx version upgrade the OLD setup code (still loaded in memory)
  * may leave a config with duplicate [tui] sections or the retired
- * [mcp_servers.omx_team_run] table. Codex rejects duplicate tables and newer
- * OMX builds no longer ship the team MCP entrypoint, so we repair both before
+ * [mcp_servers.owx_team_run] table. Codex rejects duplicate tables and newer
+ * OWX builds no longer ship the team MCP entrypoint, so we repair both before
  * the CLI is spawned.
  *
  * Returns `true` if a repair was performed.
@@ -2552,10 +2552,10 @@ export async function mergeConfig(
     existing = await readFile(configPath, "utf-8");
   }
 
-  if (existing.includes("oh-my-codex (OMX) Configuration")) {
+  if (existing.includes("owen-codex (OWX) Configuration")) {
     const stripped = stripExistingOmxBlocks(existing);
     if (options.verbose && stripped.removed > 0) {
-      console.log("  Updating existing OMX config block.");
+      console.log("  Updating existing OWX config block.");
     }
   }
 

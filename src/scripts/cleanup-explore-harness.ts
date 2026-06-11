@@ -8,11 +8,11 @@ const __dirname = dirname(__filename);
 const root = join(__dirname, '..', '..');
 
 for (const path of [
-  join(root, 'bin', 'omx-explore-harness'),
-  join(root, 'bin', 'omx-explore-harness.exe'),
-  join(root, 'bin', 'omx-explore-harness.meta.json'),
+  join(root, 'bin', 'owx-explore-harness'),
+  join(root, 'bin', 'owx-explore-harness.exe'),
+  join(root, 'bin', 'owx-explore-harness.meta.json'),
   join(root, 'bin', 'native'),
-  join(root, 'crates', 'omx-sparkshell', '.omx'),
+  join(root, 'crates', 'owx-sparkshell', '.owx'),
 ]) {
   await rm(path, { recursive: true, force: true });
 }

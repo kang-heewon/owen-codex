@@ -38,7 +38,7 @@ import {
   writeTeamLeaderAttention,
   writeTeamPhase,
 } from "../team/state.js";
-import { omxNotepadPath, resolveProjectMemoryPath } from "../utils/paths.js";
+import { owxNotepadPath, resolveProjectMemoryPath } from "../utils/paths.js";
 import { findGitLayout } from "../utils/git-layout.js";
 import { getBaseStateDir, getStateFilePath, getStatePath } from "../mcp/state-paths.js";
 import {
@@ -106,11 +106,6 @@ import {
   reconcileDeepInterviewQuestionEnforcementFromAnsweredRecords,
 } from "../question/deep-interview.js";
 import { readAutopilotDeepInterviewQuestionWaitState } from "../question/autopilot-wait.js";
-import {
-  buildDocumentRefreshAdvisoryOutput,
-  evaluateFinalHandoffDocumentRefresh,
-  isFinalHandoffDocumentRefreshCandidate,
-} from "../document-refresh/enforcer.js";
 import { buildExecFollowupStopOutput } from "../exec/followup.js";
 import {
   MAX_NATIVE_STDIN_JSON_BYTES,
@@ -136,7 +131,7 @@ interface NativeHookDispatchOptions {
 
 export interface NativeHookDispatchResult {
   hookEventName: CodexHookEventName | null;
-  omxEventName: string | null;
+  owxEventName: string | null;
   skillState: SkillActiveState | null;
   outputJson: Record<string, unknown> | null;
 }
@@ -150,7 +145,7 @@ const ORDINARY_STOP_NO_PROGRESS_DEFAULT_MAX_REPEATS = 8;
 const RALPH_ORPHANED_STARTING_STALE_MS = 15 * 60_000;
 const ORDINARY_STOP_NO_PROGRESS_DEFAULT_IDLE_MS = 10 * 60_000;
 const ORDINARY_STOP_NO_PROGRESS_MAX_MESSAGE_LENGTH = 240;
-const OMX_OWNER_SESSION_ID_PATTERN = /^omx-[A-Za-z0-9_-]{1,60}$/;
+const OWX_OWNER_SESSION_ID_PATTERN = /^owx-[A-Za-z0-9_-]{1,60}$/;
 const STABLE_FINAL_RECOMMENDATION_PATTERNS = [
   /^\s*(?:launch|release|ship)-?ready\s*:\s*(?:yes|no)\b[^\n\r]*/im,
   /^\s*ready to release\s*:\s*(?:yes|no)\b[^\n\r]*/im,
@@ -158,7 +153,7 @@ const STABLE_FINAL_RECOMMENDATION_PATTERNS = [
   /^\s*decision\s*:\s*(?:yes|no|ship|hold|release|do not release|proceed|do not proceed)\b[^\n\r]*/im,
 ] as const;
 const RELEASE_READINESS_FINALIZE_SYSTEM_MESSAGE =
-  "OMX release-readiness detected a stable final recommendation with no active worker tasks; emit one concise final decision summary and finalize.";
+  "OWX release-readiness detected a stable final recommendation with no active worker tasks; emit one concise final decision summary and finalize.";
 const EXECUTION_HANDOFF_PATTERNS = [
   /^(?:好|好的|行|可以|那就|那现在)?[，,\s]*(?:开始|继续|直接)\s*(?:执行|优化|实现|修改|修复)(?=$|\s|[，,。.!！?？])/u,
   /(?:按照|按|基于)(?:这个|上述|当前)?\s*(?:plan|计划|方案).{0,16}(?:开始|继续|直接)?\s*(?:执行|优化|实现|修改|修复)/u,
@@ -186,8 +181,8 @@ function resolveHudReconcileSessionId(
   canonicalSessionId: string | null,
   sessionIdForState: string | null,
 ): string | undefined {
-  const ownerOmxSessionId = safeString(currentSessionState?.owner_omx_session_id).trim();
-  if (OMX_OWNER_SESSION_ID_PATTERN.test(ownerOmxSessionId)) return ownerOmxSessionId;
+  const ownerOmxSessionId = safeString(currentSessionState?.owner_owx_session_id).trim();
+  if (OWX_OWNER_SESSION_ID_PATTERN.test(ownerOmxSessionId)) return ownerOmxSessionId;
   return canonicalSessionId || sessionIdForState || undefined;
 }
 
@@ -197,7 +192,7 @@ function resolveHudReconcileSessionIds(
   sessionIdForState: string | null,
   nativeSessionId: string | null,
 ): string[] {
-  const ownerOmxSessionId = safeString(currentSessionState?.owner_omx_session_id).trim();
+  const ownerOmxSessionId = safeString(currentSessionState?.owner_owx_session_id).trim();
   return uniqueNonEmpty([
     resolveHudReconcileSessionId(currentSessionState, canonicalSessionId, sessionIdForState),
     canonicalSessionId ?? undefined,
@@ -205,7 +200,7 @@ function resolveHudReconcileSessionIds(
     nativeSessionId ?? undefined,
     safeString(currentSessionState?.session_id),
     safeString(currentSessionState?.native_session_id),
-    OMX_OWNER_SESSION_ID_PATTERN.test(ownerOmxSessionId) ? ownerOmxSessionId : undefined,
+    OWX_OWNER_SESSION_ID_PATTERN.test(ownerOmxSessionId) ? ownerOmxSessionId : undefined,
     safeString(currentSessionState?.owner_codex_session_id),
   ]);
 }
@@ -449,7 +444,7 @@ async function isNativeSubagentHook(
   }
 
   // Native Codex resume can report the child native session as the canonical
-  // session id before OMX reconciles it back to the owning session.  In that
+  // session id before OWX reconciles it back to the owning session.  In that
   // window the per-session summary lookup above misses the child and a
   // subagent UserPromptSubmit can accidentally activate workflow keywords from
   // quoted review context.  Fall back to the global tracking index so any known
@@ -612,7 +607,7 @@ function extractBalancedJsonObject(text: string, startIndex: number): string | n
 
 function normalizePromptSteeringProposal(raw: unknown, prompt: string): UltragoalSteeringProposal | null {
   const candidate = safeObject(raw);
-  const nested = candidate.omx_ultragoal_steer ?? candidate.ultragoal_steer ?? candidate.steering ?? candidate;
+  const nested = candidate.owx_ultragoal_steer ?? candidate.ultragoal_steer ?? candidate.steering ?? candidate;
   const proposal = parseUltragoalSteeringDirective(JSON.stringify(nested));
   if (!proposal) return null;
   if (proposal.source !== "user_prompt_submit") return null;
@@ -628,7 +623,7 @@ function normalizePromptSteeringProposal(raw: unknown, prompt: string): Ultragoa
 function parseUserPromptUltragoalSteeringDirective(prompt: string): UltragoalSteeringProposal | null {
   const trimmed = prompt.trim();
   if (!trimmed) return null;
-  const fenced = trimmed.match(/```(?:omx-ultragoal-steer|ultragoal-steer)\s*([\s\S]*?)```/i);
+  const fenced = trimmed.match(/```(?:owx-ultragoal-steer|ultragoal-steer)\s*([\s\S]*?)```/i);
   if (fenced?.[1]) {
     try {
       return normalizePromptSteeringProposal(JSON.parse(fenced[1]), prompt);
@@ -637,7 +632,7 @@ function parseUserPromptUltragoalSteeringDirective(prompt: string): UltragoalSte
     }
   }
 
-  const label = trimmed.match(/(?:^|\n)\s*(?:OMX_ULTRAGOAL_STEER|omx\.ultragoal\.steer|omx ultragoal steer)\s*:\s*{/i);
+  const label = trimmed.match(/(?:^|\n)\s*(?:OWX_ULTRAGOAL_STEER|owx\.ultragoal\.steer|owx ultragoal steer)\s*:\s*{/i);
   if (label?.index !== undefined) {
     const brace = trimmed.indexOf("{", label.index);
     const json = brace >= 0 ? extractBalancedJsonObject(trimmed, brace) : null;
@@ -654,7 +649,7 @@ function parseUserPromptUltragoalSteeringDirective(prompt: string): UltragoalSte
     try {
       const parsed = JSON.parse(trimmed);
       const object = safeObject(parsed);
-      if ("omx_ultragoal_steer" in object || "ultragoal_steer" in object) {
+      if ("owx_ultragoal_steer" in object || "ultragoal_steer" in object) {
         return normalizePromptSteeringProposal(parsed, prompt);
       }
     } catch {
@@ -672,13 +667,13 @@ async function applyUserPromptUltragoalSteering(cwd: string, prompt: string): Pr
     const status = result.deduped ? "deduped" : result.accepted ? "accepted" : "rejected";
     const reasons = result.rejectedReasons.length > 0 ? ` rejectedReasons=${result.rejectedReasons.join("; ")}` : "";
     return [
-      `OMX native UserPromptSubmit applied bounded .omx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${status}.`,
+      `OWX native UserPromptSubmit applied bounded .owx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${status}.`,
       `mutation=${result.audit.kind}; source=${result.audit.source}; targets=${result.audit.targetGoalIds.join(",") || "none"}; idempotencyKey=${result.audit.idempotencyKey ?? "none"}.${reasons}`,
-      "Only explicit structured steering directives are parsed; normal prose is ignored and cannot mutate .omx/ultragoal.",
+      "Only explicit structured steering directives are parsed; normal prose is ignored and cannot mutate .owx/ultragoal.",
     ].join(" ");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return `OMX native UserPromptSubmit rejected bounded .omx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${message}`;
+    return `OWX native UserPromptSubmit rejected bounded .owx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${message}`;
   }
 }
 
@@ -796,7 +791,7 @@ function numericValue(value: unknown): number | null {
 
 function hasRalphOwnerHint(state: Record<string, unknown>): boolean {
   return [
-    state.owner_omx_session_id,
+    state.owner_owx_session_id,
     state.owner_codex_session_id,
     state.owner_codex_thread_id,
     state.thread_id,
@@ -831,7 +826,7 @@ function activeRalphStateMatchesStopOwner(
   state: Record<string, unknown>,
   context: RalphStopOwnershipContext,
 ): boolean {
-  const ownerOmxSessionId = safeString(state.owner_omx_session_id).trim();
+  const ownerOmxSessionId = safeString(state.owner_owx_session_id).trim();
   if (ownerOmxSessionId && ownerOmxSessionId !== context.sessionId) {
     return false;
   }
@@ -1332,7 +1327,7 @@ function normalizeGitPath(path: string): string {
 
 function isDiffAuditableSourcePath(path: string): boolean {
   const normalized = normalizeGitPath(path).toLowerCase();
-  if (!normalized || normalized.startsWith(".git/") || normalized.startsWith(".omx/")) return false;
+  if (!normalized || normalized.startsWith(".git/") || normalized.startsWith(".owx/")) return false;
   if (/(^|\/)(?:docs?|documentation|changelog|changeset|\.github)(?:\/|$)/i.test(normalized)) return false;
   if (/(^|\/)(?:__tests__|__test__|test|tests|spec|specs|fixtures?|mocks?)(?:\/|$)/i.test(normalized)) return false;
   if (/(?:^|\/)[^\/]+\.(?:test|spec)\.[^.\/]+$/i.test(normalized)) return false;
@@ -1476,7 +1471,7 @@ function localExcludeAlreadyIgnoresOmx(cwd: string): boolean {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("#"));
-    return lines.includes(".omx/") || lines.includes(".omx");
+    return lines.includes(".owx/") || lines.includes(".owx");
   } catch {
     return false;
   }
@@ -1498,7 +1493,7 @@ function isPathIgnoredByGit(cwd: string, path: string): boolean {
 async function ensureOmxLocalIgnoreEntry(cwd: string): Promise<{ changed: boolean; excludePath?: string }> {
   const repoRoot = tryReadGitValue(cwd, ["rev-parse", "--show-toplevel"]);
   if (!repoRoot) return { changed: false };
-  if (localExcludeAlreadyIgnoresOmx(repoRoot) || isPathIgnoredByGit(repoRoot, ".omx/")) {
+  if (localExcludeAlreadyIgnoresOmx(repoRoot) || isPathIgnoredByGit(repoRoot, ".owx/")) {
     return { changed: false };
   }
 
@@ -1510,11 +1505,11 @@ async function ensureOmxLocalIgnoreEntry(cwd: string): Promise<{ changed: boolea
     ? await readFile(excludePath, "utf-8")
     : "";
   const lines = existing.split(/\r?\n/).map((line) => line.trim());
-  if (lines.includes(".omx/")) {
+  if (lines.includes(".owx/")) {
     return { changed: false, excludePath };
   }
 
-  const next = `${existing}${existing.endsWith("\n") || existing.length === 0 ? "" : "\n"}.omx/\n`;
+  const next = `${existing}${existing.endsWith("\n") || existing.length === 0 ? "" : "\n"}.owx/\n`;
   await writeFile(excludePath, next);
   return { changed: true, excludePath };
 }
@@ -1540,7 +1535,7 @@ async function buildSessionStartContext(
 
   const localIgnoreResult = await ensureOmxLocalIgnoreEntry(cwd);
   if (localIgnoreResult.changed) {
-    sections.push(`Added .omx/ to ${localIgnoreResult.excludePath} to keep local OMX state out of source control without mutating tracked repo ignores.`);
+    sections.push(`Added .owx/ to ${localIgnoreResult.excludePath} to keep local OWX state out of source control without mutating tracked repo ignores.`);
   }
 
   const modeSummaries: string[] = [];
@@ -1561,7 +1556,7 @@ async function buildSessionStartContext(
     modeSummaries.push(`- ${mode} phase: ${formatPhase(state.current_phase)}`);
   }
   if (modeSummaries.length > 0) {
-    sections.push(["[Active OMX modes]", ...modeSummaries].join("\n"));
+    sections.push(["[Active OWX modes]", ...modeSummaries].join("\n"));
   }
 
   const projectMemoryPath = resolveProjectMemoryPath(cwd);
@@ -1574,7 +1569,7 @@ async function buildSessionStartContext(
     const build = safeContextSnippet(projectMemory.build);
     const summary: string[] = [];
     const relativeMemoryPath = relative(cwd, projectMemoryPath).replace(/\\/g, "/");
-    summary.push(`- source: ${relativeMemoryPath === "project-memory.json" ? "project-memory.json" : ".omx/project-memory.json"}`);
+    summary.push(`- source: ${relativeMemoryPath === "project-memory.json" ? "project-memory.json" : ".owx/project-memory.json"}`);
     if (techStack) summary.push(`- stack: ${techStack}`);
     if (conventions) summary.push(`- conventions: ${conventions}`);
     if (build) summary.push(`- build: ${build}`);
@@ -1593,9 +1588,9 @@ async function buildSessionStartContext(
     }
   }
 
-  if (existsSync(omxNotepadPath(cwd))) {
+  if (existsSync(owxNotepadPath(cwd))) {
     try {
-      const notepad = await readFile(omxNotepadPath(cwd), "utf-8");
+      const notepad = await readFile(owxNotepadPath(cwd), "utf-8");
       const header = "## PRIORITY";
       const idx = notepad.indexOf(header);
       if (idx >= 0) {
@@ -1671,11 +1666,11 @@ function resolveExecutionEnvironment(
       launcher: executionSurface.launcher,
       transport: executionSurface.transport,
       surface: "attached tmux runtime - tmux",
-      tmuxWorkflowGuidance: "omx team, omx hud, and omx question are directly usable in this session",
+      tmuxWorkflowGuidance: "owx team, owx hud, and owx question are directly usable in this session",
       questionGuidance: "visible temporary renderer available from the current pane; primary success JSON is answers[]",
-      teamRuntimeInstruction: "Use the durable OMX team runtime via `omx team ...` for coordinated execution; do not replace it with in-process fanout.",
-      teamHelpInstruction: "If you need runtime syntax, run `omx team --help` yourself.",
-      deepInterviewInstruction: "Deep-interview must ask each interview round via `omx question`; do not fall back to `request_user_input` or plain-text questioning. This session is already attached to tmux, so `omx question` can open its temporary renderer directly over the leader pane. After starting `omx question` in a background terminal, wait for that terminal to finish and read the JSON answer before continuing the interview. Prefer `answers[0].answer` / `answers[]`; use legacy `answer` only as fallback. Deep-interview remains one question per round, so do not batch multiple interview rounds into one `questions[]` form. Stop remains blocked while a deep-interview question obligation is pending.",
+      teamRuntimeInstruction: "Use the durable OWX team runtime via `owx team ...` for coordinated execution; do not replace it with in-process fanout.",
+      teamHelpInstruction: "If you need runtime syntax, run `owx team --help` yourself.",
+      deepInterviewInstruction: "Deep-interview must ask each interview round via `owx question`; do not fall back to `request_user_input` or plain-text questioning. This session is already attached to tmux, so `owx question` can open its temporary renderer directly over the leader pane. After starting `owx question` in a background terminal, wait for that terminal to finish and read the JSON answer before continuing the interview. Prefer `answers[0].answer` / `answers[]`; use legacy `answer` only as fallback. Deep-interview remains one question per round, so do not batch multiple interview rounds into one `questions[]` form. Stop remains blocked while a deep-interview question obligation is pending.",
       leaderPaneHint,
     };
   }
@@ -1689,15 +1684,15 @@ function resolveExecutionEnvironment(
       surface: isNativeOutsideTmux
         ? "native-hook / Codex App outside tmux with tmux return bridge"
         : "direct CLI outside tmux with tmux return bridge",
-      tmuxWorkflowGuidance: "omx team and omx hud need an attached tmux OMX CLI shell from this surface; omx question can use the detected bridge",
+      tmuxWorkflowGuidance: "owx team and owx hud need an attached tmux OWX CLI shell from this surface; owx question can use the detected bridge",
       questionGuidance: questionBridgeHint,
       teamRuntimeInstruction: isNativeOutsideTmux
-        ? "This session is native-hook / Codex App outside tmux; `omx team` is a CLI/tmux runtime surface, not directly available here. Launch OMX CLI from an attached tmux shell first; do not replace it with in-process fanout."
-        : "This session is direct CLI outside tmux with a tmux return bridge for `omx question`; prompt-side `$team` does not auto-start the durable tmux team runtime here. If you intentionally want the runtime, run `omx team ...` yourself from shell instead of replacing it with in-process fanout.",
+        ? "This session is native-hook / Codex App outside tmux; `owx team` is a CLI/tmux runtime surface, not directly available here. Launch OWX CLI from an attached tmux shell first; do not replace it with in-process fanout."
+        : "This session is direct CLI outside tmux with a tmux return bridge for `owx question`; prompt-side `$team` does not auto-start the durable tmux team runtime here. If you intentionally want the runtime, run `owx team ...` yourself from shell instead of replacing it with in-process fanout.",
       teamHelpInstruction: isNativeOutsideTmux
-        ? "If you need runtime syntax, run `omx team --help` from an attached tmux OMX CLI shell."
-        : "If you need runtime syntax, run `omx team --help` yourself from shell.",
-      deepInterviewInstruction: `Deep-interview is active, but this session is not attached to tmux. Do not invoke \`omx question\`, \`omx hud\`, or \`omx team\` from this surface. Ask each interview round through the native structured question tool when available; otherwise ask exactly one concise plain-text question and wait for the answer. A tmux return bridge (${leaderPaneHint}) is recorded for explicit attached-tmux recovery only, not for default Codex App/native fallback.`,
+        ? "If you need runtime syntax, run `owx team --help` from an attached tmux OWX CLI shell."
+        : "If you need runtime syntax, run `owx team --help` yourself from shell.",
+      deepInterviewInstruction: `Deep-interview is active, but this session is not attached to tmux. Do not invoke \`owx question\`, \`owx hud\`, or \`owx team\` from this surface. Ask each interview round through the native structured question tool when available; otherwise ask exactly one concise plain-text question and wait for the answer. A tmux return bridge (${leaderPaneHint}) is recorded for explicit attached-tmux recovery only, not for default Codex App/native fallback.`,
       leaderPaneHint,
     };
   }
@@ -1707,21 +1702,21 @@ function resolveExecutionEnvironment(
     ? "native-hook / Codex App outside tmux"
     : "direct CLI outside tmux";
   const teamRuntimeInstruction = isNativeOutsideTmux
-    ? "This session is native-hook / Codex App outside tmux; `omx team` is a CLI/tmux runtime surface, not directly available here. Launch OMX CLI from an attached tmux shell first; do not replace it with in-process fanout."
-    : "This session is direct CLI outside tmux; prompt-side `$team` does not auto-start the durable tmux team runtime here. If you intentionally want the runtime, run `omx team ...` yourself from shell instead of replacing it with in-process fanout.";
+    ? "This session is native-hook / Codex App outside tmux; `owx team` is a CLI/tmux runtime surface, not directly available here. Launch OWX CLI from an attached tmux shell first; do not replace it with in-process fanout."
+    : "This session is direct CLI outside tmux; prompt-side `$team` does not auto-start the durable tmux team runtime here. If you intentionally want the runtime, run `owx team ...` yourself from shell instead of replacing it with in-process fanout.";
   const teamHelpInstruction = isNativeOutsideTmux
-    ? "If you need runtime syntax, run `omx team --help` from an attached tmux OMX CLI shell rather than from Codex App/native outside-tmux context."
-    : "If you need runtime syntax, run `omx team --help` yourself from shell.";
+    ? "If you need runtime syntax, run `owx team --help` from an attached tmux OWX CLI shell rather than from Codex App/native outside-tmux context."
+    : "If you need runtime syntax, run `owx team --help` yourself from shell.";
   return {
     kind: isNativeOutsideTmux ? "native-outside-tmux" : "direct-cli-outside-tmux",
     launcher: executionSurface.launcher,
     transport: executionSurface.transport,
     surface,
-    tmuxWorkflowGuidance: "omx team, omx hud, and omx question need an attached tmux OMX CLI shell or preserved question bridge from this surface",
+    tmuxWorkflowGuidance: "owx team, owx hud, and owx question need an attached tmux OWX CLI shell or preserved question bridge from this surface",
     questionGuidance: questionBridgeHint,
     teamRuntimeInstruction,
     teamHelpInstruction,
-    deepInterviewInstruction: "Deep-interview is active, but this session is not attached to tmux. Do not invoke `omx question`, `omx hud`, or `omx team` from this surface. Ask each interview round through the native structured question tool when available; otherwise ask exactly one concise plain-text question and wait for the answer. Stop gating still applies to the interview, but no tmux question obligation should be created outside tmux.",
+    deepInterviewInstruction: "Deep-interview is active, but this session is not attached to tmux. Do not invoke `owx question`, `owx hud`, or `owx team` from this surface. Ask each interview round through the native structured question tool when available; otherwise ask exactly one concise plain-text question and wait for the answer. Stop gating still applies to the interview, but no tmux question obligation should be created outside tmux.",
     leaderPaneHint: "",
   };
 }
@@ -1739,14 +1734,14 @@ function buildExecutionEnvironmentSection(
   return [
     "[Execution environment]",
     `- surface: ${environment.surface}`,
-    `- omx runtime surfaces: ${environment.tmuxWorkflowGuidance}`,
-    `- omx question: ${environment.questionGuidance}`,
+    `- owx runtime surfaces: ${environment.tmuxWorkflowGuidance}`,
+    `- owx question: ${environment.questionGuidance}`,
   ].join("\n");
 }
 
 function resolveQuestionLeaderPaneHint(cwd: string, payload?: CodexHookPayload): string {
   const payloadSessionId = safeString(payload?.session_id).trim();
-  const envSessionId = safeString(process.env.OMX_SESSION_ID || process.env.CODEX_SESSION_ID || process.env.SESSION_ID).trim();
+  const envSessionId = safeString(process.env.OWX_SESSION_ID || process.env.CODEX_SESSION_ID || process.env.SESSION_ID).trim();
   const sessionId = payloadSessionId || envSessionId;
   const candidatePaths = [
     ...(sessionId ? [getStatePath('deep-interview', cwd, sessionId), getStatePath('ralplan', cwd, sessionId), getStatePath('ralph', cwd, sessionId)] : []),
@@ -1828,12 +1823,12 @@ function buildNativeOutsideTmuxTeamPromptBlockState(
     thread_id: threadId,
     turn_id: turnId,
     active_skills: [],
-    transition_error: "Codex App/native outside-tmux sessions cannot activate the tmux-only `team` workflow directly. Launch OMX CLI from an attached tmux shell first, then run `omx team ...` there.",
+    transition_error: "Codex App/native outside-tmux sessions cannot activate the tmux-only `team` workflow directly. Launch OWX CLI from an attached tmux shell first, then run `owx team ...` there.",
   };
 }
 
 function buildSkillStateCliInstruction(mode: string, statePath: string): string {
-  return `skill: ${mode} activated and initial state initialized at ${statePath}; use CLI-first state updates via \`omx state write/read/clear --input '<json>' --json\`; use omx_state MCP only when explicit MCP compatibility is enabled.`;
+  return `skill: ${mode} activated and initial state initialized at ${statePath}; use CLI-first state updates via \`owx state write/read/clear --input '<json>' --json\`; use owx_state MCP only when explicit MCP compatibility is enabled.`;
 }
 
 function buildAutopilotPromptActivationNote(
@@ -1847,9 +1842,9 @@ function buildAutopilotPromptActivationNote(
   return [
     `Autopilot protocol: the durable default chain is $deep-interview -> $ralplan -> $ultragoal${teamHandoff} -> $code-review -> $ultraqa (deep-interview -> ralplan -> ultragoal -> code-review -> ultraqa).`,
     "Start/resume at current_phase=deep-interview unless the task is clear and bounded; if deep-interview is intentionally skipped, persist and state an explicit deep_interview_gate.skip_reason before moving to ralplan.",
-    "Deep-interview is a structured question chain, not a one-question gate: after an omx question answer, re-score ambiguity against the active threshold, treat max_rounds as a cap, and crystallize once ambiguity is at or below threshold and readiness gates pass.",
+    "Deep-interview is a structured question chain, not a one-question gate: after an owx question answer, re-score ambiguity against the active threshold, treat max_rounds as a cap, and crystallize once ambiguity is at or below threshold and readiness gates pass.",
     options.markedQuestionAnswer
-      ? "This turn is a marked omx question answer. Treat ordinary selected option/freeform answer text as interview input, then re-score. Do not close merely because the first question was answered; if ambiguity is at or below threshold and readiness gates pass, write interview_complete evidence and hand off. Ask another deep-interview follow-up only when a readiness gate remains unresolved and the answer would materially change execution."
+      ? "This turn is a marked owx question answer. Treat ordinary selected option/freeform answer text as interview input, then re-score. Do not close merely because the first question was answered; if ambiguity is at or below threshold and readiness gates pass, write interview_complete evidence and hand off. Ask another deep-interview follow-up only when a readiness gate remains unresolved and the answer would materially change execution."
       : null,
     "Do not advance from deep-interview to ralplan merely because the first question was answered; persist explicit interview_complete evidence before setting current_phase=ralplan, and do advance when threshold plus readiness gates are satisfied.",
     "The ralplan phase is not complete until Planner output has been reviewed sequentially by Architect and then Critic; do not hand off to Ultragoal or implementation until the ralplan state/artifact records both ralplan_architect_review and ralplan_critic_review with approval or an explicit blocker.",
@@ -1882,10 +1877,10 @@ function buildAdditionalContextMessage(
       ? buildDeepInterviewQuestionBridgeInstruction(cwd, payload)
       : null;
     const deepInterviewConfigPromptActivationNote = buildDeepInterviewConfigInstruction(cwd, skillState);
-    const markedQuestionAnswer = /^\s*\[omx question answered\]/i.test(prompt);
+    const markedQuestionAnswer = /^\s*\[owx question answered\]/i.test(prompt);
     const autopilotPromptActivationNote = buildAutopilotPromptActivationNote(skillState, { markedQuestionAnswer, cwd });
     return [
-      `OMX native UserPromptSubmit continued active workflow skill "${continuedSkill}".`,
+      `OWX native UserPromptSubmit continued active workflow skill "${continuedSkill}".`,
       promptPriorityMessage,
       skillState?.initialized_mode && skillState.initialized_state_path
         ? buildSkillStateCliInstruction(skillState.initialized_mode, skillState.initialized_state_path)
@@ -1897,13 +1892,13 @@ function buildAdditionalContextMessage(
     ].filter(Boolean).join(" ");
   }
   const detectedKeywordMessage = matches.length > 1
-    ? `OMX native UserPromptSubmit detected workflow keywords ${matches.map((entry) => `"${entry.keyword}" -> ${entry.skill}`).join(", ")}.`
-    : `OMX native UserPromptSubmit detected workflow keyword "${match.keyword}" -> ${match.skill}.`;
+    ? `OWX native UserPromptSubmit detected workflow keywords ${matches.map((entry) => `"${entry.keyword}" -> ${entry.skill}`).join(", ")}.`
+    : `OWX native UserPromptSubmit detected workflow keyword "${match.keyword}" -> ${match.skill}.`;
   const continuedSkill = safeString(skillState?.skill).trim();
   if (
     continuedSkill
     && continuedSkill !== match.skill
-    && /^\s*\[omx question answered\]/i.test(prompt)
+    && /^\s*\[owx question answered\]/i.test(prompt)
   ) {
     const deepInterviewPromptActivationNote = skillState?.initialized_mode === "deep-interview"
       ? buildDeepInterviewQuestionBridgeInstruction(cwd, payload)
@@ -1911,7 +1906,7 @@ function buildAdditionalContextMessage(
     const deepInterviewConfigPromptActivationNote = buildDeepInterviewConfigInstruction(cwd, skillState);
     const autopilotPromptActivationNote = buildAutopilotPromptActivationNote(skillState, { markedQuestionAnswer: true, cwd });
     return [
-      `OMX native UserPromptSubmit continued active workflow skill "${continuedSkill}"; workflow-like tokens inside the marked omx question answer are treated as answer text, not a new workflow activation.`,
+      `OWX native UserPromptSubmit continued active workflow skill "${continuedSkill}"; workflow-like tokens inside the marked owx question answer are treated as answer text, not a new workflow activation.`,
       promptPriorityMessage,
       skillState?.initialized_mode && skillState.initialized_state_path
         ? buildSkillStateCliInstruction(skillState.initialized_mode, skillState.initialized_state_path)
@@ -1930,7 +1925,7 @@ function buildAdditionalContextMessage(
     : [];
   const teamDetected = activeSkills.includes("team");
   const ralphPromptActivationNote = skillState?.initialized_mode === "ralph"
-    ? "Prompt-side `$ralph` activation seeds Ralph workflow state only; it does not invoke `omx ralph`. Use `omx ralph --prd ...` only when you explicitly want the PRD-gated CLI startup path."
+    ? "Prompt-side `$ralph` activation seeds Ralph workflow state only; it does not invoke `owx ralph`. Use `owx ralph --prd ...` only when you explicitly want the PRD-gated CLI startup path."
     : null;
   const deepInterviewPromptActivationNote = skillState?.initialized_mode === "deep-interview"
     ? buildDeepInterviewQuestionBridgeInstruction(cwd, payload)
@@ -1940,7 +1935,7 @@ function buildAdditionalContextMessage(
     ? "Ultrawork protocol: ground the task before editing, define pass/fail acceptance criteria, keep shared-file work local, and use direct-tool plus background evidence lanes only for truly independent work. Direct ultrawork provides lightweight verification only; Ralph owns persistence and the full verified-completion promise."
     : null;
   const ultragoalPromptActivationNote = match.skill === "ultragoal"
-    ? "Ultragoal protocol: use `omx ultragoal create-goals` / `complete-goals` / `checkpoint` for `.omx/ultragoal` artifacts, then use Codex goal model tools only from the active agent handoff (`get_goal`, `create_goal`, `update_goal`) and never overwrite a different active Codex goal. Ultragoal does not call `/goal clear`; for multiple sequential ultragoal runs in one Codex session/thread, manually clear the completed Codex goal in the UI before creating the next aggregate goal."
+    ? "Ultragoal protocol: use `owx ultragoal create-goals` / `complete-goals` / `checkpoint` for `.owx/ultragoal` artifacts, then use Codex goal model tools only from the active agent handoff (`get_goal`, `create_goal`, `update_goal`) and never overwrite a different active Codex goal. Ultragoal does not call `/goal clear`; for multiple sequential ultragoal runs in one Codex session/thread, manually clear the completed Codex goal in the UI before creating the next aggregate goal."
     : null;
   const autopilotPromptActivationNote = buildAutopilotPromptActivationNote(skillState, { cwd });
   const combinedTransitionMessage = (() => {
@@ -1953,7 +1948,7 @@ function buildAdditionalContextMessage(
 
   if (skillState?.transition_error) {
     return [
-      `OMX native UserPromptSubmit denied workflow keyword "${match.keyword}" -> ${match.skill}.`,
+      `OWX native UserPromptSubmit denied workflow keyword "${match.keyword}" -> ${match.skill}.`,
       skillState.transition_error,
       promptPriorityMessage,
       'Follow AGENTS.md routing and preserve workflow transition and planning-safety rules.',
@@ -2043,7 +2038,7 @@ async function resolveTeamStateDirForWorkerContext(
 ): Promise<string | null> {
   const resolved = await resolveWorkerNotifyTeamStateRootPath(cwd, workerContext, process.env).catch(() => null);
   if (resolved) return resolved;
-  const explicit = safeString(process.env.OMX_TEAM_STATE_ROOT).trim();
+  const explicit = safeString(process.env.OWX_TEAM_STATE_ROOT).trim();
   if (explicit) {
     const candidate = resolve(cwd, explicit);
     const workerRoot = join(candidate, "team", workerContext.teamName, "workers", workerContext.workerName);
@@ -2055,8 +2050,8 @@ async function resolveTeamStateDirForWorkerContext(
 
 async function isConfirmedTeamWorkerPromptSubmitPane(cwd: string): Promise<boolean> {
   const workerContext =
-    parseTeamWorkerEnv(safeString(process.env.OMX_TEAM_INTERNAL_WORKER))
-    || parseTeamWorkerEnv(safeString(process.env.OMX_TEAM_WORKER));
+    parseTeamWorkerEnv(safeString(process.env.OWX_TEAM_INTERNAL_WORKER))
+    || parseTeamWorkerEnv(safeString(process.env.OWX_TEAM_WORKER));
   if (!workerContext) return false;
 
   const currentPaneId = safeString(process.env.TMUX_PANE).trim();
@@ -2097,8 +2092,8 @@ async function resolveTeamWorkerStopDecision(
   cwd: string,
 ): Promise<TeamWorkerStopDecision> {
   const workerContext =
-    parseTeamWorkerEnv(safeString(process.env.OMX_TEAM_INTERNAL_WORKER))
-    || parseTeamWorkerEnv(safeString(process.env.OMX_TEAM_WORKER));
+    parseTeamWorkerEnv(safeString(process.env.OWX_TEAM_INTERNAL_WORKER))
+    || parseTeamWorkerEnv(safeString(process.env.OWX_TEAM_WORKER));
   if (!workerContext) return { kind: "unresolved", reason: "missing_worker_context" };
 
   const blockWorkerStop = (
@@ -2113,11 +2108,11 @@ async function resolveTeamWorkerStopDecision(
     output: {
       decision: "block",
       reason:
-        `OMX team worker ${workerContext.workerName} Stop cannot be allowed for ${reasonCode}: ${detail}. ` +
+        `OWX team worker ${workerContext.workerName} Stop cannot be allowed for ${reasonCode}: ${detail}. ` +
         "Continue the assigned task, repair worker state, or report a concrete blocker before stopping.",
       stopReason: `team_worker_${workerContext.workerName}_${reasonCode}`,
       systemMessage:
-        `OMX team worker ${workerContext.workerName} Stop lacks completed task evidence (${reasonCode}).`,
+        `OWX team worker ${workerContext.workerName} Stop lacks completed task evidence (${reasonCode}).`,
     },
   });
 
@@ -2192,10 +2187,10 @@ async function resolveTeamWorkerStopDecision(
       output: {
         decision: "block",
         reason:
-          `OMX team worker ${workerContext.workerName} is still assigned non-terminal task ${taskId} (${statusValue}); continue the current assigned task or report a concrete blocker before stopping.`,
+          `OWX team worker ${workerContext.workerName} is still assigned non-terminal task ${taskId} (${statusValue}); continue the current assigned task or report a concrete blocker before stopping.`,
         stopReason: `team_worker_${workerContext.workerName}_${taskId}_${statusValue}`,
         systemMessage:
-          `OMX team worker ${workerContext.workerName} is still assigned task ${taskId} (${statusValue}).`,
+          `OWX team worker ${workerContext.workerName} is still assigned task ${taskId} (${statusValue}).`,
       },
     };
   }
@@ -2241,11 +2236,11 @@ async function buildModeBasedStopOutput(
   if (!state || !shouldContinueRun(state)) return null;
   const phase = formatPhase(state.current_phase);
   const systemMessage = mode === "autopilot" && phase.toLowerCase().replace(/_/g, "-") === "code-review"
-    ? "OMX autopilot is still active (phase: code-review). Run the required $code-review step before completing or clearing Autopilot state."
-    : `OMX ${mode} is still active (phase: ${phase}).`;
+    ? "OWX autopilot is still active (phase: code-review). Run the required $code-review step before completing or clearing Autopilot state."
+    : `OWX ${mode} is still active (phase: ${phase}).`;
   return {
     decision: "block",
-    reason: `OMX ${mode} is still active (phase: ${phase}); continue the task and gather fresh verification evidence before stopping.`,
+    reason: `OWX ${mode} is still active (phase: ${phase}); continue the task and gather fresh verification evidence before stopping.`,
     stopReason: `${mode}_${phase}`,
     systemMessage,
   };
@@ -2253,7 +2248,7 @@ async function buildModeBasedStopOutput(
 
 export function looksLikeGoalCompletionPrompt(text: string): boolean {
   return /\bupdate_goal\s*\(/i.test(text)
-    || /\bomx\s+(?:ultragoal|performance-goal|autoresearch-goal)\s+(?:checkpoint|complete)\b/i.test(text)
+    || /\bowx\s+(?:ultragoal|performance-goal|autoresearch-goal)\s+(?:checkpoint|complete)\b/i.test(text)
     || /\b(?:complete|checkpoint|finish|close|mark)\b.{0,80}\b(?:goal|ultragoal|performance[-\s]goal|autoresearch[-\s]goal)\b/i.test(text)
     || /\b(?:ultragoal|performance[-\s]goal|autoresearch[-\s]goal)\b.{0,80}\b(?:complete|checkpoint|finish|close|mark)\b/i.test(text)
     || /(?:^|[.!?]\s+)(?:the\s+)?goal\s+(?:is\s+|now\s+|has\s+been\s+)?(?:complete|completed|finished|closed)(?:\s*(?:[.!?]|$)|\s*[:;]\s*\S|\s*[—–-]\s*\S)/i.test(text);
@@ -2294,7 +2289,7 @@ function reportsBlockedUltragoalCompletedAggregateMicrogoalLoop(goal: Record<str
 }
 
 async function findActiveGoalWorkflowReconciliationRequirement(cwd: string): Promise<{ workflow: string; command: string; remediation?: string } | null> {
-  const ultragoal = await readJsonIfExists(join(cwd, ".omx", "ultragoal", "goals.json"));
+  const ultragoal = await readJsonIfExists(join(cwd, ".owx", "ultragoal", "goals.json"));
   const aggregateCompletion = safeObject(ultragoal?.aggregateCompletion);
   const aggregateProductComplete = safeString(aggregateCompletion.status) === "complete";
   const ultragoals = Array.isArray(ultragoal?.goals) ? ultragoal.goals.map(safeObject) : [];
@@ -2308,18 +2303,18 @@ async function findActiveGoalWorkflowReconciliationRequirement(cwd: string): Pro
     const goalId = safeString(activeUltragoal.id) || "<goal-id>";
     return {
       workflow: "ultragoal",
-      command: `omx ultragoal checkpoint --goal-id ${goalId} --status complete --codex-goal-json '<get_goal JSON or path>' --evidence '<evidence>'`,
+      command: `owx ultragoal checkpoint --goal-id ${goalId} --status complete --codex-goal-json '<get_goal JSON or path>' --evidence '<evidence>'`,
       remediation: [
-        `If get_goal returns a completed task-scoped objective for the same aggregate ultragoal plan, checkpoint ${goalId} with evidence naming ${goalId} plus .omx/ultragoal/goals.json or ledger.jsonl and pass final quality-gate JSON; OMX will reconcile the completed planned scope without mutating Codex goal state.`,
+        `If get_goal returns a completed task-scoped objective for the same aggregate ultragoal plan, checkpoint ${goalId} with evidence naming ${goalId} plus .owx/ultragoal/goals.json or ledger.jsonl and pass final quality-gate JSON; OWX will reconcile the completed planned scope without mutating Codex goal state.`,
         `If get_goal instead returns a different completed legacy objective and complete checkpointing fails, do not repeat --status complete in this thread.`,
-        `Record the non-terminal blocker with: omx ultragoal checkpoint --goal-id ${goalId} --status blocked --codex-goal-json '<different completed get_goal JSON or path>' --evidence '<completed legacy Codex goal blocks create_goal in this thread>'.`,
-        `If get_goal itself is unavailable with a Codex DB/schema/context error such as "no such table: thread_goals", record an auditable safe-recovery blocker instead: omx ultragoal checkpoint --goal-id ${goalId} --status blocked --codex-goal-json '<unavailable get_goal error JSON or path>' --evidence '<get_goal unavailable due to Codex DB/schema/context error; safe recovery requires a working Codex goal context>'.`,
+        `Record the non-terminal blocker with: owx ultragoal checkpoint --goal-id ${goalId} --status blocked --codex-goal-json '<different completed get_goal JSON or path>' --evidence '<completed legacy Codex goal blocks create_goal in this thread>'.`,
+        `If get_goal itself is unavailable with a Codex DB/schema/context error such as "no such table: thread_goals", record an auditable safe-recovery blocker instead: owx ultragoal checkpoint --goal-id ${goalId} --status blocked --codex-goal-json '<unavailable get_goal error JSON or path>' --evidence '<get_goal unavailable due to Codex DB/schema/context error; safe recovery requires a working Codex goal context>'.`,
         "Then continue only from a Codex goal context with no active/completed conflicting goal in the same repo/worktree and create the intended goal there.",
       ].join(" "),
     };
   }
 
-  const performanceRoot = join(cwd, ".omx", "goals", "performance");
+  const performanceRoot = join(cwd, ".owx", "goals", "performance");
   for (const entry of await readdir(performanceRoot, { withFileTypes: true }).catch(() => [])) {
     if (!entry.isDirectory()) continue;
     const state = await readJsonIfExists(join(performanceRoot, entry.name, "state.json"));
@@ -2330,12 +2325,12 @@ async function findActiveGoalWorkflowReconciliationRequirement(cwd: string): Pro
     if (state?.workflow === "performance-goal" && status && status !== "complete") {
       return {
         workflow: "performance-goal",
-        command: `omx performance-goal complete --slug ${safeString(state.slug) || entry.name} --codex-goal-json '<get_goal JSON or path>' --evidence '<evidence>'`,
+        command: `owx performance-goal complete --slug ${safeString(state.slug) || entry.name} --codex-goal-json '<get_goal JSON or path>' --evidence '<evidence>'`,
       };
     }
   }
 
-  const autoresearchRoot = join(cwd, ".omx", "goals", "autoresearch");
+  const autoresearchRoot = join(cwd, ".owx", "goals", "autoresearch");
   for (const entry of await readdir(autoresearchRoot, { withFileTypes: true }).catch(() => [])) {
     if (!entry.isDirectory()) continue;
     const mission = await readJsonIfExists(join(autoresearchRoot, entry.name, "mission.json"));
@@ -2351,7 +2346,7 @@ async function findActiveGoalWorkflowReconciliationRequirement(cwd: string): Pro
     ) {
       return {
         workflow: "autoresearch-goal",
-        command: `omx autoresearch-goal complete --slug ${safeString(mission.slug) || entry.name} --codex-goal-json '<get_goal JSON or path>'`,
+        command: `owx autoresearch-goal complete --slug ${safeString(mission.slug) || entry.name} --codex-goal-json '<get_goal JSON or path>'`,
         remediation: [
           "If that command fails with a Codex goal objective mismatch after a refreshed get_goal snapshot, do not repeat the same complete command blindly in this thread.",
           "Either retry with a correct refreshed snapshot or record an explicit blocked verdict for this autoresearch-goal and continue from the explicit blocker path.",
@@ -2368,7 +2363,7 @@ async function buildGoalWorkflowReconciliationPromptWarning(cwd: string, prompt:
   const requirement = await findActiveGoalWorkflowReconciliationRequirement(cwd);
   if (!requirement) return null;
   return [
-    `OMX ${requirement.workflow} goal workflow requires Codex goal snapshot reconciliation before completion.`,
+    `OWX ${requirement.workflow} goal workflow requires Codex goal snapshot reconciliation before completion.`,
     "Call get_goal, pass the resulting JSON or a path with --codex-goal-json, and do not rely on hooks or shell commands to mutate Codex-owned goal state.",
     `Required command shape: ${requirement.command}.`,
     requirement.remediation,
@@ -2388,7 +2383,7 @@ async function buildGoalWorkflowReconciliationStopOutput(
   }
   const systemMessage =
     [
-      `OMX ${requirement.workflow} requires get_goal snapshot reconciliation before completion; call get_goal and pass --codex-goal-json to ${requirement.command}.`,
+      `OWX ${requirement.workflow} requires get_goal snapshot reconciliation before completion; call get_goal and pass --codex-goal-json to ${requirement.command}.`,
       requirement.remediation,
       "Hooks must not mutate Codex goal state.",
     ].filter(Boolean).join(" ");
@@ -2471,7 +2466,7 @@ async function buildTeamStopOutput(cwd: string, sessionId?: string, threadId?: s
 
 function buildTeamStopReason(teamName: string, phase: string): string {
   const teamContext = teamName ? ` (${teamName})` : "";
-  return `OMX team pipeline is still active${teamContext} at phase ${phase}; continue coordinating until the team reaches a terminal phase. If system-generated worker auto-checkpoint commits exist, rewrite them into Lore-format final commits before merge/finalization.`;
+  return `OWX team pipeline is still active${teamContext} at phase ${phase}; continue coordinating until the team reaches a terminal phase. If system-generated worker auto-checkpoint commits exist, rewrite them into Lore-format final commits before merge/finalization.`;
 }
 
 function buildTeamStopOutputForPhase(teamName: string, phase: string): Record<string, unknown> {
@@ -2479,7 +2474,7 @@ function buildTeamStopOutputForPhase(teamName: string, phase: string): Record<st
     decision: "block",
     reason: buildTeamStopReason(teamName, phase),
     stopReason: `team_${phase}`,
-    systemMessage: `OMX team pipeline is still active at phase ${phase}.`,
+    systemMessage: `OWX team pipeline is still active at phase ${phase}.`,
   };
 }
 
@@ -2591,17 +2586,17 @@ async function readStopSessionPinnedState(
 }
 
 const DEEP_INTERVIEW_ALLOWED_WRITE_PREFIXES = [
-  ".omx/context",
-  ".omx/interviews",
-  ".omx/specs",
-  ".omx/state",
+  ".owx/context",
+  ".owx/interviews",
+  ".owx/specs",
+  ".owx/state",
 ] as const;
 
 const RALPLAN_ALLOWED_WRITE_PREFIXES = [
-  ".omx/context",
-  ".omx/plans",
-  ".omx/specs",
-  ".omx/state",
+  ".owx/context",
+  ".owx/plans",
+  ".owx/specs",
+  ".owx/state",
 ] as const;
 
 const PLANNING_MODE_IMPLEMENTATION_TOOL_NAMES = new Set([
@@ -2742,7 +2737,7 @@ function extractDeepInterviewCommandWriteTargets(command: string): string[] {
 
 function isAllowedDeepInterviewBashWrite(cwd: string, command: string): boolean {
   if (!commandHasDeepInterviewWriteIntent(command)) return true;
-  if (/\bomx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
+  if (/\bowx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
   const targets = extractDeepInterviewCommandWriteTargets(command);
   return targets.length > 0 && targets.every((target) => isAllowedDeepInterviewArtifactPath(cwd, target));
 }
@@ -2820,7 +2815,7 @@ async function readActiveRalplanStateForPreToolUse(
 
 function isAllowedRalplanBashWrite(cwd: string, command: string): boolean {
   if (!commandHasDeepInterviewWriteIntent(command)) return true;
-  if (/\bomx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
+  if (/\bowx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
   const targets = extractDeepInterviewCommandWriteTargets(command);
   return targets.length > 0 && targets.every((target) => isAllowedRalplanArtifactPath(cwd, target));
 }
@@ -2863,7 +2858,7 @@ async function buildRalplanPreToolUseBoundaryOutput(
       hookEventName: "PreToolUse",
       additionalContext:
         `${planningModeDescription}. `
-        + "Write only planning artifacts under `.omx/context/`, `.omx/plans/`, `.omx/specs/`, or required `.omx/state/` files. "
+        + "Write only planning artifacts under `.owx/context/`, `.owx/plans/`, `.owx/specs/`, or required `.owx/state/` files. "
         + "Do not edit implementation files or run implementation-focused writes from planning phases. "
         + `To execute, first process an explicit handoff such as ${formatExecutionHandoffList(cwd)}, which must emit terminal planning state before implementation begins.`,
     },
@@ -2902,7 +2897,7 @@ async function buildDeepInterviewPreToolUseBoundaryOutput(
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       additionalContext:
-        `Deep-interview is requirements/spec mode. Treat detailed user answers as interview/spec material, not implicit implementation authorization. You may write only deep-interview artifacts under \`.omx/context/\`, \`.omx/interviews/\`, \`.omx/specs/\`, or required \`.omx/state/\` files. To implement, first ask for or process an explicit transition such as \`$ralplan\`, \`$autopilot\`, ${formatExecutionHandoffList(cwd)}.`,
+        `Deep-interview is requirements/spec mode. Treat detailed user answers as interview/spec material, not implicit implementation authorization. You may write only deep-interview artifacts under \`.owx/context/\`, \`.owx/interviews/\`, \`.owx/specs/\`, or required \`.owx/state/\` files. To implement, first ask for or process an explicit transition such as \`$ralplan\`, \`$autopilot\`, ${formatExecutionHandoffList(cwd)}.`,
     },
   };
 }
@@ -2928,7 +2923,7 @@ function modeStateMatchesSkillStopContext(
   sessionId: string,
 ): boolean {
   const stateSessionId = safeString(
-    state.owner_omx_session_id
+    state.owner_owx_session_id
       ?? state.session_id
       ?? state.codex_session_id
       ?? state.owner_codex_session_id,
@@ -3057,7 +3052,7 @@ function rootModeStateIsCanonicalForStopContext(
   if (!modeStateMatchesSkillStopContext(state, cwd, sessionId)) return false;
 
   const stateSessionId = safeString(
-    state.owner_omx_session_id
+    state.owner_owx_session_id
       ?? state.session_id
       ?? state.codex_session_id
       ?? state.owner_codex_session_id,
@@ -3166,7 +3161,7 @@ function buildRalplanContinuationStatus(
   const phase = blocker.phase || "planning";
   const artifact = blocker.latestPlanPath
     ? ` Artifact: ${blocker.latestPlanPath}.`
-    : " Artifact: use the latest `.omx/plans/` ralplan artifact if present.";
+    : " Artifact: use the latest `.owx/plans/` ralplan artifact if present.";
 
   if (activeSubagentCount > 0) {
     return {
@@ -3174,7 +3169,7 @@ function buildRalplanContinuationStatus(
         `Status: waiting — ralplan is waiting for ${activeSubagentCount} active native subagent thread(s) to finish (phase: ${phase}). Do not stop silently; wait for the subagent result, then continue from the current ralplan artifact and proceed to the next planning/review step.${artifact}`,
       stopReasonSuffix: "waiting_subagent",
       systemMessage:
-        `OMX ralplan status: waiting for ${activeSubagentCount} active native subagent thread(s) at phase ${phase}; after they finish, continue from the current ralplan artifact and state the next status explicitly.`,
+        `OWX ralplan status: waiting for ${activeSubagentCount} active native subagent thread(s) at phase ${phase}; after they finish, continue from the current ralplan artifact and state the next status explicitly.`,
     };
   }
 
@@ -3192,7 +3187,7 @@ function buildRalplanContinuationStatus(
         `Status: waiting_for_input — ralplan is paused for required user/operator input (phase: ${phase}). Ask the missing question or present the review choice explicitly before stopping.${artifact}`,
       stopReasonSuffix: "waiting_input",
       systemMessage:
-        `OMX ralplan status: waiting for input at phase ${phase}; ask the required question or present the explicit review choice before stopping.`,
+        `OWX ralplan status: waiting for input at phase ${phase}; ask the required question or present the explicit review choice before stopping.`,
     };
   }
 
@@ -3205,7 +3200,7 @@ function buildRalplanContinuationStatus(
       `Status: continue_from_artifact — ralplan is still active (phase: ${phase}) and has not emitted a terminal complete/paused/waiting status. Continue from the current ralplan artifact, resolve any review ambiguity conservatively or ask the user if needed, and proceed to the next planning/review step before stopping; do not begin implementation from ralplan.${artifact}${completeHint}`,
     stopReasonSuffix: "continue_artifact",
     systemMessage:
-      `OMX ralplan status: continue_from_artifact at phase ${phase}; continue from the current ralplan artifact and finish by stating whether ralplan is complete, paused for review, waiting for input, or still continuing; do not begin implementation from ralplan.`,
+      `OWX ralplan status: continue_from_artifact at phase ${phase}; continue from the current ralplan artifact and finish by stating whether ralplan is complete, paused for review, waiting for input, or still continuing; do not begin implementation from ralplan.`,
   };
 }
 
@@ -3290,14 +3285,14 @@ async function buildDeepInterviewQuestionStopOutput(
   if (!obligationId) return null;
 
   const systemMessage =
-    `OMX deep-interview is still active (phase: ${phase}) and requires a structured question via omx question before stopping; read the returned answers[] JSON before continuing.`;
+    `OWX deep-interview is still active (phase: ${phase}) and requires a structured question via owx question before stopping; read the returned answers[] JSON before continuing.`;
 
   return {
     obligationId,
     output: {
       decision: "block",
       reason:
-        `Deep interview is still active (phase: ${phase}) and has a pending structured question obligation; use \`omx question\` before stopping.`,
+        `Deep interview is still active (phase: ${phase}) and has a pending structured question obligation; use \`owx question\` before stopping.`,
       stopReason: "deep_interview_question_required",
       systemMessage,
     },
@@ -3308,7 +3303,7 @@ function resolveRepeatableStopSessionId(
   payload: CodexHookPayload,
   canonicalSessionId?: string,
 ): string {
-  const inheritedSessionId = safeString(process.env.OMX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
+  const inheritedSessionId = safeString(process.env.OWX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
   return canonicalSessionId?.trim() || readPayloadSessionId(payload) || inheritedSessionId || "";
 }
 
@@ -3454,11 +3449,11 @@ async function maybeBuildOrdinaryStopNoProgressOutput(
   await writeFile(statePath, JSON.stringify({ ...state, sessions }, null, 2));
 
   const maxRepeats = parseBoundedPositiveInteger(
-    process.env.OMX_NATIVE_STOP_NO_PROGRESS_MAX_REPEATS,
+    process.env.OWX_NATIVE_STOP_NO_PROGRESS_MAX_REPEATS,
     ORDINARY_STOP_NO_PROGRESS_DEFAULT_MAX_REPEATS,
   );
   const idleMs = parseBoundedNonNegativeInteger(
-    process.env.OMX_NATIVE_STOP_NO_PROGRESS_IDLE_MS,
+    process.env.OWX_NATIVE_STOP_NO_PROGRESS_IDLE_MS,
     ORDINARY_STOP_NO_PROGRESS_DEFAULT_IDLE_MS,
   );
   const firstSeenMs = readIsoTimeMs(firstSeenAt) ?? Date.now();
@@ -3470,7 +3465,7 @@ async function maybeBuildOrdinaryStopNoProgressOutput(
   );
   const elapsedSeconds = Math.round(elapsedMs / 1000);
   const diagnostic =
-    `OMX ordinary task no-progress guard triggered after ${repeatCount} repeated Stop-hook pass(es) over ~${elapsedSeconds}s with unchanged status: "${message}". ` +
+    `OWX ordinary task no-progress guard triggered after ${repeatCount} repeated Stop-hook pass(es) over ~${elapsedSeconds}s with unchanged status: "${message}". ` +
     "Emit a concise diagnostic summary now: state the last concrete progress/evidence, whether the task is complete, blocked, failed, or needs missing information, and stop instead of continuing a vague working loop.";
 
   return {
@@ -3672,9 +3667,9 @@ async function buildSkillStopOutput(
 
   return {
     decision: "block",
-    reason: `OMX skill ${blocker.skill} is still active (phase: ${blocker.phase}); continue until the current ${blocker.skill} workflow reaches a terminal state.`,
+    reason: `OWX skill ${blocker.skill} is still active (phase: ${blocker.phase}); continue until the current ${blocker.skill} workflow reaches a terminal state.`,
     stopReason: `skill_${blocker.skill}_${blocker.phase}`,
-    systemMessage: `OMX skill ${blocker.skill} is still active (phase: ${blocker.phase}).`,
+    systemMessage: `OWX skill ${blocker.skill} is still active (phase: ${blocker.phase}).`,
   };
 }
 
@@ -3817,10 +3812,10 @@ async function buildStopHookOutput(
     await reopenRalphCompletionAuditBlock(ralphCompletionAuditBlock);
     const blockingPath = formatStopStatePath(cwd, ralphCompletionAuditBlock.path);
     const systemMessage = [
-      `OMX Ralph completion audit is missing required evidence (${ralphCompletionAuditBlock.reason}; state: ${blockingPath}).`,
+      `OWX Ralph completion audit is missing required evidence (${ralphCompletionAuditBlock.reason}; state: ${blockingPath}).`,
       "Continue verification and do not report complete yet.",
       "Record machine-readable completion evidence before stopping:",
-      '- either set "completion_audit" on the Ralph state object, for example: omx state write --input \'{"mode":"ralph","active":false,"current_phase":"complete","completion_audit":{"passed":true,"prompt_to_artifact_checklist":["..."],"verification_evidence":["..."]}}\' --json',
+      '- either set "completion_audit" on the Ralph state object, for example: owx state write --input \'{"mode":"ralph","active":false,"current_phase":"complete","completion_audit":{"passed":true,"prompt_to_artifact_checklist":["..."],"verification_evidence":["..."]}}\' --json',
       "- or set completion_audit_path / completion_audit_evidence_path to a repo-relative JSON file with those same fields.",
       "Markdown artifacts and flat top-level checklist/evidence fields are not accepted by the Ralph Stop gate.",
     ].join(" ");
@@ -3848,7 +3843,7 @@ async function buildStopHookOutput(
       const completion = await readAutoresearchCompletionStatus(cwd, canonicalSessionId!.trim());
       if (!completion.complete) {
         const currentPhase = safeString(autoresearchState.current_phase ?? autoresearchState.currentPhase).trim() || 'executing';
-        const systemMessage = `OMX autoresearch is still active (phase: ${currentPhase}); continue until validator evidence is complete before stopping.`;
+        const systemMessage = `OWX autoresearch is still active (phase: ${currentPhase}); continue until validator evidence is complete before stopping.`;
         return await maybeReturnRepeatableStopOutput(
           payload,
           stateDir,
@@ -3881,7 +3876,7 @@ async function buildStopHookOutput(
       try {
         await maybeNudgeLeaderForAllowedWorkerStop({
           stateDir: teamWorkerDecision.stateDir,
-          logsDir: join(cwd, ".omx", "logs"),
+          logsDir: join(cwd, ".owx", "logs"),
           workerContext: teamWorkerDecision.workerContext,
         });
       } catch (err) {
@@ -4039,7 +4034,7 @@ async function buildStopHookOutput(
           reason: effectiveResponse,
           stopReason: "auto_nudge",
           systemMessage:
-            "OMX native Stop detected a stall/permission-style handoff and continued the turn automatically.",
+            "OWX native Stop detected a stall/permission-style handoff and continued the turn automatically.",
         },
         canonicalSessionId,
       );
@@ -4059,25 +4054,6 @@ async function buildStopHookOutput(
       );
     }
 
-    if (isFinalHandoffDocumentRefreshCandidate(lastAssistantMessage)) {
-      const documentRefreshWarning = evaluateFinalHandoffDocumentRefresh(cwd, lastAssistantMessage);
-      if (documentRefreshWarning) {
-        return await maybeReturnRepeatableStopOutput(
-          payload,
-          stateDir,
-          buildRepeatableStopSignature(
-            payload,
-            "document-refresh-stop",
-            documentRefreshWarning.triggeringPaths.join("|"),
-            canonicalSessionId,
-          ),
-          buildDocumentRefreshAdvisoryOutput(documentRefreshWarning, "Stop"),
-          canonicalSessionId,
-          { allowRepeatDuringStopHook: false },
-        );
-      }
-    }
-
     return null;
   }
 
@@ -4085,7 +4061,7 @@ async function buildStopHookOutput(
   const blockingPath = formatStopStatePath(cwd, ralphState.path);
   const stopReason = `ralph_${currentPhase}`;
   const systemMessage =
-    `OMX Ralph is still active (phase: ${currentPhase}; state: ${blockingPath}); continue the task and gather fresh verification evidence before stopping.`;
+    `OWX Ralph is still active (phase: ${currentPhase}; state: ${blockingPath}); continue the task and gather fresh verification evidence before stopping.`;
 
   return await returnPersistentStopBlock(
     payload,
@@ -4111,19 +4087,19 @@ export async function dispatchCodexNativeHook(
   if (hookEventName === "Stop" && !hasNativeStopRuntimeSurface(cwd)) {
     return {
       hookEventName,
-      omxEventName: mapCodexHookEventToOmxEvent(hookEventName),
+      owxEventName: mapCodexHookEventToOmxEvent(hookEventName),
       skillState: null,
       outputJson: null,
     };
   }
   // Native hooks must use the same authoritative runtime state root as HUD/MCP
-  // when boxed/team roots are active; do not bypass it with cwd/.omx/state.
+  // when boxed/team roots are active; do not bypass it with cwd/.owx/state.
   const stateDir = getBaseStateDir(cwd);
   if (hookEventName !== "Stop") {
     await mkdir(stateDir, { recursive: true });
   }
 
-  const omxEventName = mapCodexHookEventToOmxEvent(hookEventName);
+  const owxEventName = mapCodexHookEventToOmxEvent(hookEventName);
   let skillState: SkillActiveState | null = null;
   let triageAdditionalContext: string | null = null;
   let goalWorkflowAdditionalContext: string | null = null;
@@ -4182,7 +4158,7 @@ export async function dispatchCodexNativeHook(
   }
 
   if (hookEventName === "Stop") {
-    const inheritedSessionId = safeString(process.env.OMX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
+    const inheritedSessionId = safeString(process.env.OWX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
     const stopCanonicalSessionId = await resolveInternalSessionIdForPayload(
       cwd,
       readPayloadSessionId(payload) || inheritedSessionId,
@@ -4233,7 +4209,7 @@ export async function dispatchCodexNativeHook(
     const prompt = readPromptText(payload);
     goalWorkflowAdditionalContext = await buildGoalWorkflowReconciliationPromptWarning(cwd, prompt).catch(() => null);
     ultragoalSteeringAdditionalContext = prompt && !isSubagentPromptSubmit
-      ? await applyUserPromptUltragoalSteering(cwd, prompt).catch((error) => `OMX native UserPromptSubmit rejected bounded .omx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${error instanceof Error ? error.message : String(error)}`)
+      ? await applyUserPromptUltragoalSteering(cwd, prompt).catch((error) => `OWX native UserPromptSubmit rejected bounded .owx/ultragoal steering for G002-cli-and-prompt-submit-bridge: ${error instanceof Error ? error.message : String(error)}`)
       : null;
     if (prompt && !isSubagentPromptSubmit) {
       skillState = buildNativeOutsideTmuxTeamPromptBlockState(
@@ -4269,7 +4245,7 @@ export async function dispatchCodexNativeHook(
             const effectiveTurnId = turnId || nowIso;
             if (decision.lane === "HEAVY") {
               triageAdditionalContext =
-                "OMX native UserPromptSubmit triage detected a multi-step goal with no workflow keyword. This is advisory prompt-routing context only; it did not activate autopilot or initialize workflow state. Prefer the existing autopilot-style workflow if AGENTS.md/runtime conditions allow it, unless newer user context narrows or opts out.";
+                "OWX native UserPromptSubmit triage detected a multi-step goal with no workflow keyword. This is advisory prompt-routing context only; it did not activate autopilot or initialize workflow state. Prefer the existing autopilot-style workflow if AGENTS.md/runtime conditions allow it, unless newer user context narrows or opts out.";
               const newState: TriageStateFile = {
                 version: 1,
                 last_triage: {
@@ -4286,16 +4262,16 @@ export async function dispatchCodexNativeHook(
             } else if (decision.lane === "LIGHT") {
               if (decision.destination === "explore") {
                 triageAdditionalContext =
-                  "OMX native UserPromptSubmit triage detected a read-only/question-shaped request with no workflow keyword. This is advisory prompt-routing context only. Prefer the explore role surface rather than escalating to autopilot.";
+                  "OWX native UserPromptSubmit triage detected a read-only/question-shaped request with no workflow keyword. This is advisory prompt-routing context only. Prefer the explore role surface rather than escalating to autopilot.";
               } else if (decision.destination === "executor") {
                 triageAdditionalContext =
-                  "OMX native UserPromptSubmit triage detected a narrow edit-shaped request with no workflow keyword. This is advisory prompt-routing context only. Prefer the executor role surface rather than autopilot.";
+                  "OWX native UserPromptSubmit triage detected a narrow edit-shaped request with no workflow keyword. This is advisory prompt-routing context only. Prefer the executor role surface rather than autopilot.";
               } else if (decision.destination === "designer") {
                 triageAdditionalContext =
-                  "OMX native UserPromptSubmit triage detected a visual/style request with no workflow keyword. This is advisory prompt-routing context only. Prefer the designer role surface.";
+                  "OWX native UserPromptSubmit triage detected a visual/style request with no workflow keyword. This is advisory prompt-routing context only. Prefer the designer role surface.";
               } else if (decision.destination === "researcher") {
                 triageAdditionalContext =
-                  "OMX native UserPromptSubmit triage detected an external documentation/reference research request with no workflow keyword. This is advisory prompt-routing context only. Prefer the researcher role surface rather than repo-local explore or autopilot.";
+                  "OWX native UserPromptSubmit triage detected an external documentation/reference research request with no workflow keyword. This is advisory prompt-routing context only. Prefer the researcher role surface rather than repo-local explore or autopilot.";
               }
               if (triageAdditionalContext !== null) {
                 const dest = decision.destination as "explore" | "executor" | "designer" | "researcher";
@@ -4322,7 +4298,7 @@ export async function dispatchCodexNativeHook(
         triageAdditionalContext = null;
       }
     }
-    const skipHudReconcileForDoctorSmoke = process.env.OMX_NATIVE_HOOK_DOCTOR_SMOKE === "1";
+    const skipHudReconcileForDoctorSmoke = process.env.OWX_NATIVE_HOOK_DOCTOR_SMOKE === "1";
     const skipHudReconcileForTeamWorkerPane = !isSubagentPromptSubmit
       && await isConfirmedTeamWorkerPromptSubmitPane(cwd).catch(() => false);
     if (!skipHudReconcileForDoctorSmoke && !skipHudReconcileForTeamWorkerPane) {
@@ -4342,17 +4318,17 @@ export async function dispatchCodexNativeHook(
     }
   }
 
-  if (omxEventName && !skipCanonicalSessionStartContext && !suppressNoisySubagentLifecycleDispatch) {
+  if (owxEventName && !skipCanonicalSessionStartContext && !suppressNoisySubagentLifecycleDispatch) {
     const baseContext = buildBaseContext(cwd, payload, hookEventName!, canonicalSessionId);
     if (resolvedNativeSessionId) {
       baseContext.native_session_id = resolvedNativeSessionId;
       baseContext.codex_session_id = resolvedNativeSessionId;
     }
     if (canonicalSessionId) {
-      baseContext.omx_session_id = canonicalSessionId;
+      baseContext.owx_session_id = canonicalSessionId;
     }
     const event: HookEventEnvelope = buildNativeHookEvent(
-      omxEventName,
+      owxEventName,
       baseContext,
       {
         session_id: eventSessionId,
@@ -4370,7 +4346,7 @@ export async function dispatchCodexNativeHook(
 
   if (hookEventName === "PreCompact") {
     // Codex native PreCompact currently accepts only the common continuation fields.
-    // Keep the OMX lifecycle dispatch above, but do not emit `hookSpecificOutput`
+    // Keep the OWX lifecycle dispatch above, but do not emit `hookSpecificOutput`
     // unless Codex defines a supported PreCompact output contract.
     buildWikiPreCompactContext({ cwd });
   } else if ((hookEventName === "SessionStart" && !skipCanonicalSessionStartContext) || hookEventName === "UserPromptSubmit") {
@@ -4419,28 +4395,28 @@ export async function dispatchCodexNativeHook(
 
   return {
     hookEventName,
-    omxEventName,
+    owxEventName,
     skillState,
     outputJson,
   };
 }
 
 function hasNativeStopRuntimeSurface(cwd: string): boolean {
-  if (existsSync(join(cwd, ".omx"))) return true;
+  if (existsSync(join(cwd, ".owx"))) return true;
   if (findGitLayout(cwd)) return true;
-  const omxRoot = safeString(process.env.OMX_ROOT).trim();
-  if (omxRoot && existsSync(join(omxRoot, ".omx"))) return true;
-  const stateRoot = safeString(process.env.OMX_STATE_ROOT).trim();
+  const owxRoot = safeString(process.env.OWX_ROOT).trim();
+  if (owxRoot && existsSync(join(owxRoot, ".owx"))) return true;
+  const stateRoot = safeString(process.env.OWX_STATE_ROOT).trim();
   if (stateRoot && existsSync(stateRoot)) return true;
   return [
-    process.env.OMX_SESSION_ID,
-    process.env.OMX_TEAM_INTERNAL_WORKER,
-    process.env.OMX_TEAM_WORKER,
-    process.env.OMX_TEAM_STATE_ROOT,
-    process.env.OMX_TEAM_LEADER_CWD,
-    process.env.OMX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD,
-    process.env.OMX_TMUX_HUD_OWNER,
-    process.env.OMX_TMUX_HUD_LEADER_PANE,
+    process.env.OWX_SESSION_ID,
+    process.env.OWX_TEAM_INTERNAL_WORKER,
+    process.env.OWX_TEAM_WORKER,
+    process.env.OWX_TEAM_STATE_ROOT,
+    process.env.OWX_TEAM_LEADER_CWD,
+    process.env.OWX_NOTIFY_HOOK_TRUSTED_MANAGED_CWD,
+    process.env.OWX_TMUX_HUD_OWNER,
+    process.env.OWX_TMUX_HUD_LEADER_PANE,
   ].some((value) => safeString(value).trim() !== "");
 }
 
@@ -4523,7 +4499,7 @@ function buildMalformedStdinHookOutput(
   cwd = process.cwd(),
 ): Record<string, unknown> {
   const reason =
-    "OMX native hook received malformed JSON input. Preserve runtime state, inspect the emitting hook payload yourself, and retry with valid JSON.";
+    "OWX native hook received malformed JSON input. Preserve runtime state, inspect the emitting hook payload yourself, and retry with valid JSON.";
   const systemMessage =
     `${reason} stdin JSON parsing failed inside codex-native-hook: ${parseError.message}.`;
   const inferredHookEventName = inferHookEventNameFromMalformedInput(rawInput);
@@ -4545,7 +4521,7 @@ function buildMalformedStdinHookOutput(
 async function buildOversizedStopActiveWorkflowOutput(cwd: string): Promise<Record<string, unknown> | null> {
   const currentSession = await readUsableSessionState(cwd);
   const currentSessionId = safeString(currentSession?.session_id).trim()
-    || safeString(process.env.OMX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
+    || safeString(process.env.OWX_SESSION_ID || process.env.CODEX_SESSION_ID).trim();
   if (!currentSessionId) return null;
 
   if (await readCanonicalTerminalRunStateForStop(cwd, currentSessionId, "autopilot")) return null;
@@ -4555,13 +4531,13 @@ async function buildOversizedStopActiveWorkflowOutput(cwd: string): Promise<Reco
 
   const phase = formatPhase(autopilotState.current_phase);
   const reason =
-    `OMX native Stop received oversized stdin before parsing while the current session has active OMX autopilot state (phase: ${phase}); continue once with a compact response or reduce hook payload size so normal Stop gates can run.`;
+    `OWX native Stop received oversized stdin before parsing while the current session has active OWX autopilot state (phase: ${phase}); continue once with a compact response or reduce hook payload size so normal Stop gates can run.`;
   return {
     decision: "block",
     reason,
     stopReason: "native_stop_stdin_oversized_active_workflow",
     systemMessage:
-      "OMX native Stop rejected oversized stdin before parsing; active current-session workflow state is present, so Stop is blocked instead of silently allowing termination.",
+      "OWX native Stop rejected oversized stdin before parsing; active current-session workflow state is present, so Stop is blocked instead of silently allowing termination.",
   };
 }
 
@@ -4573,7 +4549,7 @@ async function buildOversizedStdinHookOutput(
     return await buildOversizedStopActiveWorkflowOutput(cwd) ?? {};
   }
   const systemMessage =
-    `OMX native hook rejected oversized stdin JSON before parsing; maxBytes=${MAX_NATIVE_STDIN_JSON_BYTES}.`;
+    `OWX native hook rejected oversized stdin JSON before parsing; maxBytes=${MAX_NATIVE_STDIN_JSON_BYTES}.`;
   return {
     continue: false,
     stopReason: "native_hook_stdin_oversized",
@@ -4618,7 +4594,7 @@ async function logNativeHookCliError(
   payload: CodexHookPayload = {},
   details: Record<string, unknown> = {},
 ): Promise<void> {
-  const logsDir = join(cwd || process.cwd(), ".omx", "logs");
+  const logsDir = join(cwd || process.cwd(), ".owx", "logs");
   await mkdir(logsDir, { recursive: true }).catch(() => {});
   const logPath = join(logsDir, `native-hook-${new Date().toISOString().split("T")[0]}.jsonl`);
   await appendFile(
@@ -4638,19 +4614,19 @@ async function logNativeHookCliError(
 
 function isStopDispatchFailureTestTrigger(payload: CodexHookPayload): boolean {
   return process.env.NODE_ENV === "test"
-    && process.env.OMX_NATIVE_HOOK_TEST_THROW_STOP_DISPATCH === "1"
+    && process.env.OWX_NATIVE_HOOK_TEST_THROW_STOP_DISPATCH === "1"
     && readHookEventName(payload) === "Stop";
 }
 
 function isDispatchFailureTestTrigger(): boolean {
   return process.env.NODE_ENV === "test"
-    && process.env.OMX_NATIVE_HOOK_TEST_THROW_DISPATCH === "1";
+    && process.env.OWX_NATIVE_HOOK_TEST_THROW_DISPATCH === "1";
 }
 
 function buildStopDispatchFailureOutput(error: unknown): Record<string, unknown> {
   const detail = error instanceof Error ? error.message : String(error);
   const reason =
-    "OMX native Stop hook failed before normal continuation handling. Continue once more, preserve runtime state, inspect the hook logs, and retry with a valid Stop JSON response.";
+    "OWX native Stop hook failed before normal continuation handling. Continue once more, preserve runtime state, inspect the hook logs, and retry with a valid Stop JSON response.";
   return {
     decision: "block",
     reason,

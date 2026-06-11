@@ -1,11 +1,11 @@
 [workspace]
 members = [
-  "crates/omx-api",
-  "crates/omx-explore",
-  "crates/omx-mux",
-  "crates/omx-runtime-core",
-  "crates/omx-runtime",
-  "crates/omx-sparkshell",
+  "crates/owx-api",
+  "crates/owx-explore",
+  "crates/owx-mux",
+  "crates/owx-runtime-core",
+  "crates/owx-runtime",
+  "crates/owx-sparkshell",
 ]
 resolver = "2"
 
@@ -16,7 +16,7 @@ version = "0.18.11"
 edition = "2021"
 rust-version = "1.73"
 license = "MIT"
-repository = "https://github.com/Yeachan-Heo/oh-my-codex"
+repository = "https://github.com/kang-heewon/owen-codex"
 
 # The profile that 'dist' will build with
 [profile.dist]

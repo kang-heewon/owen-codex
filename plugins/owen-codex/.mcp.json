@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "owx_state": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "state"
+      ],
+      "enabled": false
+    },
+    "owx_memory": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "memory"
+      ],
+      "enabled": false
+    },
+    "owx_code_intel": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "code-intel"
+      ],
+      "enabled": false
+    },
+    "owx_trace": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "trace"
+      ],
+      "enabled": false
+    },
+    "owx_wiki": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "wiki"
+      ],
+      "enabled": false
+    },
+    "owx_hermes": {
+      "command": "owx",
+      "args": [
+        "mcp-serve",
+        "hermes"
+      ],
+      "enabled": false
+    }
+  }
+}

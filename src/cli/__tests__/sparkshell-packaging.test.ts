@@ -25,20 +25,20 @@ describe('sparkshell packaging scaffold', () => {
   it('registers native helper scripts but keeps staged native artifacts out of npm releases', () => {
     const packageJsonPath = join(process.cwd(), 'package.json');
     const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as PackageJson;
-    const binaryName = platform() === 'win32' ? 'omx-sparkshell.exe' : 'omx-sparkshell';
-    const stagedRoot = mkdtempSync(join(tmpdir(), 'omx-sparkshell-stage-'));
-    const fakeBin = mkdtempSync(join(tmpdir(), 'omx-sparkshell-cargo-'));
-    const npmCache = mkdtempSync(join(tmpdir(), 'omx-sparkshell-npm-cache-'));
+    const binaryName = platform() === 'win32' ? 'owx-sparkshell.exe' : 'owx-sparkshell';
+    const stagedRoot = mkdtempSync(join(tmpdir(), 'owx-sparkshell-stage-'));
+    const fakeBin = mkdtempSync(join(tmpdir(), 'owx-sparkshell-cargo-'));
+    const npmCache = mkdtempSync(join(tmpdir(), 'owx-sparkshell-npm-cache-'));
     const packagedBinaryRelativePath = join(`${platform()}-${arch()}`, binaryName);
     const packagedBinaryPath = join(stagedRoot, packagedBinaryRelativePath);
     const releaseBinaryPath = join(process.cwd(), 'target', 'release', binaryName);
     const originalReleaseBinary = existsSync(releaseBinaryPath) ? readFileSync(releaseBinaryPath) : null;
 
-    assert.deepEqual(pkg.bin, { omx: 'dist/cli/omx.js' });
+    assert.deepEqual(pkg.bin, { owx: 'dist/cli/owx.js' });
     assert.equal(pkg.scripts?.['build:sparkshell'], 'node dist/scripts/build-sparkshell.js');
     assert.equal(pkg.scripts?.['test:sparkshell'], 'node dist/scripts/test-sparkshell.js');
     assert.equal(pkg.files?.includes('dist/'), true, 'expected package files allowlist to include dist/');
-    assert.equal(pkg.files?.includes('!crates/**/.omx/**'), true, 'expected package files allowlist to exclude crate runtime caches');
+    assert.equal(pkg.files?.includes('!crates/**/.owx/**'), true, 'expected package files allowlist to exclude crate runtime caches');
     assert.equal(pkg.files?.includes('bin/'), false, 'did not expect broad bin/ allowlist in package files');
     assert.equal(pkg.files?.includes('bin/native/'), false, 'did not expect package files to include bin/native/');
     assert.equal(pkg.files?.includes('dist/'), true);
@@ -49,8 +49,8 @@ describe('sparkshell packaging scaffold', () => {
     const testScriptSource = readFileSync(testScriptPath, 'utf-8');
     assert.equal(existsSync(buildScriptPath), true, 'expected build sparkshell helper script to exist');
     assert.equal(existsSync(testScriptPath), true, 'expected test sparkshell helper script to exist');
-    assert.match(testScriptSource, /'crates', 'omx-sparkshell', 'Cargo\.toml'/);
-    assert.doesNotMatch(testScriptSource, /'native', 'omx-sparkshell', 'Cargo\.toml'/);
+    assert.match(testScriptSource, /'crates', 'owx-sparkshell', 'Cargo\.toml'/);
+    assert.doesNotMatch(testScriptSource, /'native', 'owx-sparkshell', 'Cargo\.toml'/);
 
     try {
       rmSync(packagedBinaryPath, { force: true });
@@ -62,8 +62,8 @@ describe('sparkshell packaging scaffold', () => {
           fakeCargoPath,
           [
             '@echo off',
-            'if not exist "%OMX_FAKE_RELEASE_DIR%" mkdir "%OMX_FAKE_RELEASE_DIR%"',
-            '> "%OMX_FAKE_RELEASE_BINARY%" echo fake sparkshell',
+            'if not exist "%OWX_FAKE_RELEASE_DIR%" mkdir "%OWX_FAKE_RELEASE_DIR%"',
+            '> "%OWX_FAKE_RELEASE_BINARY%" echo fake sparkshell',
             'exit /b 0',
             '',
           ].join('\r\n'),
@@ -73,9 +73,9 @@ describe('sparkshell packaging scaffold', () => {
           fakeCargoPath,
           [
             '#!/bin/sh',
-            'mkdir -p "$OMX_FAKE_RELEASE_DIR"',
-            'printf "%s\\n" "#!/bin/sh" "echo fake sparkshell" > "$OMX_FAKE_RELEASE_BINARY"',
-            'chmod +x "$OMX_FAKE_RELEASE_BINARY"',
+            'mkdir -p "$OWX_FAKE_RELEASE_DIR"',
+            'printf "%s\\n" "#!/bin/sh" "echo fake sparkshell" > "$OWX_FAKE_RELEASE_BINARY"',
+            'chmod +x "$OWX_FAKE_RELEASE_BINARY"',
             '',
           ].join('\n'),
         );
@@ -87,10 +87,10 @@ describe('sparkshell packaging scaffold', () => {
         encoding: 'utf-8',
         env: {
           ...process.env,
-          OMX_SPARKSHELL_MANIFEST: join(process.cwd(), 'crates', 'omx-sparkshell', 'Cargo.toml'),
-          OMX_SPARKSHELL_STAGE_DIR: stagedRoot,
-          OMX_FAKE_RELEASE_BINARY: releaseBinaryPath,
-          OMX_FAKE_RELEASE_DIR: dirname(releaseBinaryPath),
+          OWX_SPARKSHELL_MANIFEST: join(process.cwd(), 'crates', 'owx-sparkshell', 'Cargo.toml'),
+          OWX_SPARKSHELL_STAGE_DIR: stagedRoot,
+          OWX_FAKE_RELEASE_BINARY: releaseBinaryPath,
+          OWX_FAKE_RELEASE_DIR: dirname(releaseBinaryPath),
           PATH: `${fakeBin}${delimiter}${process.env.PATH || ''}`,
         },
       });

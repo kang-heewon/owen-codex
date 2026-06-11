@@ -47,7 +47,7 @@ async function readSessionMetadataFromBaseStateDir(baseStateDir: string): Promis
 }
 
 function readSessionIdFromEnvironment(): string | undefined {
-  for (const candidate of [process.env.OMX_SESSION_ID, process.env.CODEX_SESSION_ID, process.env.SESSION_ID]) {
+  for (const candidate of [process.env.OWX_SESSION_ID, process.env.CODEX_SESSION_ID, process.env.SESSION_ID]) {
     if (typeof candidate !== 'string') continue;
     const trimmed = candidate.trim();
     if (!trimmed) continue;

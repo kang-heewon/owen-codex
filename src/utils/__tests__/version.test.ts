@@ -8,7 +8,7 @@ import { resolveOmxDisplayVersionSync } from '../version.js';
 async function withVersionFixture(
   run: (fixture: { packageRoot: string; stampPath: string }) => Promise<void> | void,
 ): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), 'omx-version-fixture-'));
+  const root = await mkdtemp(join(tmpdir(), 'owx-version-fixture-'));
   try {
     await mkdir(join(root, 'pkg'), { recursive: true });
     await mkdir(join(root, 'state'), { recursive: true });
@@ -32,7 +32,7 @@ describe('resolveOmxDisplayVersionSync', () => {
         installed_version: '0.18.8',
         setup_completed_version: '0.18.8',
         install_channel: 'dev',
-        install_source: 'github:Yeachan-Heo/oh-my-codex#dev',
+        install_source: 'github:kang-heewon/owen-codex#dev',
         install_revision: 'abcdef1234567890',
         updated_at: '2026-06-02T00:00:00.000Z',
       }, null, 2));

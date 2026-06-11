@@ -33,9 +33,9 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, "..", "..", "..");
-  const omxBin = join(repoRoot, "dist", "cli", "omx.js");
+  const owxBin = join(repoRoot, "dist", "cli", "owx.js");
   const resolvedHome = envOverrides.HOME ?? process.env.HOME;
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: "utf-8",
     env: {
@@ -89,22 +89,22 @@ function hookCommands(entries: HookRegistration[] | undefined): string[] {
 function countManagedHooks(entries: HookRegistration[] | undefined): number {
   return hookCommands(entries).filter((command) =>
     command.includes("codex-native-hook.js")
-    || command.includes("omx-native-hook-windows-shim.ps1")
+    || command.includes("owx-native-hook-windows-shim.ps1")
   ).length;
 }
 
 function hasManagedHookCommand(command: string): boolean {
   return command.includes("codex-native-hook.js")
-    || command.includes("omx-native-hook-windows-shim.ps1");
+    || command.includes("owx-native-hook-windows-shim.ps1");
 }
 
 function cloneRegistration(entry: HookRegistration): HookRegistration {
   return structuredClone(entry) as HookRegistration;
 }
 
-describe("omx setup/uninstall shared ownership for native hooks", () => {
+describe("owx setup/uninstall shared ownership for native hooks", () => {
   it("setup merges managed wrappers into an existing user-owned hooks.json", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-setup-hooks-existing-user-file-"));
+    const wd = await mkdtemp(join(tmpdir(), "owx-setup-hooks-existing-user-file-"));
     try {
       const home = join(wd, "home");
       const codexDir = join(wd, ".codex");
@@ -165,8 +165,8 @@ describe("omx setup/uninstall shared ownership for native hooks", () => {
     }
   });
 
-  it("setup preserves user hooks while deduping stale OMX wrappers", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-setup-hooks-ownership-"));
+  it("setup preserves user hooks while deduping stale OWX wrappers", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "owx-setup-hooks-ownership-"));
     try {
       const home = join(wd, "home");
       await mkdir(home, { recursive: true });
@@ -183,7 +183,7 @@ describe("omx setup/uninstall shared ownership for native hooks", () => {
       const staleManagedSessionStart = cloneRegistration(generatedSessionStart[0]!);
       if (staleManagedSessionStart.hooks?.[0]) {
         staleManagedSessionStart.hooks[0].command = 'node "/tmp/old/codex-native-hook.js"';
-        staleManagedSessionStart.hooks[0].statusMessage = "stale omx wrapper";
+        staleManagedSessionStart.hooks[0].statusMessage = "stale owx wrapper";
       }
 
       await writeHooksJson(hooksPath, {
@@ -237,8 +237,8 @@ describe("omx setup/uninstall shared ownership for native hooks", () => {
     }
   });
 
-  it("uninstall removes only OMX-managed wrappers and preserves user hook content", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "omx-uninstall-hooks-ownership-"));
+  it("uninstall removes only OWX-managed wrappers and preserves user hook content", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "owx-uninstall-hooks-ownership-"));
     try {
       const home = join(wd, "home");
       await mkdir(home, { recursive: true });
@@ -278,7 +278,7 @@ describe("omx setup/uninstall shared ownership for native hooks", () => {
       assert.equal(
         allCommands.some(hasManagedHookCommand),
         false,
-        "uninstall should strip only OMX-managed wrappers",
+        "uninstall should strip only OWX-managed wrappers",
       );
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");

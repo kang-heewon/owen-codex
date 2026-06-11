@@ -15,16 +15,16 @@ import {
 
 const CURRENT_SESSION_PROCESSES: ProcessEntry[] = [
   { pid: 700, ppid: 500, command: 'codex' },
-  { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js cleanup --dry-run' },
+  { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js cleanup --dry-run' },
   {
     pid: 710,
     ppid: 700,
-    command: 'node /repo/oh-my-codex/dist/mcp/state-server.js',
+    command: 'node /repo/owen-codex/dist/mcp/state-server.js',
   },
   {
     pid: 800,
     ppid: 1,
-    command: 'node /tmp/oh-my-codex/dist/mcp/memory-server.js',
+    command: 'node /tmp/owen-codex/dist/mcp/memory-server.js',
   },
   {
     pid: 810,
@@ -44,7 +44,7 @@ const CURRENT_SESSION_PROCESSES: ProcessEntry[] = [
   {
     pid: 830,
     ppid: 50,
-    command: 'node /repo/bin/omx.js autoresearch --topic launch',
+    command: 'node /repo/bin/owx.js autoresearch --topic launch',
   },
   {
     pid: 831,
@@ -54,43 +54,43 @@ const CURRENT_SESSION_PROCESSES: ProcessEntry[] = [
   {
     pid: 900,
     ppid: 1,
-    command: 'node /tmp/not-omx/other-server.js',
+    command: 'node /tmp/not-owx/other-server.js',
   },
 ];
 
 describe('findCleanupCandidates', () => {
-  it('does not treat legacy team-server entrypoints as active OMX MCP processes', () => {
+  it('does not treat legacy team-server entrypoints as active OWX MCP processes', () => {
     assert.equal(isOmxMcpProcess('node /tmp/worktree/dist/mcp/team-server.js'), false);
   });
 
   it('extracts first-party MCP entrypoints for duplicate grouping', () => {
     assert.equal(
-      extractOmxMcpEntrypoint('node /repo/oh-my-codex/dist/mcp/state-server.js'),
+      extractOmxMcpEntrypoint('node /repo/owen-codex/dist/mcp/state-server.js'),
       'state-server.js',
     );
     assert.equal(
-      extractOmxMcpEntrypoint('node C:\\repo\\oh-my-codex\\dist\\mcp\\code-intel-server.cjs'),
+      extractOmxMcpEntrypoint('node C:\\repo\\owen-codex\\dist\\mcp\\code-intel-server.cjs'),
       'code-intel-server.cjs',
     );
     assert.equal(extractOmxMcpEntrypoint('node /tmp/worktree/dist/mcp/team-server.js'), null);
     assert.equal(
-      extractOmxMcpEntrypoint('node /repo/dist/cli/omx.js mcp-serve state'),
+      extractOmxMcpEntrypoint('node /repo/dist/cli/owx.js mcp-serve state'),
       'state-server.js',
     );
     assert.equal(
-      extractOmxMcpEntrypoint('omx mcp-serve code-intel'),
+      extractOmxMcpEntrypoint('owx mcp-serve code-intel'),
       'code-intel-server.js',
     );
   });
 
-  it('selects orphaned OMX MCP processes while preserving the current session tree', () => {
+  it('selects orphaned OWX MCP processes while preserving the current session tree', () => {
     assert.deepEqual(
       findCleanupCandidates(CURRENT_SESSION_PROCESSES, 701),
       [
         {
           pid: 800,
           ppid: 1,
-          command: 'node /tmp/oh-my-codex/dist/mcp/memory-server.js',
+          command: 'node /tmp/owen-codex/dist/mcp/memory-server.js',
           reason: 'ppid=1',
         },
         {
@@ -115,14 +115,14 @@ describe('findCleanupCandidates', () => {
     );
   });
 
-  it('limits launch-safe cleanup to OMX MCP processes with no live Codex or OMX launch ancestor', () => {
+  it('limits launch-safe cleanup to OWX MCP processes with no live Codex or OWX launch ancestor', () => {
     assert.deepEqual(
       findLaunchSafeCleanupCandidates(CURRENT_SESSION_PROCESSES, 701),
       [
         {
           pid: 800,
           ppid: 1,
-          command: 'node /tmp/oh-my-codex/dist/mcp/memory-server.js',
+          command: 'node /tmp/owen-codex/dist/mcp/memory-server.js',
           reason: 'ppid=1',
         },
         {
@@ -138,21 +138,21 @@ describe('findCleanupCandidates', () => {
   it('selects older duplicate siblings under a reused current Codex parent', () => {
     const reusedParentProcesses: ProcessEntry[] = [
       { pid: 700, ppid: 500, command: 'codex app-server' },
-      { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js cleanup --dry-run' },
+      { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js cleanup --dry-run' },
       {
         pid: 710,
         ppid: 700,
-        command: 'node /repo/oh-my-codex/dist/mcp/state-server.js',
+        command: 'node /repo/owen-codex/dist/mcp/state-server.js',
       },
       {
         pid: 730,
         ppid: 700,
-        command: 'node /repo/oh-my-codex/dist/mcp/state-server.js',
+        command: 'node /repo/owen-codex/dist/mcp/state-server.js',
       },
       {
         pid: 740,
         ppid: 700,
-        command: 'node /repo/oh-my-codex/dist/mcp/memory-server.js',
+        command: 'node /repo/owen-codex/dist/mcp/memory-server.js',
       },
     ];
 
@@ -160,7 +160,7 @@ describe('findCleanupCandidates', () => {
       {
         pid: 710,
         ppid: 700,
-        command: 'node /repo/oh-my-codex/dist/mcp/state-server.js',
+        command: 'node /repo/owen-codex/dist/mcp/state-server.js',
         reason: 'duplicate-sibling',
       },
     ]);
@@ -168,7 +168,7 @@ describe('findCleanupCandidates', () => {
       {
         pid: 710,
         ppid: 700,
-        command: 'node /repo/oh-my-codex/dist/mcp/state-server.js',
+        command: 'node /repo/owen-codex/dist/mcp/state-server.js',
         reason: 'duplicate-sibling',
       },
     ]);
@@ -178,49 +178,49 @@ describe('findCleanupCandidates', () => {
   it('keeps live-session MCPs protected, including duplicate siblings', () => {
     const processes: ProcessEntry[] = [
       { pid: 700, ppid: 500, command: 'codex app-server' },
-      { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js cleanup --dry-run' },
+      { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js cleanup --dry-run' },
       { pid: 710, ppid: 700, command: 'node /repo/dist/mcp/state-server.js' },
       { pid: 711, ppid: 700, command: 'node /repo/dist/mcp/state-server.js' },
       { pid: 720, ppid: 700, command: 'node /repo/dist/mcp/wiki-server.js' },
       { pid: 900, ppid: 800, command: 'codex --model gpt-5' },
       { pid: 901, ppid: 900, command: 'node /repo/dist/mcp/trace-server.js' },
-      { pid: 910, ppid: 900, command: 'node /repo/dist/cli/omx.js mcp-serve state' },
-      { pid: 911, ppid: 900, command: 'node /repo/dist/cli/omx.js mcp-serve state' },
+      { pid: 910, ppid: 900, command: 'node /repo/dist/cli/owx.js mcp-serve state' },
+      { pid: 911, ppid: 900, command: 'node /repo/dist/cli/owx.js mcp-serve state' },
     ];
 
     assert.deepEqual(findLaunchSafeCleanupCandidates(processes, 701), []);
   });
 
-  it('reaps plugin-launched omx mcp-serve orphans during launch-safe cleanup', () => {
+  it('reaps plugin-launched owx mcp-serve orphans during launch-safe cleanup', () => {
     const processes: ProcessEntry[] = [
       { pid: 700, ppid: 500, command: 'codex app-server' },
-      { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js cleanup --launch-safe' },
-      { pid: 820, ppid: 1, command: 'node /repo/dist/cli/omx.js mcp-serve state' },
-      { pid: 821, ppid: 42, command: 'omx mcp-serve code-intel' },
-      { pid: 830, ppid: 700, command: 'node /repo/dist/cli/omx.js mcp-serve memory' },
+      { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js cleanup --launch-safe' },
+      { pid: 820, ppid: 1, command: 'node /repo/dist/cli/owx.js mcp-serve state' },
+      { pid: 821, ppid: 42, command: 'owx mcp-serve code-intel' },
+      { pid: 830, ppid: 700, command: 'node /repo/dist/cli/owx.js mcp-serve memory' },
     ];
 
     assert.deepEqual(findLaunchSafeCleanupCandidates(processes, 701), [
       {
         pid: 820,
         ppid: 1,
-        command: 'node /repo/dist/cli/omx.js mcp-serve state',
+        command: 'node /repo/dist/cli/owx.js mcp-serve state',
         reason: 'ppid=1',
       },
       {
         pid: 821,
         ppid: 42,
-        command: 'omx mcp-serve code-intel',
+        command: 'owx mcp-serve code-intel',
         reason: 'outside-current-session',
       },
     ]);
   });
 
-  it('preserves same-parent first-party MCP siblings under live Codex and OMX ancestors during launch-safe cleanup', () => {
+  it('preserves same-parent first-party MCP siblings under live Codex and OWX ancestors during launch-safe cleanup', () => {
     const processes: ProcessEntry[] = [
       { pid: 100, ppid: 1, command: 'codex app-server' },
-      { pid: 110, ppid: 100, command: 'node /repo/bin/omx.js launch' },
-      { pid: 111, ppid: 110, command: 'node /repo/bin/omx.js cleanup --launch-safe' },
+      { pid: 110, ppid: 100, command: 'node /repo/bin/owx.js launch' },
+      { pid: 111, ppid: 110, command: 'node /repo/bin/owx.js cleanup --launch-safe' },
       { pid: 120, ppid: 100, command: 'node /repo/dist/mcp/state-server.js' },
       { pid: 121, ppid: 100, command: 'node /repo/dist/mcp/state-server.js' },
       { pid: 130, ppid: 110, command: 'node /repo/dist/mcp/memory-server.js' },
@@ -244,9 +244,9 @@ describe('findCleanupCandidates', () => {
     assert.deepEqual(findLaunchSafeCleanupCandidates(processes, 111), []);
   });
 
-  it('keeps detached MCP candidates whose ancestor chain is live but unrelated to Codex or OMX launchers', () => {
+  it('keeps detached MCP candidates whose ancestor chain is live but unrelated to Codex or OWX launchers', () => {
     const unrelatedAncestorProcesses: ProcessEntry[] = [
-      { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js' },
+      { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js' },
       { pid: 840, ppid: 841, command: 'node /tmp/unrelated/dist/mcp/state-server.js' },
       { pid: 841, ppid: 842, command: 'node worker.js' },
       { pid: 842, ppid: 1, command: 'bash' },
@@ -265,7 +265,7 @@ describe('findCleanupCandidates', () => {
   it('always preserves ppid=1 orphan candidates even if pid 1 matches a protected ancestor predicate', () => {
     const reparentedProcesses: ProcessEntry[] = [
       { pid: 1, ppid: 0, command: 'codex' },
-      { pid: 701, ppid: 700, command: 'node /repo/bin/omx.js' },
+      { pid: 701, ppid: 700, command: 'node /repo/bin/owx.js' },
       { pid: 840, ppid: 1, command: 'node /tmp/reparented/dist/mcp/state-server.js' },
     ];
 
@@ -286,12 +286,12 @@ describe('listOmxProcesses', () => {
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
     try {
       const processes = listOmxProcesses(() => [
-        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/oh-my-codex/dist/mcp/state-server.js' }),
-        JSON.stringify({ pid: 810, ppid: 42, command: 'node C:/tmp/oh-my-codex/dist/mcp/trace-server.js' }),
+        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/owen-codex/dist/mcp/state-server.js' }),
+        JSON.stringify({ pid: 810, ppid: 42, command: 'node C:/tmp/owen-codex/dist/mcp/trace-server.js' }),
       ].join('\n'));
       assert.deepEqual(processes, [
-        { pid: 800, ppid: 1, command: 'node C:/tmp/oh-my-codex/dist/mcp/state-server.js' },
-        { pid: 810, ppid: 42, command: 'node C:/tmp/oh-my-codex/dist/mcp/trace-server.js' },
+        { pid: 800, ppid: 1, command: 'node C:/tmp/owen-codex/dist/mcp/state-server.js' },
+        { pid: 810, ppid: 42, command: 'node C:/tmp/owen-codex/dist/mcp/trace-server.js' },
       ]);
     } finally {
       if (originalPlatform) Object.defineProperty(process, 'platform', originalPlatform);
@@ -303,14 +303,14 @@ describe('listOmxProcesses', () => {
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
     try {
       const processes = listOmxProcesses(() => [
-        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/oh-my-codex/dist/mcp/state-server.js' }),
+        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/owen-codex/dist/mcp/state-server.js' }),
         JSON.stringify({ pid: 'abc', ppid: 1, command: 'node malformed.js' }),
         JSON.stringify({ pid: 901, ppid: -1, command: 'node malformed.js' }),
         JSON.stringify({ pid: 902, ppid: 20, command: '   ' }),
         '{bad json',
       ].join('\n'));
       assert.deepEqual(processes, [
-        { pid: 800, ppid: 1, command: 'node C:/tmp/oh-my-codex/dist/mcp/state-server.js' },
+        { pid: 800, ppid: 1, command: 'node C:/tmp/owen-codex/dist/mcp/state-server.js' },
       ]);
     } finally {
       if (originalPlatform) Object.defineProperty(process, 'platform', originalPlatform);
@@ -326,14 +326,14 @@ describe('listOmxProcesses', () => {
       }
       assert.deepEqual(args, ['axww', '-o', 'pid=,ppid=,args=']);
       return [
-        '  800     1 node /tmp/oh-my-codex/dist/mcp/memory-server.js',
-        '  810    42 node /tmp/oh-my-codex/dist/mcp/trace-server.js --verbose',
+        '  800     1 node /tmp/owen-codex/dist/mcp/memory-server.js',
+        '  810    42 node /tmp/owen-codex/dist/mcp/trace-server.js --verbose',
       ].join('\n');
     });
 
     assert.deepEqual(processes, [
-      { pid: 800, ppid: 1, command: 'node /tmp/oh-my-codex/dist/mcp/memory-server.js' },
-      { pid: 810, ppid: 42, command: 'node /tmp/oh-my-codex/dist/mcp/trace-server.js --verbose' },
+      { pid: 800, ppid: 1, command: 'node /tmp/owen-codex/dist/mcp/memory-server.js' },
+      { pid: 810, ppid: 42, command: 'node /tmp/owen-codex/dist/mcp/trace-server.js --verbose' },
     ]);
     assert.deepEqual(calls, [
       { file: 'ps', args: ['axww', '-o', 'pid=,ppid=,command='] },
@@ -356,18 +356,18 @@ describe('listOmxProcesses', () => {
     try {
       const parsed = listOmxProcesses(() => [
         JSON.stringify({ pid: 700, ppid: 500, command: 'codex' }),
-        JSON.stringify({ pid: 701, ppid: 700, command: 'node C:/repo/bin/omx.js cleanup --dry-run' }),
+        JSON.stringify({ pid: 701, ppid: 700, command: 'node C:/repo/bin/owx.js cleanup --dry-run' }),
         JSON.stringify({ pid: 710, ppid: 700, command: 'node C:/repo/dist/mcp/state-server.js' }),
-        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/oh-my-codex/dist/mcp/memory-server.js' }),
+        JSON.stringify({ pid: 800, ppid: 1, command: 'node C:/tmp/owen-codex/dist/mcp/memory-server.js' }),
         JSON.stringify({ pid: 810, ppid: 42, command: 'node C:/tmp/worktree/dist/mcp/trace-server.js' }),
-        JSON.stringify({ pid: 900, ppid: 1, command: 'node C:/tmp/not-omx/other-server.js' }),
+        JSON.stringify({ pid: 900, ppid: 1, command: 'node C:/tmp/not-owx/other-server.js' }),
       ].join('\n'));
 
       assert.deepEqual(findCleanupCandidates(parsed, 701), [
         {
           pid: 800,
           ppid: 1,
-          command: 'node C:/tmp/oh-my-codex/dist/mcp/memory-server.js',
+          command: 'node C:/tmp/owen-codex/dist/mcp/memory-server.js',
           reason: 'ppid=1',
         },
         {
@@ -400,7 +400,7 @@ describe('cleanupOmxMcpProcesses', () => {
     assert.equal(result.dryRun, true);
     assert.equal(result.candidates.length, 4);
     assert.equal(signalCount, 0);
-    assert.match(lines.join('\n'), /Dry run: would terminate 4 orphaned OMX MCP server process/);
+    assert.match(lines.join('\n'), /Dry run: would terminate 4 orphaned OWX MCP server process/);
     assert.match(lines.join('\n'), /PID 800/);
     assert.match(lines.join('\n'), /PID 810/);
   });
@@ -438,7 +438,7 @@ describe('cleanupOmxMcpProcesses', () => {
       { pid: 810, signal: 'SIGKILL' },
     ]);
     assert.match(lines.join('\n'), /Escalating to SIGKILL for 1 process/);
-    assert.match(lines.join('\n'), /Killed 2 orphaned OMX MCP server process\(es\) \(1 required SIGKILL\)\./);
+    assert.match(lines.join('\n'), /Killed 2 orphaned OWX MCP server process\(es\) \(1 required SIGKILL\)\./);
   });
 
   it('supports launch-safe candidate selection for automatic cleanup', async () => {
@@ -461,7 +461,7 @@ describe('cleanupOmxMcpProcesses', () => {
       {
         pid: 800,
         ppid: 1,
-        command: 'node /tmp/oh-my-codex/dist/mcp/memory-server.js',
+        command: 'node /tmp/owen-codex/dist/mcp/memory-server.js',
         reason: 'ppid=1',
       },
       {
@@ -475,7 +475,7 @@ describe('cleanupOmxMcpProcesses', () => {
       { pid: 800, signal: 'SIGTERM' },
       { pid: 810, signal: 'SIGTERM' },
     ]);
-    assert.match(lines.join('\n'), /Found 2 orphaned OMX MCP server process/);
+    assert.match(lines.join('\n'), /Found 2 orphaned OWX MCP server process/);
     assert.doesNotMatch(lines.join('\n'), /PID 821/);
     assert.doesNotMatch(lines.join('\n'), /PID 831/);
   });
@@ -483,10 +483,10 @@ describe('cleanupOmxMcpProcesses', () => {
 
 describe('cleanupStaleTmpDirectories', () => {
   const tmpEntries = [
-    { name: 'omx-stale-a', isDirectory: () => true },
+    { name: 'owx-stale-a', isDirectory: () => true },
     { name: 'omc-stale-b', isDirectory: () => true },
-    { name: 'oh-my-codex-fresh', isDirectory: () => true },
-    { name: 'oh-my-codex-file', isDirectory: () => false },
+    { name: 'owen-codex-fresh', isDirectory: () => true },
+    { name: 'owen-codex-file', isDirectory: () => false },
     { name: 'other-stale', isDirectory: () => true },
   ];
 
@@ -500,7 +500,7 @@ describe('cleanupStaleTmpDirectories', () => {
       listTmpEntries: async () => tmpEntries,
       statPath: async (path) => ({
         mtimeMs:
-          path === '/tmp/oh-my-codex-fresh'
+          path === '/tmp/owen-codex-fresh'
             ? now - 30 * 60 * 1000
             : now - 2 * 60 * 60 * 1000,
       }),
@@ -515,11 +515,11 @@ describe('cleanupStaleTmpDirectories', () => {
     assert.deepEqual(removedPaths, []);
     assert.match(
       lines.join('\n'),
-      /Dry run: would remove 2 stale OMX \/tmp directories:/,
+      /Dry run: would remove 2 stale OWX \/tmp directories:/,
     );
     assert.match(lines.join('\n'), /\/tmp\/omc-stale-b/);
-    assert.match(lines.join('\n'), /\/tmp\/omx-stale-a/);
-    assert.doesNotMatch(lines.join('\n'), /oh-my-codex-fresh/);
+    assert.match(lines.join('\n'), /\/tmp\/owx-stale-a/);
+    assert.doesNotMatch(lines.join('\n'), /owen-codex-fresh/);
     assert.doesNotMatch(lines.join('\n'), /other-stale/);
   });
 
@@ -533,7 +533,7 @@ describe('cleanupStaleTmpDirectories', () => {
       listTmpEntries: async () => tmpEntries,
       statPath: async (path) => ({
         mtimeMs:
-          path === '/tmp/oh-my-codex-fresh'
+          path === '/tmp/owen-codex-fresh'
             ? now - 30 * 60 * 1000
             : now - 2 * 60 * 60 * 1000,
       }),
@@ -545,10 +545,10 @@ describe('cleanupStaleTmpDirectories', () => {
     });
 
     assert.equal(removedCount, 2);
-    assert.deepEqual(removedPaths, ['/tmp/omc-stale-b', '/tmp/omx-stale-a']);
+    assert.deepEqual(removedPaths, ['/tmp/omc-stale-b', '/tmp/owx-stale-a']);
     assert.match(lines.join('\n'), /Removed stale \/tmp directory: \/tmp\/omc-stale-b/);
-    assert.match(lines.join('\n'), /Removed stale \/tmp directory: \/tmp\/omx-stale-a/);
-    assert.match(lines.join('\n'), /Removed 2 stale OMX \/tmp directories\./);
+    assert.match(lines.join('\n'), /Removed stale \/tmp directory: \/tmp\/owx-stale-a/);
+    assert.match(lines.join('\n'), /Removed 2 stale OWX \/tmp directories\./);
   });
 });
 

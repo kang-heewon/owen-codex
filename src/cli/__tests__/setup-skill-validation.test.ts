@@ -8,11 +8,11 @@ import { installSkills, parseSkillFrontmatter } from '../setup.js';
 
 describe('skill frontmatter validation', () => {
   it('accepts valid SKILL.md frontmatter with quoted values and nested metadata', () => {
-    const content = `---\nname: ask\ndescription: "Guide on using oh-my-codex plugin"\nmetadata:\n  short-description: Quick help\n---\n\n# Help\n`;
+    const content = `---\nname: ask\ndescription: "Guide on using owen-codex plugin"\nmetadata:\n  short-description: Quick help\n---\n\n# Help\n`;
 
     assert.deepEqual(parseSkillFrontmatter(content), {
       name: 'ask',
-      description: 'Guide on using oh-my-codex plugin',
+      description: 'Guide on using owen-codex plugin',
     });
   });
 
@@ -35,9 +35,9 @@ describe('skill frontmatter validation', () => {
   });
 });
 
-describe('omx setup skill validation', () => {
+describe('owx setup skill validation', () => {
   it('fails before installing a malformed shipped-style SKILL.md', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'omx-setup-skill-validation-'));
+    const root = await mkdtemp(join(tmpdir(), 'owx-setup-skill-validation-'));
     const srcDir = join(root, 'src-skills');
     const dstDir = join(root, 'dst-skills');
     const skillDir = join(srcDir, 'ask');

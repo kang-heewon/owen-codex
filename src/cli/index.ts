@@ -1,5 +1,5 @@
 /**
- * oh-my-codex CLI
+ * owen-codex CLI
  * Multi-agent orchestration for OpenAI Codex CLI
  */
 
@@ -126,12 +126,12 @@ import {
   mitigateCopyModeUnderlineArtifacts,
 } from "../team/tmux-session.js";
 import { getPackageRoot } from "../utils/package.js";
-import { codexConfigPath, omxRoot, rememberOmxLaunchContext, resolveOmxCliEntryPath } from "../utils/paths.js";
+import { codexConfigPath, owxRoot, rememberOmxLaunchContext, resolveOmxCliEntryPath } from "../utils/paths.js";
 import { cleanCodexModelAvailabilityNuxIfNeeded, extractSharedMcpRegistryServersFromConfig, repairConfigIfNeeded, repairProjectScopeTrustStateForLaunch, syncProjectScopeTrustStateFromRuntime } from "../config/generator.js";
 import type { UnifiedMcpRegistryServer } from "../config/mcp-registry.js";
-import { OMX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/omx-first-party-mcp.js";
+import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
 import { HUD_TMUX_HEIGHT_LINES, HUD_TMUX_MIN_LAUNCH_WINDOW_HEIGHT_LINES, isTmuxWindowTooCrampedForHudSplit } from "../hud/constants.js";
-import { OMX_TMUX_HUD_OWNER_ENV } from "../hud/reconcile.js";
+import { OWX_TMUX_HUD_OWNER_ENV } from "../hud/reconcile.js";
 import { readUltragoalState } from "../hud/state.js";
 import {
   createHudWatchPane as createSharedHudWatchPane,
@@ -142,7 +142,7 @@ import {
   parsePaneIdFromTmuxOutput,
   reapDeadHudPanes,
   registerHudResizeHook,
-  OMX_TMUX_HUD_LEADER_PANE_ENV,
+  OWX_TMUX_HUD_LEADER_PANE_ENV,
   type RegisterHudResizeHookOptions,
   readCurrentWindowSize,
   resizeTmuxPane,
@@ -171,7 +171,7 @@ import {
 } from "../team/worktree.js";
 import { ensureReusableNodeModules } from "../utils/repo-deps.js";
 import {
-  OMX_NOTIFY_TEMP_CONTRACT_ENV,
+  OWX_NOTIFY_TEMP_CONTRACT_ENV,
   parseNotifyTempContractFromArgs,
   serializeNotifyTempContract,
   type NotifyTempContract,
@@ -197,73 +197,73 @@ function resolveDistScript(pkgRoot: string, scriptName: string): string {
 }
 
 export const HELP = `
-oh-my-codex (omx) - Multi-agent orchestration for Codex CLI
+owen-codex (owx) - Multi-agent orchestration for Codex CLI
 
 Usage:
-  omx           Launch Codex CLI (detached tmux by default on supported interactive terminals)
-  omx exec      Run codex exec non-interactively with OMX AGENTS/overlay injection
-  omx exec inject <session-id> --prompt <text>
+  owx           Launch Codex CLI (detached tmux by default on supported interactive terminals)
+  owx exec      Run codex exec non-interactively with OWX AGENTS/overlay injection
+  owx exec inject <session-id> --prompt <text>
                 Queue audited follow-up instructions for a running non-interactive exec job
-  omx imagegen continuation <session-id> --artifact <name>
+  owx imagegen continuation <session-id> --artifact <name>
                 Queue a Stop-hook continuation for built-in image generation turns
-  omx setup     Install skills, prompts, CLI-first config, and scope-specific AGENTS.md
+  owx setup     Install skills, prompts, CLI-first config, and scope-specific AGENTS.md
                 (user scope prompts for legacy vs plugin skill delivery when needed)
-  omx update    Install the stable channel now, then refresh setup
-  omx update --stable
-                Install/rollback to npm stable (oh-my-codex@latest), then refresh setup
-  omx update --dev
+  owx update    Install the stable channel now, then refresh setup
+  owx update --stable
+                Install/rollback to npm stable (owen-codex@latest), then refresh setup
+  owx update --dev
                 Install the upstream dev branch, then refresh setup
-  omx uninstall Remove OMX configuration and clean up installed artifacts
-  omx doctor    Check installation health
-  omx list      List packaged OMX skills and native agent prompts (--json)
-  omx cleanup   Kill orphaned OMX MCP server processes and remove stale OMX /tmp directories
-  omx doctor --team  Check team/swarm runtime health diagnostics
-  omx ask       Ask local provider CLI (claude|gemini) and write artifact output
-  omx auth      Manage Codex OAuth auth slots (add|list|use)
-  omx question  OMX-owned blocking question UI entrypoint for agent-invoked user questions
-  omx adapt     Scaffold OMX-owned adapter foundations for persistent external targets
-  omx resume    Resume a previous interactive Codex session
-  omx explore   DEPRECATED compatibility command; use normal repo inspection or omx sparkshell
-  omx api       Run native omx-api localhost gateway commands (serve|status|stop|generate)
-  omx session   Search prior local session transcripts and history artifacts
-  omx agents-init [path]
+  owx uninstall Remove OWX configuration and clean up installed artifacts
+  owx doctor    Check installation health
+  owx list      List packaged OWX skills and native agent prompts (--json)
+  owx cleanup   Kill orphaned OWX MCP server processes and remove stale OWX /tmp directories
+  owx doctor --team  Check team/swarm runtime health diagnostics
+  owx ask       Ask local provider CLI (claude|gemini) and write artifact output
+  owx auth      Manage Codex OAuth auth slots (add|list|use)
+  owx question  OWX-owned blocking question UI entrypoint for agent-invoked user questions
+  owx adapt     Scaffold OWX-owned adapter foundations for persistent external targets
+  owx resume    Resume a previous interactive Codex session
+  owx explore   DEPRECATED compatibility command; use normal repo inspection or owx sparkshell
+  owx api       Run native owx-api localhost gateway commands (serve|status|stop|generate)
+  owx session   Search prior local session transcripts and history artifacts
+  owx agents-init [path]
                 Bootstrap lightweight AGENTS.md files for a repo/subtree
-  omx agents    Manage Codex native agent TOML files
-  omx deepinit [path]
+  owx agents    Manage Codex native agent TOML files
+  owx deepinit [path]
                 Alias for agents-init (lightweight AGENTS bootstrap only)
-  omx team      Spawn parallel worker panes in tmux and bootstrap inbox/task state
-  omx ralph     Launch Codex with ralph persistence mode active
-  omx ultragoal Create, resume, and checkpoint durable multi-goal plans over Codex goal mode
-  omx performance-goal
+  owx team      Spawn parallel worker panes in tmux and bootstrap inbox/task state
+  owx ralph     Launch Codex with ralph persistence mode active
+  owx ultragoal Create, resume, and checkpoint durable multi-goal plans over Codex goal mode
+  owx performance-goal
                 Create, hand off, and gate evaluator-backed performance goals
-  omx autoresearch-goal
+  owx autoresearch-goal
                 Create, hand off, and gate professor-critic research goals
-  omx autoresearch [DEPRECATED] Use $autoresearch; direct CLI launch removed
-  omx version   Show version information
-  omx tmux-hook Manage tmux prompt injection workaround (init|status|validate|test)
-  omx hooks     Manage hook plugins (init|status|validate|test)
-  omx hud       Show HUD statusline (--watch, --json, --preset=NAME)
-  omx sidecar   Show read-only team/multi-agent visualization (--watch, --json, --tmux)
-  omx state     Read/write/list OMX mode state via CLI parity surface
-  omx notepad   JSON CLI surface for OMX notepad operations
-  omx project-memory
-                JSON CLI surface for OMX project-memory operations
-  omx trace     JSON CLI surface for OMX trace operations
-  omx code-intel
-                JSON CLI surface for OMX code-intel operations
-  omx wiki      JSON CLI surface for OMX wiki operations
-  omx mcp-serve Launch an OMX stdio MCP server target (plugin/runtime use)
-  omx sparkshell <command> [args...]
-  omx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]
+  owx autoresearch [DEPRECATED] Use $autoresearch; direct CLI launch removed
+  owx version   Show version information
+  owx tmux-hook Manage tmux prompt injection workaround (init|status|validate|test)
+  owx hooks     Manage hook plugins (init|status|validate|test)
+  owx hud       Show HUD statusline (--watch, --json, --preset=NAME)
+  owx sidecar   Show read-only team/multi-agent visualization (--watch, --json, --tmux)
+  owx state     Read/write/list OWX mode state via CLI parity surface
+  owx notepad   JSON CLI surface for OWX notepad operations
+  owx project-memory
+                JSON CLI surface for OWX project-memory operations
+  owx trace     JSON CLI surface for OWX trace operations
+  owx code-intel
+                JSON CLI surface for OWX code-intel operations
+  owx wiki      JSON CLI surface for OWX wiki operations
+  owx mcp-serve Launch an OWX stdio MCP server target (plugin/runtime use)
+  owx sparkshell <command> [args...]
+  owx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]
                 Run native sparkshell sidecar for direct command execution or explicit tmux-pane summarization
                 (also used as an adaptive backend for qualifying read-only explore tasks)
-  omx help      Show this help message
-  omx status    Show active modes and state
-  omx cancel    Cancel active execution modes
-  omx reasoning Show or set model reasoning effort (low|medium|high|xhigh)
+  owx help      Show this help message
+  owx status    Show active modes and state
+  owx cancel    Cancel active execution modes
+  owx reasoning Show or set model reasoning effort (low|medium|high|xhigh)
 
 Options:
-  --yolo        Launch Codex in yolo mode (shorthand for: omx launch --yolo)
+  --yolo        Launch Codex in yolo mode (shorthand for: owx launch --yolo)
   --high        Launch Codex with high reasoning effort
                 (shorthand for: -c model_reasoning_effort="high")
   --xhigh       Launch Codex with xhigh reasoning effort
@@ -276,7 +276,7 @@ Options:
                 (shorthand for: --spark --madmax)
   --notify-temp  Enable temporary notification routing for this run/session only
   --hotswap     Run a direct Codex session that rotates auth slots on 429/quota and resumes
-  --direct       Launch the interactive leader directly without OMX tmux/HUD management
+  --direct       Launch the interactive leader directly without OWX tmux/HUD management
   --tmux         Launch the interactive leader session in detached tmux
   --discord      Select Discord provider for temporary notification mode
   --slack        Select Slack provider for temporary notification mode
@@ -287,11 +287,11 @@ Options:
                 Launch Codex in a git worktree (detached when no name is given)
   --force       Force reinstall (overwrite existing files)
   --merge-agents
-                Merge OMX-managed AGENTS.md sections into an existing AGENTS.md
+                Merge OWX-managed AGENTS.md sections into an existing AGENTS.md
                 instead of overwriting user-authored content
   --dry-run     Show what would be done without doing it
-  --plugin      Use Codex plugin delivery for omx setup and remove legacy OMX-managed user/project components
-  --legacy      Use legacy setup delivery for omx setup, overriding persisted plugin mode
+  --plugin      Use Codex plugin delivery for owx setup and remove legacy OWX-managed user/project components
+  --legacy      Use legacy setup delivery for owx setup, overriding persisted plugin mode
   --install-mode <legacy|plugin>
                 Explicit setup install mode (canonical form; --legacy/--plugin are aliases)
   --mcp <none|compat>
@@ -304,40 +304,40 @@ Options:
   --team-mode <enabled|disabled>
                 Explicit Team setup mode
   --keep-config Skip config.toml cleanup during uninstall
-  --purge       Remove .omx/ cache directory during uninstall
+  --purge       Remove .owx/ cache directory during uninstall
   --verbose     Show detailed output
-  --scope       Setup scope for "omx setup" only:
+  --scope       Setup scope for "owx setup" only:
                 user | project
 
 Launch policy:
-  OMX_LAUNCH_POLICY=auto
+  OWX_LAUNCH_POLICY=auto
                 Use the default policy: detached tmux when supported, direct otherwise
-  OMX_LAUNCH_POLICY=direct
-                Run without OMX tmux/HUD management
-  OMX_LAUNCH_POLICY=tmux
-                Force OMX-managed detached tmux launch
-  OMX_LAUNCH_POLICY=detached-tmux
-                Force OMX-managed detached tmux launch
-  CLI policy flags (--direct/--tmux) override OMX_LAUNCH_POLICY; the last flag before -- wins.
-  Unset or empty OMX_LAUNCH_POLICY returns to auto/default behavior.
+  OWX_LAUNCH_POLICY=direct
+                Run without OWX tmux/HUD management
+  OWX_LAUNCH_POLICY=tmux
+                Force OWX-managed detached tmux launch
+  OWX_LAUNCH_POLICY=detached-tmux
+                Force OWX-managed detached tmux launch
+  CLI policy flags (--direct/--tmux) override OWX_LAUNCH_POLICY; the last flag before -- wins.
+  Unset or empty OWX_LAUNCH_POLICY returns to auto/default behavior.
   Config files are intentionally not used for launch policy in this release.
 `;
 
 const REASONING_KEY = "model_reasoning_effort";
 const MODEL_INSTRUCTIONS_FILE_KEY = "model_instructions_file";
-const TEAM_WORKER_LAUNCH_ARGS_ENV = "OMX_TEAM_WORKER_LAUNCH_ARGS";
-const TEAM_INHERIT_LEADER_FLAGS_ENV = "OMX_TEAM_INHERIT_LEADER_FLAGS";
-const OMX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV = "OMX_BYPASS_DEFAULT_SYSTEM_PROMPT";
-const OMX_MODEL_INSTRUCTIONS_FILE_ENV = "OMX_MODEL_INSTRUCTIONS_FILE";
-const OMX_INSTANCE_OPTION = "@omx_instance_id";
-const OMX_RALPH_APPEND_INSTRUCTIONS_FILE_ENV =
-  "OMX_RALPH_APPEND_INSTRUCTIONS_FILE";
-const OMX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE_ENV =
-  "OMX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE";
+const TEAM_WORKER_LAUNCH_ARGS_ENV = "OWX_TEAM_WORKER_LAUNCH_ARGS";
+const TEAM_INHERIT_LEADER_FLAGS_ENV = "OWX_TEAM_INHERIT_LEADER_FLAGS";
+const OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV = "OWX_BYPASS_DEFAULT_SYSTEM_PROMPT";
+const OWX_MODEL_INSTRUCTIONS_FILE_ENV = "OWX_MODEL_INSTRUCTIONS_FILE";
+const OWX_INSTANCE_OPTION = "@owx_instance_id";
+const OWX_RALPH_APPEND_INSTRUCTIONS_FILE_ENV =
+  "OWX_RALPH_APPEND_INSTRUCTIONS_FILE";
+const OWX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE_ENV =
+  "OWX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE";
 const REASONING_MODES = ["low", "medium", "high", "xhigh"] as const;
 type ReasoningMode = (typeof REASONING_MODES)[number];
 const REASONING_MODE_SET = new Set<string>(REASONING_MODES);
-const REASONING_USAGE = "Usage: omx reasoning <low|medium|high|xhigh>";
+const REASONING_USAGE = "Usage: owx reasoning <low|medium|high|xhigh>";
 const ALLOWED_SHELLS = new Set([
   "/bin/sh",
   "/bin/bash",
@@ -655,12 +655,12 @@ export function resolveUpdateChannelArg(args: string[]): UpdateChannel {
       continue;
     }
     throw new Error(
-      `Unknown omx update option: ${arg}. Expected no flags, --stable, or --dev.`,
+      `Unknown owx update option: ${arg}. Expected no flags, --stable, or --dev.`,
     );
   }
 
   if (sawStable && sawDev) {
-    throw new Error('omx update --dev and --stable are mutually exclusive.');
+    throw new Error('owx update --dev and --stable are mutually exclusive.');
   }
 
   return channel;
@@ -679,7 +679,7 @@ export function commandOwnsLocalHelp(command: CliCommand): boolean {
 
 export type CodexLaunchPolicy = "inside-tmux" | "detached-tmux" | "direct";
 
-const OMX_LAUNCH_POLICY_ENV = "OMX_LAUNCH_POLICY";
+const OWX_LAUNCH_POLICY_ENV = "OWX_LAUNCH_POLICY";
 let warnedInvalidEnvLaunchPolicy = false;
 
 function splitLeaderLaunchPolicyArgs(args: string[]): {
@@ -727,7 +727,7 @@ export function resolveLeaderLaunchPolicyOverride(
 export function resolveEnvLaunchPolicyOverride(
   env: NodeJS.ProcessEnv = process.env,
 ): CodexLaunchPolicy | undefined {
-  const rawValue = env[OMX_LAUNCH_POLICY_ENV]?.trim();
+  const rawValue = env[OWX_LAUNCH_POLICY_ENV]?.trim();
   if (!rawValue) return undefined;
 
   const value = rawValue.toLowerCase();
@@ -738,7 +738,7 @@ export function resolveEnvLaunchPolicyOverride(
   if (!warnedInvalidEnvLaunchPolicy) {
     warnedInvalidEnvLaunchPolicy = true;
     console.warn(
-      `[omx] warning: invalid ${OMX_LAUNCH_POLICY_ENV}="${rawValue}". ` +
+      `[owx] warning: invalid ${OWX_LAUNCH_POLICY_ENV}="${rawValue}". ` +
         "Expected direct, tmux, detached-tmux, or auto. Falling back to auto/default launch policy.",
     );
   }
@@ -795,7 +795,7 @@ export function runtimeCodexHomePath(
   cwd: string,
   sessionId: string,
 ): string {
-  return join(omxRoot(cwd), "runtime", "codex-home", sessionId);
+  return join(owxRoot(cwd), "runtime", "codex-home", sessionId);
 }
 
 async function linkOrCopyCodexHomeEntry(source: string, destination: string): Promise<void> {
@@ -1007,14 +1007,14 @@ export function buildInsideTmuxHudHookEnv(
   baseEnv: NodeJS.ProcessEnv,
   sessionId: string,
   currentPaneId: string | undefined,
-  omxRootOverride?: string,
+  owxRootOverride?: string,
 ): NodeJS.ProcessEnv {
   return {
     ...baseEnv,
-    OMX_SESSION_ID: sessionId,
-    [OMX_TMUX_HUD_OWNER_ENV]: "1",
-    ...(currentPaneId ? { [OMX_TMUX_HUD_LEADER_PANE_ENV]: currentPaneId } : {}),
-    ...(omxRootOverride ? { OMX_ROOT: omxRootOverride } : {}),
+    OWX_SESSION_ID: sessionId,
+    [OWX_TMUX_HUD_OWNER_ENV]: "1",
+    ...(currentPaneId ? { [OWX_TMUX_HUD_LEADER_PANE_ENV]: currentPaneId } : {}),
+    ...(owxRootOverride ? { OWX_ROOT: owxRootOverride } : {}),
   };
 }
 
@@ -1023,7 +1023,7 @@ export function registerInsideTmuxHudResizeHook(options: {
   currentPaneId: string | undefined;
   cwd: string;
   sessionId: string;
-  omxRootOverride?: string;
+  owxRootOverride?: string;
   baseEnv?: NodeJS.ProcessEnv;
   register?: HudResizeHookRegistrar;
 }): boolean {
@@ -1039,7 +1039,7 @@ export function registerInsideTmuxHudResizeHook(options: {
         options.baseEnv ?? process.env,
         options.sessionId,
         currentPaneId,
-        options.omxRootOverride,
+        options.owxRootOverride,
       ),
     },
   );
@@ -1050,17 +1050,17 @@ export function buildDetachedHudHookEnv(
   sessionId: string,
   detachedLeaderPaneId: string,
   tmuxEnvValue: string,
-  omxBin: string,
-  omxRootOverride?: string,
+  owxBin: string,
+  owxRootOverride?: string,
 ): NodeJS.ProcessEnv {
   return {
     ...baseEnv,
     TMUX: tmuxEnvValue,
     TMUX_PANE: detachedLeaderPaneId,
-    OMX_SESSION_ID: sessionId,
-    [OMX_TMUX_HUD_OWNER_ENV]: "1",
-    ...(omxRootOverride ? { OMX_ROOT: omxRootOverride } : {}),
-    OMX_ENTRY_PATH: omxBin,
+    OWX_SESSION_ID: sessionId,
+    [OWX_TMUX_HUD_OWNER_ENV]: "1",
+    ...(owxRootOverride ? { OWX_ROOT: owxRootOverride } : {}),
+    OWX_ENTRY_PATH: owxBin,
   };
 }
 
@@ -1069,8 +1069,8 @@ export function registerDetachedHudLayoutReconcileHook(options: {
   detachedLeaderPaneId: string | null;
   cwd: string;
   sessionId: string;
-  omxBin: string;
-  omxRootOverride?: string;
+  owxBin: string;
+  owxRootOverride?: string;
   baseEnv?: NodeJS.ProcessEnv;
   readTmuxEnvValue?: (targetPaneId: string) => string | undefined;
   register?: HudResizeHookRegistrar;
@@ -1090,8 +1090,8 @@ export function registerDetachedHudLayoutReconcileHook(options: {
         options.sessionId,
         detachedLeaderPaneId,
         tmuxEnvValue,
-        options.omxBin,
-        options.omxRootOverride,
+        options.owxBin,
+        options.owxRootOverride,
       ),
     },
   );
@@ -1148,7 +1148,7 @@ function clearDetachedTmuxSessionHistoryIfUnattached(
 function readTmuxSessionInstanceId(sessionName: string): string | null {
   try {
     return execTmuxFileSync(
-      ["show-options", "-qv", "-t", sessionName, OMX_INSTANCE_OPTION],
+      ["show-options", "-qv", "-t", sessionName, OWX_INSTANCE_OPTION],
       {
         stdio: ["ignore", "pipe", "ignore"],
         encoding: "utf-8",
@@ -1179,7 +1179,7 @@ function buildDetachedHistoryPruneHookCommand(leaderPaneId: string): string {
 }
 
 function buildDetachedHistoryPruneHookSlot(sessionName: string, leaderPaneId: string): string {
-  const key = `${sessionName}:${leaderPaneId}:omx-history-prune`;
+  const key = `${sessionName}:${leaderPaneId}:owx-history-prune`;
   let hash = 0;
   for (let i = 0; i < key.length; i++) {
     hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
@@ -1262,7 +1262,7 @@ export function checkDetachedTmuxLaunchHealth(): TmuxLaunchHealth {
 function warnDetachedTmuxFallback(reason?: string): void {
   const suffix = reason ? ` (${reason})` : "";
   console.warn(
-    `[omx] warning: tmux is installed but its server/socket is unusable${suffix}. Falling back to direct Codex launch.`,
+    `[owx] warning: tmux is installed but its server/socket is unusable${suffix}. Falling back to direct Codex launch.`,
   );
 }
 
@@ -1435,7 +1435,7 @@ export async function resolveLaunchConfigRepairOptions(
   }
 
   if (existingContent) {
-    const hasExistingFirstPartyMcp = OMX_FIRST_PARTY_MCP_SERVER_NAMES.some((name) =>
+    const hasExistingFirstPartyMcp = OWX_FIRST_PARTY_MCP_SERVER_NAMES.some((name) =>
       new RegExp(`^\\s*\\[mcp_servers\\.${name}\\]\\s*$`, "m").test(existingContent),
     );
     if (hasExistingFirstPartyMcp || sharedMcpRegistry.servers.length > 0) {
@@ -1465,14 +1465,14 @@ function runCodexBlocking(
     const kind = classifySpawnError(errno);
     if (kind === "missing") {
       console.error(
-        "[omx] failed to launch codex: executable not found in PATH",
+        "[owx] failed to launch codex: executable not found in PATH",
       );
     } else if (kind === "blocked") {
       console.error(
-        `[omx] failed to launch codex: executable is present but blocked in the current environment (${errno.code || "blocked"})`,
+        `[owx] failed to launch codex: executable is present but blocked in the current environment (${errno.code || "blocked"})`,
       );
     } else {
-      console.error(`[omx] failed to launch codex: ${errno.message}`);
+      console.error(`[owx] failed to launch codex: ${errno.message}`);
     }
     throw result.error;
   }
@@ -1483,47 +1483,47 @@ function runCodexBlocking(
         ? result.status
         : resolveSignalExitCode(result.signal);
     if (result.signal) {
-      console.error(`[omx] codex exited due to signal ${result.signal}`);
+      console.error(`[owx] codex exited due to signal ${result.signal}`);
     } else if (typeof result.status === "number") {
-      console.error(`[omx] codex exited with code ${result.status}`);
+      console.error(`[owx] codex exited with code ${result.status}`);
     }
   }
 }
 
-export function omxRuntimeCommandShimPath(cwd: string): string {
-  return join(omxRoot(cwd), "runtime", "bin", "omx");
+export function owxRuntimeCommandShimPath(cwd: string): string {
+  return join(owxRoot(cwd), "runtime", "bin", "owx");
 }
 
 function ensureRuntimeShimDirectory(path: string): void {
   if (existsSync(path)) {
     const current = lstatSync(path);
     if (current.isSymbolicLink()) {
-      throw new Error(`Refusing to create OMX runtime command shim through symlink directory: ${path}`);
+      throw new Error(`Refusing to create OWX runtime command shim through symlink directory: ${path}`);
     }
     if (!current.isDirectory()) {
-      throw new Error(`Refusing to create OMX runtime command shim because path is not a directory: ${path}`);
+      throw new Error(`Refusing to create OWX runtime command shim because path is not a directory: ${path}`);
     }
     return;
   }
   mkdirSync(path, { mode: 0o700 });
 }
 
-function buildOmxRuntimeCommandShim(nodePath: string, omxBin: string): string {
+function buildOmxRuntimeCommandShim(nodePath: string, owxBin: string): string {
   return [
     "#!/bin/sh",
-    `exec ${quoteShellArg(nodePath)} ${quoteShellArg(omxBin)} "$@"`,
+    `exec ${quoteShellArg(nodePath)} ${quoteShellArg(owxBin)} "$@"`,
     "",
   ].join("\n");
 }
 
 export function ensureOmxRuntimeCommandShim(
   cwd: string,
-  omxBin: string,
+  owxBin: string,
   nodePath: string = process.execPath,
 ): string {
-  const shimPath = omxRuntimeCommandShimPath(cwd);
+  const shimPath = owxRuntimeCommandShimPath(cwd);
   const shimDir = dirname(shimPath);
-  const rootDir = omxRoot(cwd);
+  const rootDir = owxRoot(cwd);
   const runtimeDir = dirname(shimDir);
   ensureRuntimeShimDirectory(rootDir);
   ensureRuntimeShimDirectory(runtimeDir);
@@ -1531,13 +1531,13 @@ export function ensureOmxRuntimeCommandShim(
   if (existsSync(shimPath)) {
     const current = lstatSync(shimPath);
     if (current.isDirectory()) {
-      throw new Error(`Refusing to replace OMX runtime command shim directory: ${shimPath}`);
+      throw new Error(`Refusing to replace OWX runtime command shim directory: ${shimPath}`);
     }
     if (current.isSymbolicLink()) {
       rmSync(shimPath, { force: true });
     }
   }
-  writeFileSync(shimPath, buildOmxRuntimeCommandShim(nodePath, omxBin), {
+  writeFileSync(shimPath, buildOmxRuntimeCommandShim(nodePath, owxBin), {
     encoding: "utf-8",
     mode: 0o700,
   });
@@ -1548,17 +1548,17 @@ export function ensureOmxRuntimeCommandShim(
 export function prependOmxRuntimeCommandShimToEnv(
   cwd: string,
   env: NodeJS.ProcessEnv,
-  omxBin: string,
+  owxBin: string,
   nodePath: string = process.execPath,
 ): NodeJS.ProcessEnv {
-  const shimDir = ensureOmxRuntimeCommandShim(cwd, omxBin, nodePath);
+  const shimDir = ensureOmxRuntimeCommandShim(cwd, owxBin, nodePath);
   const currentPath = typeof env.PATH === "string" ? env.PATH : "";
   return {
     ...env,
     PATH: currentPath ? `${shimDir}${delimiter}${currentPath}` : shimDir,
-    OMX_ENTRY_PATH: omxBin,
-    OMX_STARTUP_CWD: typeof env.OMX_STARTUP_CWD === "string" && env.OMX_STARTUP_CWD.trim()
-      ? env.OMX_STARTUP_CWD
+    OWX_ENTRY_PATH: owxBin,
+    OWX_STARTUP_CWD: typeof env.OWX_STARTUP_CWD === "string" && env.OWX_STARTUP_CWD.trim()
+      ? env.OWX_STARTUP_CWD
       : cwd,
   };
 }
@@ -1594,16 +1594,16 @@ export function resolveOmxRootForLaunch(
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  const raw = env.OMX_ROOT || env.OMX_STATE_ROOT;
+  const raw = env.OWX_ROOT || env.OWX_STATE_ROOT;
   if (typeof raw !== "string" || raw.trim() === "") return undefined;
   return isCrossPlatformAbsolutePath(raw) ? raw : join(cwd, raw);
 }
-type HudRuntimeRootSource = 'team-env' | 'omx-root-env' | 'omx-state-root-env' | 'cwd-default';
+type HudRuntimeRootSource = 'team-env' | 'owx-root-env' | 'owx-state-root-env' | 'cwd-default';
 
 interface HudRuntimeRootForLaunch {
-  omxRoot?: string;
-  omxStateRoot?: string;
-  omxTeamStateRoot?: string;
+  owxRoot?: string;
+  owxStateRoot?: string;
+  owxTeamStateRoot?: string;
   rootSource: HudRuntimeRootSource;
 }
 
@@ -1612,12 +1612,12 @@ function resolveLaunchPath(cwd: string, raw: string): string {
 }
 
 function resolveHudRuntimeRootSource(
-  omxRootOverride: string | undefined,
+  owxRootOverride: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): HudRuntimeRootSource {
-  if (env.OMX_TEAM_STATE_ROOT?.trim()) return 'team-env';
-  if (env.OMX_ROOT?.trim() || omxRootOverride) return 'omx-root-env';
-  if (env.OMX_STATE_ROOT?.trim()) return 'omx-state-root-env';
+  if (env.OWX_TEAM_STATE_ROOT?.trim()) return 'team-env';
+  if (env.OWX_ROOT?.trim() || owxRootOverride) return 'owx-root-env';
+  if (env.OWX_STATE_ROOT?.trim()) return 'owx-state-root-env';
   return 'cwd-default';
 }
 
@@ -1625,27 +1625,27 @@ export function resolveHudRuntimeRootForLaunch(
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
 ): HudRuntimeRootForLaunch {
-  const omxTeamStateRoot = env.OMX_TEAM_STATE_ROOT?.trim();
-  if (omxTeamStateRoot) {
+  const owxTeamStateRoot = env.OWX_TEAM_STATE_ROOT?.trim();
+  if (owxTeamStateRoot) {
     return {
-      omxTeamStateRoot: resolveLaunchPath(cwd, omxTeamStateRoot),
+      owxTeamStateRoot: resolveLaunchPath(cwd, owxTeamStateRoot),
       rootSource: 'team-env',
     };
   }
 
-  const omxRoot = env.OMX_ROOT?.trim();
-  if (omxRoot) {
+  const owxRoot = env.OWX_ROOT?.trim();
+  if (owxRoot) {
     return {
-      omxRoot: resolveLaunchPath(cwd, omxRoot),
-      rootSource: 'omx-root-env',
+      owxRoot: resolveLaunchPath(cwd, owxRoot),
+      rootSource: 'owx-root-env',
     };
   }
 
-  const omxStateRoot = env.OMX_STATE_ROOT?.trim();
-  if (omxStateRoot) {
+  const owxStateRoot = env.OWX_STATE_ROOT?.trim();
+  if (owxStateRoot) {
     return {
-      omxStateRoot: resolveLaunchPath(cwd, omxStateRoot),
-      rootSource: 'omx-state-root-env',
+      owxStateRoot: resolveLaunchPath(cwd, owxStateRoot),
+      rootSource: 'owx-state-root-env',
     };
   }
 
@@ -1653,7 +1653,7 @@ export function resolveHudRuntimeRootForLaunch(
 }
 
 function hasExplicitOmxRootEnv(env: NodeJS.ProcessEnv = process.env): boolean {
-  return [env.OMX_ROOT, env.OMX_STATE_ROOT].some(
+  return [env.OWX_ROOT, env.OWX_STATE_ROOT].some(
     (value) => typeof value === "string" && value.trim() !== "",
   );
 }
@@ -1671,12 +1671,12 @@ function applyDisposableWorktreeOmxRootForLaunch(
   ensuredWorktree: { enabled: true; repoRoot: string } | { enabled: false } | undefined,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  const omxRootOverride = resolveDisposableWorktreeOmxRootForLaunch(
+  const owxRootOverride = resolveDisposableWorktreeOmxRootForLaunch(
     ensuredWorktree,
     env,
   );
-  if (!omxRootOverride) return;
-  env.OMX_ROOT = omxRootOverride;
+  if (!owxRootOverride) return;
+  env.OWX_ROOT = owxRootOverride;
 }
 
 export function shouldAutoIsolateMadmaxLaunch(
@@ -1685,8 +1685,8 @@ export function shouldAutoIsolateMadmaxLaunch(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   if (command !== "launch" && command !== "exec") return false;
-  if (env.OMX_NO_BOX === "1" || env.OMXBOX_ACTIVE === "1") return false;
-  if (env.OMX_ROOT || env.OMX_STATE_ROOT) return false;
+  if (env.OWX_NO_BOX === "1" || env.OWXBOX_ACTIVE === "1") return false;
+  if (env.OWX_ROOT || env.OWX_STATE_ROOT) return false;
   return launchArgs.some((arg) => arg === MADMAX_FLAG || arg === MADMAX_SPARK_FLAG);
 }
 
@@ -1698,7 +1698,7 @@ const MADMAX_DETACHED_ACTIVE_DIR = "active-detached";
 const MADMAX_DETACHED_LOCK_STALE_MS = 30_000;
 const MADMAX_DETACHED_LOCK_RETRY_MS = 50;
 const MADMAX_DETACHED_LOCK_MAX_ATTEMPTS = 100;
-const OMX_MADMAX_DETACHED_CONTEXT_ENV = "OMX_MADMAX_DETACHED_CONTEXT";
+const OWX_MADMAX_DETACHED_CONTEXT_ENV = "OWX_MADMAX_DETACHED_CONTEXT";
 
 interface MadmaxDetachedLockRetryOptions {
   maxAttempts?: number;
@@ -1730,7 +1730,7 @@ interface MadmaxDetachedActiveRecord {
 }
 
 function resolveMadmaxRunsRoot(env: NodeJS.ProcessEnv = process.env): string {
-  return env.OMX_RUNS_DIR || join(homedir(), ".omx-runs");
+  return env.OWX_RUNS_DIR || join(homedir(), ".owx-runs");
 }
 
 function canonicalizeLaunchCwd(cwd: string): string {
@@ -1791,7 +1791,7 @@ export function buildMadmaxDetachedLaunchContextKey(
   runIdentity = "",
 ): string {
   // The boxed run root is part of the lock identity for auto-isolated madmax
-  // launches. That lets independent `omx --madmax --high` sessions share the
+  // launches. That lets independent `owx --madmax --high` sessions share the
   // same source cwd/argv without contending on one active-detached lock, while
   // callers that intentionally reuse the same boxed context keep one key.
   const payload = JSON.stringify({
@@ -1980,12 +1980,12 @@ export function withMadmaxDetachedContextLock<T>(
 }
 
 function isMadmaxDetachedGuardEnabled(env: NodeJS.ProcessEnv): boolean {
-  return env.OMXBOX_ACTIVE === "1" && typeof env[OMX_MADMAX_DETACHED_CONTEXT_ENV] === "string";
+  return env.OWXBOX_ACTIVE === "1" && typeof env[OWX_MADMAX_DETACHED_CONTEXT_ENV] === "string";
 }
 
 function cleanupCurrentMadmaxReuseRunRoot(env: NodeJS.ProcessEnv, runsRoot: string): void {
-  const runRoot = env.OMX_ROOT;
-  if (!runRoot || !env.OMXBOX_ACTIVE) return;
+  const runRoot = env.OWX_ROOT;
+  if (!runRoot || !env.OWXBOX_ACTIVE) return;
   const normalizedRunsRoot = runsRoot.endsWith("/") ? runsRoot : `${runsRoot}/`;
   if (runRoot !== runsRoot && !runRoot.startsWith(normalizedRunsRoot)) return;
   rmSync(runRoot, { recursive: true, force: true });
@@ -2021,16 +2021,16 @@ export function createMadmaxIsolatedRoot(
   const detachedLaunchContext = buildMadmaxDetachedLaunchContextKey(sourceCwd, argv, runDir);
 
   const metadata = {
-    launcher: "omx --madmax",
+    launcher: "owx --madmax",
     created_at: new Date().toISOString(),
     cwd: runDir,
     source_cwd: sourceCwd,
     argv,
     detached_launch_context: detachedLaunchContext,
   };
-  writeFileSync(join(runDir, ".omxbox-run.json"), `${JSON.stringify(metadata, null, 2)}\n`);
+  writeFileSync(join(runDir, ".owxbox-run.json"), `${JSON.stringify(metadata, null, 2)}\n`);
   writeFileSync(join(runsRoot, "registry.jsonl"), `${JSON.stringify(metadata)}\n`, { flag: "a" });
-  env[OMX_MADMAX_DETACHED_CONTEXT_ENV] = detachedLaunchContext;
+  env[OWX_MADMAX_DETACHED_CONTEXT_ENV] = detachedLaunchContext;
   return runDir;
 }
 
@@ -2042,10 +2042,10 @@ function activateMadmaxIsolationIfNeeded(
 ): void {
   if (!shouldAutoIsolateMadmaxLaunch(command, launchArgs, env)) return;
   const runDir = createMadmaxIsolatedRoot(cwd, launchArgs, env);
-  env.OMX_ROOT = runDir;
-  env.OMXBOX_ACTIVE = "1";
-  env.OMX_SOURCE_CWD = cwd;
-  process.stderr.write(`[omx] madmax isolated state: ${runDir} (source: ${cwd})\n`);
+  env.OWX_ROOT = runDir;
+  env.OWXBOX_ACTIVE = "1";
+  env.OWX_SOURCE_CWD = cwd;
+  process.stderr.write(`[owx] madmax isolated state: ${runDir} (source: ${cwd})\n`);
 }
 
 export async function main(args: string[]): Promise<void> {
@@ -2392,15 +2392,15 @@ export async function launchWithAuthHotswap(args: string[]): Promise<void> {
       worktreeDirty = Boolean(ensured.dirty);
       if (ensured.dirty) {
         process.stderr.write(
-          `[omx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
+          `[owx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
           `  The hotswap session will launch as-is.\n`,
         );
       }
       const depBootstrap = ensureReusableNodeModules(cwd);
       if (depBootstrap.strategy === "symlink") {
-        console.log(`[omx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
+        console.log(`[owx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
       } else if (depBootstrap.strategy === "missing" && depBootstrap.warning) {
-        console.warn(`[omx] ${depBootstrap.warning}`);
+        console.warn(`[owx] ${depBootstrap.warning}`);
       }
     }
   }
@@ -2423,7 +2423,7 @@ export async function launchWithAuthHotswap(args: string[]): Promise<void> {
       getPackageRoot(),
       await resolveLaunchConfigRepairOptions(launchCwd, configPath),
     );
-    if (repaired) console.log("[omx] Repaired managed config.toml compatibility issue.");
+    if (repaired) console.log("[owx] Repaired managed config.toml compatibility issue.");
   } catch {
     // Non-fatal: repair failure must not block launch
   }
@@ -2458,20 +2458,20 @@ export async function launchWithHud(args: string[]): Promise<void> {
       const kind = classifySpawnError(errno);
       if (kind === "missing") {
         console.warn(
-          "[omx] warning: tmux was not found on native Windows. Continuing without tmux/HUD.\n" +
-            "[omx] To enable tmux-backed features, install psmux:\n" +
-            "[omx]   winget install psmux\n" +
-            "[omx] See: https://github.com/marlocarlo/psmux",
+          "[owx] warning: tmux was not found on native Windows. Continuing without tmux/HUD.\n" +
+            "[owx] To enable tmux-backed features, install psmux:\n" +
+            "[owx]   winget install psmux\n" +
+            "[owx] See: https://github.com/marlocarlo/psmux",
         );
       } else {
         console.warn(
-          `[omx] warning: tmux probe failed on native Windows (${errno.code || errno.message}). Continuing without tmux/HUD.`,
+          `[owx] warning: tmux probe failed on native Windows (${errno.code || errno.message}). Continuing without tmux/HUD.`,
         );
       }
     } else if (result.status !== 0 && !isTmuxAvailable()) {
       const stderr = (result.stderr || "").trim();
       console.warn(
-        `[omx] warning: tmux reported an error on native Windows${stderr ? ` (${stderr})` : ""}. Continuing without tmux/HUD.`,
+        `[owx] warning: tmux reported an error on native Windows${stderr ? ` (${stderr})` : ""}. Continuing without tmux/HUD.`,
       );
     }
   }
@@ -2513,21 +2513,21 @@ export async function launchWithHud(args: string[]): Promise<void> {
       if (ensured.dirty) {
         worktreeDirty = true;
         process.stderr.write(
-          `[omx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
-          `  The session will launch as-is. Resolve the dirty state with OMX after launch, then proceed with your task.\n`,
+          `[owx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
+          `  The session will launch as-is. Resolve the dirty state with OWX after launch, then proceed with your task.\n`,
         );
       }
       const depBootstrap = ensureReusableNodeModules(cwd);
       if (depBootstrap.strategy === "symlink") {
-        console.log(`[omx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
+        console.log(`[owx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
       } else if (depBootstrap.strategy === "missing" && depBootstrap.warning) {
-        console.warn(`[omx] ${depBootstrap.warning}`);
+        console.warn(`[owx] ${depBootstrap.warning}`);
       }
     }
   }
   applyDisposableWorktreeOmxRootForLaunch(ensuredLaunchWorktree);
 
-  const sessionId = `omx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `owx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   try {
     await maybeCheckAndPromptUpdate(cwd);
   } catch (err) {
@@ -2543,7 +2543,7 @@ export async function launchWithHud(args: string[]): Promise<void> {
   }
 
   // ── Phase 0.5: config repair ────────────────────────────────────────────
-  // After an omx version upgrade the OLD setup code (still in memory) may
+  // After an owx version upgrade the OLD setup code (still in memory) may
   // have written a config.toml with duplicate [tui] sections.  Codex CLI's
   // TOML parser rejects duplicates, so we repair before spawning the CLI.
   try {
@@ -2554,7 +2554,7 @@ export async function launchWithHud(args: string[]): Promise<void> {
       await resolveLaunchConfigRepairOptions(launchCwd, configPath),
     );
     if (repaired) {
-      console.log("[omx] Repaired managed config.toml compatibility issue.");
+      console.log("[owx] Repaired managed config.toml compatibility issue.");
     }
   } catch {
     // Non-fatal: repair failure must not block launch
@@ -2573,7 +2573,7 @@ export async function launchWithHud(args: string[]): Promise<void> {
   } catch (err) {
     // preLaunch errors must NOT prevent Codex from starting
     console.error(
-      `[omx] preLaunch warning: ${err instanceof Error ? err.message : err}`,
+      `[owx] preLaunch warning: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -2632,22 +2632,22 @@ export async function execWithOverlay(args: string[]): Promise<void> {
       if (ensured.dirty) {
         worktreeDirty = true;
         process.stderr.write(
-          `[omx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
-          `  The session will launch as-is. Resolve the dirty state with OMX after launch, then proceed with your task.\n`,
+          `[owx] Caution: worktree at ${cwd} has uncommitted changes.\n` +
+          `  The session will launch as-is. Resolve the dirty state with OWX after launch, then proceed with your task.\n`,
         );
       }
       const depBootstrap = ensureReusableNodeModules(cwd);
       if (depBootstrap.strategy === "symlink") {
-        console.log(`[omx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
+        console.log(`[owx] Reusing node_modules from ${depBootstrap.sourceNodeModulesPath}`);
       } else if (depBootstrap.strategy === "missing" && depBootstrap.warning) {
-        console.warn(`[omx] ${depBootstrap.warning}`);
+        console.warn(`[owx] ${depBootstrap.warning}`);
       }
     }
   }
 
   applyDisposableWorktreeOmxRootForLaunch(ensuredLaunchWorktree);
 
-  const sessionId = `omx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `owx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   try {
     await maybeCheckAndPromptUpdate(cwd);
@@ -2669,7 +2669,7 @@ export async function execWithOverlay(args: string[]): Promise<void> {
       await resolveLaunchConfigRepairOptions(launchCwd, configPath),
     );
     if (repaired) {
-      console.log("[omx] Repaired managed config.toml compatibility issue.");
+      console.log("[owx] Repaired managed config.toml compatibility issue.");
     }
   } catch {
     // Non-fatal
@@ -2684,7 +2684,7 @@ export async function execWithOverlay(args: string[]): Promise<void> {
     await preLaunch(cwd, sessionId, notifyTempResult.contract, codexHomeOverride, true, worktreeDirty);
   } catch (err) {
     console.error(
-      `[omx] preLaunch warning: ${err instanceof Error ? err.message : err}`,
+      `[owx] preLaunch warning: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -2698,17 +2698,17 @@ export async function execWithOverlay(args: string[]): Promise<void> {
       process.env,
       sessionModelInstructionsPath(cwd, sessionId),
     );
-    const omxRootOverride = resolveOmxRootForLaunch(cwd, process.env);
+    const owxRootOverride = resolveOmxRootForLaunch(cwd, process.env);
     const codexEnvBase = {
       ...process.env,
       ...(codexHomeOverride ? { CODEX_HOME: codexHomeOverride } : {}),
       ...(sqliteHomeOverride ? { [CODEX_SQLITE_HOME_ENV]: sqliteHomeOverride } : {}),
-      ...(omxRootOverride ? { OMX_ROOT: omxRootOverride } : {}),
+      ...(owxRootOverride ? { OWX_ROOT: owxRootOverride } : {}),
     };
     const codexEnv = notifyTempContractRaw
       ? {
           ...codexEnvBase,
-          [OMX_NOTIFY_TEMP_CONTRACT_ENV]: notifyTempContractRaw,
+          [OWX_NOTIFY_TEMP_CONTRACT_ENV]: notifyTempContractRaw,
         }
       : codexEnvBase;
     runCodexBlocking(cwd, codexArgs, codexEnv);
@@ -2820,7 +2820,7 @@ function hasModelInstructionsOverride(args: string[]): boolean {
 }
 
 function shouldBypassDefaultSystemPrompt(env: NodeJS.ProcessEnv): boolean {
-  return env[OMX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] !== "0";
+  return env[OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] !== "0";
 }
 
 function buildModelInstructionsOverride(
@@ -2829,7 +2829,7 @@ function buildModelInstructionsOverride(
   defaultFilePath?: string,
 ): string {
   const filePath =
-    env[OMX_MODEL_INSTRUCTIONS_FILE_ENV] ||
+    env[OWX_MODEL_INSTRUCTIONS_FILE_ENV] ||
     defaultFilePath ||
     join(cwd, "AGENTS.md");
   return `${MODEL_INSTRUCTIONS_FILE_KEY}="${escapeTomlString(filePath)}"`;
@@ -2887,7 +2887,7 @@ function tagTmuxSessionWithInstance(sessionName: string, sessionId: string): voi
   const target = sessionName.trim();
   const instanceId = sessionId.trim();
   if (!target || !instanceId) return;
-  execFileSync("tmux", ["set-option", "-t", target, OMX_INSTANCE_OPTION, instanceId], {
+  execFileSync("tmux", ["set-option", "-t", target, OWX_INSTANCE_OPTION, instanceId], {
     stdio: ["ignore", "ignore", "ignore"],
     timeout: 2000,
   });
@@ -2998,9 +2998,9 @@ export function buildTmuxSessionName(cwd: string, sessionId: string): string {
   const dirName = basename(cwd);
   const grandparentPath = dirname(parentPath);
   const grandparentDir = basename(grandparentPath);
-  const repoDir = parentDir.endsWith(".omx-worktrees")
-    ? parentDir.slice(0, -".omx-worktrees".length)
-    : parentDir === "worktrees" && grandparentDir === ".omx"
+  const repoDir = parentDir.endsWith(".owx-worktrees")
+    ? parentDir.slice(0, -".owx-worktrees".length)
+    : parentDir === "worktrees" && grandparentDir === ".owx"
       ? basename(dirname(grandparentPath))
       : null;
   const dirToken = repoDir
@@ -3009,8 +3009,8 @@ export function buildTmuxSessionName(cwd: string, sessionId: string): string {
   let branchToken = "detached";
   const branch = tryReadGitValue(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]);
   if (branch) branchToken = sanitizeTmuxToken(branch);
-  const sessionToken = sanitizeTmuxToken(sessionId.replace(/^omx-/, ""));
-  const prefix = `omx-${dirToken}-${branchToken}`;
+  const sessionToken = sanitizeTmuxToken(sessionId.replace(/^owx-/, ""));
+  const prefix = `owx-${dirToken}-${branchToken}`;
   const name = `${prefix}-${sessionToken}`;
   if (name.length <= 120) return name;
   const prefixBudget = Math.max(4, 120 - sessionToken.length - 1);
@@ -3077,7 +3077,7 @@ function blockMs(ms: number): void {
 }
 
 function tmuxExtendedKeysLeaseRoot(cwd: string): string {
-  return join(omxRoot(cwd), "state", TMUX_EXTENDED_KEYS_LEASE_DIR);
+  return join(owxRoot(cwd), "state", TMUX_EXTENDED_KEYS_LEASE_DIR);
 }
 
 function resolveTmuxSocketPath(
@@ -3312,13 +3312,13 @@ function buildDetachedSessionLeaderCommand(
   const wrapped = [
     buildTmuxExtendedKeysAcquireShellSnippet(cwd),
     'exec 3<&0;',
-    'omx_codex_pid="";',
-    "omx_detached_session_cleanup() {",
+    'owx_codex_pid="";',
+    "owx_detached_session_cleanup() {",
     "status=$?;",
     "trap - 0 INT TERM HUP;",
-    'if [ -n "$omx_codex_pid" ] && kill -0 "$omx_codex_pid" 2>/dev/null; then',
-    'kill -TERM "$omx_codex_pid" 2>/dev/null || true;',
-    'wait "$omx_codex_pid" 2>/dev/null || true;',
+    'if [ -n "$owx_codex_pid" ] && kill -0 "$owx_codex_pid" 2>/dev/null; then',
+    'kill -TERM "$owx_codex_pid" 2>/dev/null || true;',
+    'wait "$owx_codex_pid" 2>/dev/null || true;',
     "fi;",
     'exec 3<&- 2>/dev/null || true;',
     buildTmuxExtendedKeysReleaseShellSnippet(cwd),
@@ -3329,27 +3329,27 @@ function buildDetachedSessionLeaderCommand(
     "fi;",
     "exit $status;",
     "};",
-    "trap omx_detached_session_cleanup 0 INT TERM HUP;",
+    "trap owx_detached_session_cleanup 0 INT TERM HUP;",
     parentEnvSource,
-    "unset OMX_HERMES_MCP_BRIDGE;",
-    "omx_codex_started_at=$(date +%s 2>/dev/null || printf 0);",
+    "unset OWX_HERMES_MCP_BRIDGE;",
+    "owx_codex_started_at=$(date +%s 2>/dev/null || printf 0);",
     `${codexCmd} <&3 &`,
-    "omx_codex_pid=$!;",
-    'wait "$omx_codex_pid";',
-    "omx_codex_status=$?;",
-    "omx_codex_finished_at=$(date +%s 2>/dev/null || printf 0);",
-    'omx_codex_elapsed=$((omx_codex_finished_at - omx_codex_started_at));',
-    'if [ "$omx_codex_status" -eq 0 ] && [ "$omx_codex_elapsed" -le 2 ]; then',
-    'printf "\\n[omx] codex exited immediately with code 0 during startup. The detached tmux session is being kept open so any output above remains visible. Press Enter to close this OMX session.\\n" >&2;',
-    'IFS= read -r _omx_close || true;',
-    'elif [ "$omx_codex_status" -gt 0 ] && [ "$omx_codex_status" -lt 128 ] && [ "$omx_codex_elapsed" -le 2 ]; then',
-    'printf "\\n[omx] codex exited with code %s during startup. The detached tmux session is being kept open so the error above remains visible. Press Enter to close this OMX session.\\n" "$omx_codex_status" >&2;',
-    'IFS= read -r _omx_close || true;',
-    'elif [ "$omx_codex_status" -gt 0 ] && [ "$omx_codex_status" -lt 128 ]; then',
-    'printf "\\n[omx] codex exited with code %s. The detached tmux session is being kept open so the error above remains visible. Press Enter to close this OMX session.\\n" "$omx_codex_status" >&2;',
-    'IFS= read -r _omx_close || true;',
+    "owx_codex_pid=$!;",
+    'wait "$owx_codex_pid";',
+    "owx_codex_status=$?;",
+    "owx_codex_finished_at=$(date +%s 2>/dev/null || printf 0);",
+    'owx_codex_elapsed=$((owx_codex_finished_at - owx_codex_started_at));',
+    'if [ "$owx_codex_status" -eq 0 ] && [ "$owx_codex_elapsed" -le 2 ]; then',
+    'printf "\\n[owx] codex exited immediately with code 0 during startup. The detached tmux session is being kept open so any output above remains visible. Press Enter to close this OWX session.\\n" >&2;',
+    'IFS= read -r _owx_close || true;',
+    'elif [ "$owx_codex_status" -gt 0 ] && [ "$owx_codex_status" -lt 128 ] && [ "$owx_codex_elapsed" -le 2 ]; then',
+    'printf "\\n[owx] codex exited with code %s during startup. The detached tmux session is being kept open so the error above remains visible. Press Enter to close this OWX session.\\n" "$owx_codex_status" >&2;',
+    'IFS= read -r _owx_close || true;',
+    'elif [ "$owx_codex_status" -gt 0 ] && [ "$owx_codex_status" -lt 128 ]; then',
+    'printf "\\n[owx] codex exited with code %s. The detached tmux session is being kept open so the error above remains visible. Press Enter to close this OWX session.\\n" "$owx_codex_status" >&2;',
+    'IFS= read -r _owx_close || true;',
     "fi;",
-    'exit "$omx_codex_status";',
+    'exit "$owx_codex_status";',
   ].join(" ");
   return `/bin/sh -c ${quoteShellArg(wrapped)}`;
 }
@@ -3518,11 +3518,11 @@ function buildTmuxExtendedKeysHelperCommand(
 }
 
 function buildTmuxExtendedKeysAcquireShellSnippet(cwd: string): string {
-  return `OMX_TMUX_EXTENDED_KEYS_LEASE=$(${buildTmuxExtendedKeysHelperCommand(cwd, "acquire")} "$$" 2>/dev/null || true);`;
+  return `OWX_TMUX_EXTENDED_KEYS_LEASE=$(${buildTmuxExtendedKeysHelperCommand(cwd, "acquire")} "$$" 2>/dev/null || true);`;
 }
 
 function buildTmuxExtendedKeysReleaseShellSnippet(cwd: string): string {
-  return `if [ -n "\${OMX_TMUX_EXTENDED_KEYS_LEASE:-}" ]; then ${buildTmuxExtendedKeysHelperCommand(cwd, "release")} "\${OMX_TMUX_EXTENDED_KEYS_LEASE}" >/dev/null 2>&1 || true; fi;`;
+  return `if [ -n "\${OWX_TMUX_EXTENDED_KEYS_LEASE:-}" ]; then ${buildTmuxExtendedKeysHelperCommand(cwd, "release")} "\${OWX_TMUX_EXTENDED_KEYS_LEASE}" >/dev/null 2>&1 || true; fi;`;
 }
 
 const SHELL_ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -3546,7 +3546,7 @@ export function detachedSessionParentEnvFilePath(
   sessionId: string,
 ): string {
   const safeSessionId = sessionId.replace(/[^A-Za-z0-9_.-]/g, "_");
-  return join(omxRoot(cwd), "runtime", "tmux-env", `${safeSessionId}.env`);
+  return join(owxRoot(cwd), "runtime", "tmux-env", `${safeSessionId}.env`);
 }
 
 export function writeDetachedSessionParentEnvFile(
@@ -3592,7 +3592,7 @@ export function buildDetachedSessionBootstrapSteps(
   sessionId?: string,
   projectLocalCodexHomeForCleanup?: string,
   runtimeCodexHomeForCleanup?: string,
-  omxRootOverride?: string,
+  owxRootOverride?: string,
   env: NodeJS.ProcessEnv = process.env,
   sqliteHomeOverride?: string,
   parentEnvFilePath?: string,
@@ -3609,19 +3609,19 @@ export function buildDetachedSessionBootstrapSteps(
         runtimeCodexHomeForCleanup,
         parentEnvFilePath,
       );
-  const resolvedEnvStateRoot = env.OMX_STATE_ROOT?.trim()
-    ? resolveLaunchPath(cwd, env.OMX_STATE_ROOT.trim())
+  const resolvedEnvStateRoot = env.OWX_STATE_ROOT?.trim()
+    ? resolveLaunchPath(cwd, env.OWX_STATE_ROOT.trim())
     : undefined;
   const hasExplicitRootOverride = Boolean(
-    env.OMX_ROOT?.trim()
-      || (omxRootOverride && omxRootOverride !== resolvedEnvStateRoot),
+    env.OWX_ROOT?.trim()
+      || (owxRootOverride && owxRootOverride !== resolvedEnvStateRoot),
   );
-  const hudRuntimeRoot = env.OMX_TEAM_STATE_ROOT?.trim()
+  const hudRuntimeRoot = env.OWX_TEAM_STATE_ROOT?.trim()
     ? resolveHudRuntimeRootForLaunch(cwd, env)
     : hasExplicitRootOverride
       ? {
-          omxRoot: omxRootOverride,
-          rootSource: resolveHudRuntimeRootSource(omxRootOverride, env),
+          owxRoot: owxRootOverride,
+          rootSource: resolveHudRuntimeRootSource(owxRootOverride, env),
         }
       : resolveHudRuntimeRootForLaunch(cwd, env);
   const hudRuntimeEnv = buildHudRuntimeEnv({
@@ -3644,10 +3644,10 @@ export function buildDetachedSessionBootstrapSteps(
     ...Object.entries(hudRuntimeEnv).map(([key, value]) => ["-e", `${key}=${value}`]).flat(),
     ...(codexHomeOverride ? ["-e", `CODEX_HOME=${codexHomeOverride}`] : []),
     ...(sqliteHomeOverride ? ["-e", `${CODEX_SQLITE_HOME_ENV}=${sqliteHomeOverride}`] : []),
-    ...(env.OMXBOX_ACTIVE ? ["-e", `OMXBOX_ACTIVE=${env.OMXBOX_ACTIVE}`] : []),
-    ...(env.OMX_SOURCE_CWD ? ["-e", `OMX_SOURCE_CWD=${env.OMX_SOURCE_CWD}`] : []),
+    ...(env.OWXBOX_ACTIVE ? ["-e", `OWXBOX_ACTIVE=${env.OWXBOX_ACTIVE}`] : []),
+    ...(env.OWX_SOURCE_CWD ? ["-e", `OWX_SOURCE_CWD=${env.OWX_SOURCE_CWD}`] : []),
     ...(notifyTempContractRaw
-      ? ["-e", `${OMX_NOTIFY_TEMP_CONTRACT_ENV}=${notifyTempContractRaw}`]
+      ? ["-e", `${OWX_NOTIFY_TEMP_CONTRACT_ENV}=${notifyTempContractRaw}`]
       : []),
     detachedLeaderCmd,
   ];
@@ -3672,7 +3672,7 @@ export function buildDetachedSessionBootstrapSteps(
       ? [
           {
             name: "tag-session",
-            args: ["set-option", "-t", sessionName, OMX_INSTANCE_OPTION, sessionId],
+            args: ["set-option", "-t", sessionName, OWX_INSTANCE_OPTION, sessionId],
           },
         ]
       : []),
@@ -3682,8 +3682,8 @@ export function buildDetachedSessionBootstrapSteps(
 
 async function readLaunchAppendInstructions(): Promise<string> {
   const appendixCandidates = [
-    process.env[OMX_RALPH_APPEND_INSTRUCTIONS_FILE_ENV]?.trim(),
-    process.env[OMX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE_ENV]?.trim(),
+    process.env[OWX_RALPH_APPEND_INSTRUCTIONS_FILE_ENV]?.trim(),
+    process.env[OWX_AUTORESEARCH_APPEND_INSTRUCTIONS_FILE_ENV]?.trim(),
   ].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
@@ -3699,11 +3699,11 @@ async function readLaunchAppendInstructions(): Promise<string> {
 export function shouldAttachDetachedTmuxSession(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return env.OMX_HERMES_MCP_BRIDGE !== "1";
+  return env.OWX_HERMES_MCP_BRIDGE !== "1";
 }
 
 function stripHermesMcpBridgeEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const { OMX_HERMES_MCP_BRIDGE: _bridge, ...rest } = env;
+  const { OWX_HERMES_MCP_BRIDGE: _bridge, ...rest } = env;
   return rest;
 }
 
@@ -3848,7 +3848,7 @@ export function buildNotifyFallbackWatcherEnv(
   env: NodeJS.ProcessEnv = process.env,
   options: {
     codexHomeOverride?: string;
-    omxRootOverride?: string;
+    owxRootOverride?: string;
     enableAuthority?: boolean;
     sessionId?: string;
   } = {},
@@ -3859,9 +3859,9 @@ export function buildNotifyFallbackWatcherEnv(
   return {
     ...nextEnv,
     ...(options.codexHomeOverride ? { CODEX_HOME: options.codexHomeOverride } : {}),
-    ...(options.omxRootOverride ? { OMX_ROOT: options.omxRootOverride } : {}),
-    ...(options.sessionId ? { OMX_SESSION_ID: options.sessionId } : {}),
-    OMX_HUD_AUTHORITY: options.enableAuthority ? "1" : "0",
+    ...(options.owxRootOverride ? { OWX_ROOT: options.owxRootOverride } : {}),
+    ...(options.sessionId ? { OWX_SESSION_ID: options.sessionId } : {}),
+    OWX_HUD_AUTHORITY: options.enableAuthority ? "1" : "0",
   };
 }
 
@@ -3869,7 +3869,7 @@ export function shouldEnableNotifyFallbackWatcher(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
 ): boolean {
-  const toggle = String(env.OMX_NOTIFY_FALLBACK ?? "").trim();
+  const toggle = String(env.OWX_NOTIFY_FALLBACK ?? "").trim();
   if (platform === "win32") {
     return toggle === "1";
   }
@@ -4159,12 +4159,12 @@ export async function cleanupPostLaunchModeStateFiles(
             }
           } catch (err) {
             writeWarn(
-              `[omx] postLaunch: failed to recover mode state ${path}: ${err instanceof Error ? err.message : err}`,
+              `[owx] postLaunch: failed to recover mode state ${path}: ${err instanceof Error ? err.message : err}`,
             );
           }
         } else if (result.kind === "malformed") {
           writeWarn(
-            `[omx] postLaunch: skipped malformed mode state ${path}: ${result.message}`,
+            `[owx] postLaunch: skipped malformed mode state ${path}: ${result.message}`,
           );
         }
         continue;
@@ -4230,7 +4230,7 @@ export async function cleanupPostLaunchModeStateFiles(
         }
       } catch (err) {
         writeWarn(
-          `[omx] postLaunch: failed to update mode state ${path}: ${err instanceof Error ? err.message : err}`,
+          `[owx] postLaunch: failed to update mode state ${path}: ${err instanceof Error ? err.message : err}`,
         );
       }
     }
@@ -4249,7 +4249,7 @@ export async function cleanupPostLaunchModeStateFiles(
       }
     } catch (err) {
       writeWarn(
-        `[omx] postLaunch: failed to reconcile root skill-active state: ${err instanceof Error ? err.message : err}`,
+        `[owx] postLaunch: failed to reconcile root skill-active state: ${err instanceof Error ? err.message : err}`,
       );
     }
   }
@@ -4268,12 +4268,12 @@ export async function reapPostLaunchOrphanedMcpProcesses(
     const result = await cleanup();
     if (result.terminatedCount > 0) {
       writeInfo(
-        `[omx] postLaunch: reaped ${result.terminatedCount} orphaned OMX MCP process(es).`,
+        `[owx] postLaunch: reaped ${result.terminatedCount} orphaned OWX MCP process(es).`,
       );
     }
     if (result.failedPids.length > 0) {
       writeWarn(
-        `[omx] postLaunch: failed to reap ${result.failedPids.length} orphaned OMX MCP process(es); continuing cleanup.`,
+        `[owx] postLaunch: failed to reap ${result.failedPids.length} orphaned OWX MCP process(es); continuing cleanup.`,
       );
     }
   } catch (err) {
@@ -4283,12 +4283,12 @@ export async function reapPostLaunchOrphanedMcpProcesses(
 
 /**
  * preLaunch: Prepare environment before Codex starts.
- * 1. Best-effort launch-safe orphan cleanup for detached OMX MCP processes
+ * 1. Best-effort launch-safe orphan cleanup for detached OWX MCP processes
  * 2. Generate runtime overlay + write session-scoped model instructions file
  * 3. Write session.json
  *
  * Automatic broad stale-session cleanup remains disabled here. Only detached
- * OMX MCP processes without a live Codex ancestor are reaped so new launches
+ * OWX MCP processes without a live Codex ancestor are reaped so new launches
  * do not accumulate stale processes from prior crashed/closed sessions.
  */
 export async function preLaunch(
@@ -4304,12 +4304,12 @@ export async function preLaunch(
     const cleanup = await cleanupLaunchOrphanedMcpProcesses();
     if (cleanup.terminatedCount > 0) {
       console.log(
-        `[omx] Reaped ${cleanup.terminatedCount} orphaned OMX MCP process(es) before launch.`,
+        `[owx] Reaped ${cleanup.terminatedCount} orphaned OWX MCP process(es) before launch.`,
       );
     }
     if (cleanup.failedPids.length > 0) {
       console.warn(
-        `[omx] Failed to reap ${cleanup.failedPids.length} orphaned OMX MCP process(es); continuing launch.`,
+        `[owx] Failed to reap ${cleanup.failedPids.length} orphaned OWX MCP process(es); continuing launch.`,
       );
     }
   } catch (err) {
@@ -4359,7 +4359,7 @@ ${launchAppendix}${dirtyWorktreeGuidance}`
   // 6. Emit temp notification startup summary + warnings, then send session-start lifecycle notification (best effort)
   try {
     if (notifyTempContract?.active) {
-      process.env[OMX_NOTIFY_TEMP_CONTRACT_ENV] =
+      process.env[OWX_NOTIFY_TEMP_CONTRACT_ENV] =
         serializeNotifyTempContract(notifyTempContract);
       const { getNotificationConfig } =
         await import("../notifications/config.js");
@@ -4369,13 +4369,13 @@ ${launchAppendix}${dirtyWorktreeGuidance}`
         Boolean(resolved?.enabled),
       );
       for (const info of startup.infoLines) {
-        console.log(`[omx] ${info}`);
+        console.log(`[owx] ${info}`);
       }
       for (const warning of startup.warningLines) {
-        console.warn(`[omx] ${warning}`);
+        console.warn(`[owx] ${warning}`);
       }
     } else {
-      delete process.env[OMX_NOTIFY_TEMP_CONTRACT_ENV];
+      delete process.env[OWX_NOTIFY_TEMP_CONTRACT_ENV];
     }
     const { notifyLifecycle } = await import("../notifications/index.js");
     await notifyLifecycle("session-start", {
@@ -4427,11 +4427,11 @@ function runCodex(
     sessionModelInstructionsPath(cwd, sessionId),
   );
   const nativeWindows = isNativeWindows();
-  const omxBin = resolveOmxCliEntryPath({ argv1: process.argv[1], cwd, env: process.env });
-  if (!omxBin) {
-    throw new Error("Unable to resolve OMX launcher path for tmux HUD bootstrap");
+  const owxBin = resolveOmxCliEntryPath({ argv1: process.argv[1], cwd, env: process.env });
+  if (!owxBin) {
+    throw new Error("Unable to resolve OWX launcher path for tmux HUD bootstrap");
   }
-  const omxRootOverride = resolveOmxRootForLaunch(cwd, process.env);
+  const owxRootOverride = resolveOmxRootForLaunch(cwd, process.env);
   const currentPaneId = process.env.TMUX_PANE;
   const hudRuntimeRoot = resolveHudRuntimeRootForLaunch(cwd, process.env);
   const hudEnvArgs = Object.entries(buildHudRuntimeEnv({
@@ -4440,8 +4440,8 @@ function runCodex(
     ...hudRuntimeRoot,
   }).env).map(([key, value]) => `${key}=${value}`);
   const hudCmd = nativeWindows
-    ? buildWindowsPromptCommand("node", [omxBin, "hud", "--watch"])
-    : buildTmuxPaneCommand("env", [...hudEnvArgs, "node", omxBin, "hud", "--watch"]);
+    ? buildWindowsPromptCommand("node", [owxBin, "hud", "--watch"])
+    : buildTmuxPaneCommand("env", [...hudEnvArgs, "node", owxBin, "hud", "--watch"]);
   const inheritLeaderFlags = process.env[TEAM_INHERIT_LEADER_FLAGS_ENV] !== "0";
   const workerLaunchArgs = resolveTeamWorkerLaunchArgsEnv(
     process.env[TEAM_WORKER_LAUNCH_ARGS_ENV],
@@ -4455,9 +4455,9 @@ function runCodex(
       ...stripHermesMcpBridgeEnv(process.env),
       ...(codexHomeOverride ? { CODEX_HOME: codexHomeOverride } : {}),
       ...(sqliteHomeOverride ? { [CODEX_SQLITE_HOME_ENV]: sqliteHomeOverride } : {}),
-      ...(omxRootOverride ? { OMX_ROOT: omxRootOverride } : {}),
+      ...(owxRootOverride ? { OWX_ROOT: owxRootOverride } : {}),
     },
-    omxBin,
+    owxBin,
   );
   const codexEnvWithSession = {
     ...codexBaseEnv,
@@ -4467,7 +4467,7 @@ function runCodex(
     ? { ...codexEnvWithSession, [TEAM_WORKER_LAUNCH_ARGS_ENV]: workerLaunchArgs }
     : codexEnvWithSession;
   const codexEnvWithNotify = notifyTempContractRaw
-    ? { ...codexEnv, [OMX_NOTIFY_TEMP_CONTRACT_ENV]: notifyTempContractRaw }
+    ? { ...codexEnv, [OWX_NOTIFY_TEMP_CONTRACT_ENV]: notifyTempContractRaw }
     : codexEnv;
 
   const { launchPolicy } = resolveTmuxAwareLaunchPolicy(
@@ -4513,7 +4513,7 @@ function runCodex(
           currentPaneId,
           cwd,
           sessionId,
-          omxRootOverride,
+          owxRootOverride,
         });
       } catch (err) {
         logCliOperationFailure(err);
@@ -4540,7 +4540,7 @@ function runCodex(
           currentPaneId,
           cwd,
           sessionId,
-          omxRootOverride,
+          owxRootOverride,
         });
       } catch (err) {
         logCliOperationFailure(err);
@@ -4550,8 +4550,8 @@ function runCodex(
 
     // Enable mouse scrolling at session start so scroll works before team
     // expansion. Previously this was only called from createTeamSession().
-    // Opt-out: set OMX_MOUSE=0. (closes #128)
-    if (process.env.OMX_MOUSE !== "0") {
+    // Opt-out: set OWX_MOUSE=0. (closes #128)
+    if (process.env.OWX_MOUSE !== "0") {
       try {
         const tmuxPaneTarget = process.env.TMUX_PANE;
         const displayArgs = tmuxPaneTarget
@@ -4607,7 +4607,7 @@ function runCodex(
       : null;
     const sessionName = buildDetachedTmuxSessionName(cwd, sessionId);
     const launchDetachedSession = (): { postLaunchHandledExternally: boolean } => {
-      const contextKey = process.env[OMX_MADMAX_DETACHED_CONTEXT_ENV]?.trim();
+      const contextKey = process.env[OWX_MADMAX_DETACHED_CONTEXT_ENV]?.trim();
       const runsRoot = resolveMadmaxRunsRoot(process.env);
       const activeRecordPath = contextKey
         ? madmaxDetachedActiveRecordPath(runsRoot, contextKey)
@@ -4631,12 +4631,12 @@ function runCodex(
             activeRecord.tmux_pane_id!,
           );
           process.stderr.write(
-            `[omx] madmax detached launch already active for this context; reusing ${activeRecord.tmux_session_name} without attaching because this launch is a Hermes MCP bridge.\n`,
+            `[owx] madmax detached launch already active for this context; reusing ${activeRecord.tmux_session_name} without attaching because this launch is a Hermes MCP bridge.\n`,
           );
           return { postLaunchHandledExternally: true };
         }
         process.stderr.write(
-          `[omx] madmax detached launch already active for this context; attaching ${activeRecord.tmux_session_name} instead of starting a duplicate.\n`,
+          `[owx] madmax detached launch already active for this context; attaching ${activeRecord.tmux_session_name} instead of starting a duplicate.\n`,
         );
         try {
           execTmuxFileSync(["attach-session", "-t", activeRecord.tmux_session_name], {
@@ -4679,7 +4679,7 @@ function runCodex(
       let detachedParentEnvFilePath: string | undefined;
       let detachedLeaderPaneId: string | null = null;
       try {
-        // This path is the user-shell interactive launch: OMX creates a tmux
+        // This path is the user-shell interactive launch: OWX creates a tmux
         // session and immediately attaches the user's terminal to it. If a tmux
         // server already exists, `new-session -e` only forwards explicit values,
         // so provider-specific parent-shell keys would disappear. Source a
@@ -4704,7 +4704,7 @@ function runCodex(
           sessionId,
           projectLocalCodexHomeForCleanup,
           runtimeCodexHomeForCleanup,
-          omxRootOverride,
+          owxRootOverride,
           process.env,
           sqliteHomeOverride,
           detachedParentEnvFilePath,
@@ -4725,9 +4725,9 @@ function runCodex(
                   version: 1,
                   context_key: contextKey,
                   created_at: new Date().toISOString(),
-                  source_cwd: process.env.OMX_SOURCE_CWD || cwd,
+                  source_cwd: process.env.OWX_SOURCE_CWD || cwd,
                   argv: args,
-                  run_dir: process.env.OMX_ROOT || cwd,
+                  run_dir: process.env.OWX_ROOT || cwd,
                   tmux_session_name: sessionName,
                   session_id: sessionId,
                   tmux_pane_id: leaderPaneId,
@@ -4767,7 +4767,7 @@ function runCodex(
               sessionName,
               hudPaneId,
               hookWindowIndex,
-              process.env.OMX_MOUSE !== "0",
+              process.env.OWX_MOUSE !== "0",
               nativeWindows,
               shouldAttachDetachedTmuxSession(process.env),
               detachedLeaderPaneId,
@@ -4825,8 +4825,8 @@ function runCodex(
                   detachedLeaderPaneId,
                   cwd,
                   sessionId,
-                  omxBin,
-                  omxRootOverride,
+                  owxBin,
+                  owxRootOverride,
                 });
               }
             }
@@ -4860,7 +4860,7 @@ function runCodex(
       }
     };
 
-    const contextKey = process.env[OMX_MADMAX_DETACHED_CONTEXT_ENV]?.trim();
+    const contextKey = process.env[OWX_MADMAX_DETACHED_CONTEXT_ENV]?.trim();
     const runsRoot = resolveMadmaxRunsRoot(process.env);
     try {
       if (isMadmaxDetachedGuardEnabled(process.env) && contextKey) {
@@ -4961,12 +4961,12 @@ export function buildWindowsPromptCommand(
  * OOM signature was thousands of bash processes, not MCP node children;
  * non-interactive tmux panes sourcing ~/.bashrc can recursively trigger user
  * automation and fan out before Codex starts. Users who need legacy PATH setup
- * can opt in with OMX_TMUX_SOURCE_SHELL_RC=1.
+ * can opt in with OWX_TMUX_SOURCE_SHELL_RC=1.
  */
 export function shouldSourceTmuxPaneShellRc(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return String(env.OMX_TMUX_SOURCE_SHELL_RC ?? "").trim() === "1";
+  return String(env.OWX_TMUX_SOURCE_SHELL_RC ?? "").trim() === "1";
 }
 
 export function buildTmuxPaneCommand(
@@ -5104,7 +5104,7 @@ export async function postLaunch(
     }
   } catch (err) {
     console.error(
-      `[omx] postLaunch: project config transient NUX cleanup failed: ${err instanceof Error ? err.message : err}`,
+      `[owx] postLaunch: project config transient NUX cleanup failed: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -5113,7 +5113,7 @@ export async function postLaunch(
     await removeSessionModelInstructionsFile(cwd, sessionId);
   } catch (err) {
     console.error(
-      `[omx] postLaunch: model instructions cleanup failed: ${err instanceof Error ? err.message : err}`,
+      `[owx] postLaunch: model instructions cleanup failed: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -5122,7 +5122,7 @@ export async function postLaunch(
     await writeSessionEnd(cwd, sessionId);
   } catch (err) {
     console.error(
-      `[omx] postLaunch: session archive failed: ${err instanceof Error ? err.message : err}`,
+      `[owx] postLaunch: session archive failed: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -5140,7 +5140,7 @@ export async function postLaunch(
     await cleanupPostLaunchModeStateFiles(cwd, sessionId);
   } catch (err) {
     console.error(
-      `[omx] postLaunch: mode cleanup failed: ${err instanceof Error ? err.message : err}`,
+      `[owx] postLaunch: mode cleanup failed: ${err instanceof Error ? err.message : err}`,
     );
   }
 
@@ -5245,11 +5245,11 @@ async function emitNativeHookEvent(
 }
 
 function notifyFallbackPidPath(cwd: string): string {
-  return join(omxRoot(cwd), "state", "notify-fallback.pid");
+  return join(owxRoot(cwd), "state", "notify-fallback.pid");
 }
 
 function hookDerivedWatcherPidPath(cwd: string): string {
-  return join(omxRoot(cwd), "state", "hook-derived-watcher.pid");
+  return join(owxRoot(cwd), "state", "hook-derived-watcher.pid");
 }
 
 export function shouldDetachBackgroundHelper(
@@ -5384,7 +5384,7 @@ export type NotifyFallbackReapResult =
 const DEFAULT_NOTIFY_FALLBACK_REAP_GRACE_MS = 5000;
 
 function resolveNotifyFallbackReapGraceMs(env: NodeJS.ProcessEnv = process.env): number {
-  const parsed = Number.parseInt(env.OMX_NOTIFY_FALLBACK_REAP_GRACE_MS || "", 10);
+  const parsed = Number.parseInt(env.OWX_NOTIFY_FALLBACK_REAP_GRACE_MS || "", 10);
   if (Number.isFinite(parsed) && parsed >= 0) return parsed;
   return DEFAULT_NOTIFY_FALLBACK_REAP_GRACE_MS;
 }
@@ -5486,7 +5486,7 @@ export async function reapStaleNotifyFallbackWatcher(
   } catch (error: unknown) {
     if (!hasErrnoCodeImpl(error, "ESRCH")) {
       warn(
-        "[omx] warning: failed to stop stale notify fallback watcher",
+        "[owx] warning: failed to stop stale notify fallback watcher",
         {
           path: pidPath,
           error: error instanceof Error ? error.message : String(error),
@@ -5524,10 +5524,10 @@ async function startNotifyFallbackWatcher(
   const notifyScript = resolveNotifyHookScript(pkgRoot);
   if (!existsSync(watcherScript) || !existsSync(notifyScript)) return;
 
-  await mkdir(join(omxRoot(cwd), "state"), { recursive: true }).catch(
+  await mkdir(join(owxRoot(cwd), "state"), { recursive: true }).catch(
     (error: unknown) => {
       console.warn(
-        "[omx] warning: failed to create notify fallback watcher state directory",
+        "[owx] warning: failed to create notify fallback watcher state directory",
         {
           cwd,
           error: error instanceof Error ? error.message : String(error),
@@ -5537,7 +5537,7 @@ async function startNotifyFallbackWatcher(
   );
   const watcherEnv = buildNotifyFallbackWatcherEnv(process.env, {
     codexHomeOverride: options.codexHomeOverride,
-    omxRootOverride: resolveOmxRootForLaunch(cwd, process.env),
+    owxRootOverride: resolveOmxRootForLaunch(cwd, process.env),
     enableAuthority: options.enableAuthority === true,
     sessionId: options.sessionId,
   });
@@ -5554,10 +5554,10 @@ async function startNotifyFallbackWatcher(
         pidPath,
         "--parent-pid",
         String(process.pid),
-        ...(process.env.OMX_NOTIFY_FALLBACK_MAX_LIFETIME_MS
+        ...(process.env.OWX_NOTIFY_FALLBACK_MAX_LIFETIME_MS
           ? [
             "--max-lifetime-ms",
-            process.env.OMX_NOTIFY_FALLBACK_MAX_LIFETIME_MS,
+            process.env.OWX_NOTIFY_FALLBACK_MAX_LIFETIME_MS,
           ]
           : []),
       ],
@@ -5567,7 +5567,7 @@ async function startNotifyFallbackWatcher(
       },
     );
   } catch (error: unknown) {
-    console.warn("[omx] warning: failed to launch notify fallback watcher", {
+    console.warn("[owx] warning: failed to launch notify fallback watcher", {
       cwd,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -5585,7 +5585,7 @@ async function startNotifyFallbackWatcher(
     ),
   ).catch((error: unknown) => {
     console.warn(
-      "[omx] warning: failed to write notify fallback watcher pid file",
+      "[owx] warning: failed to write notify fallback watcher pid file",
       {
         path: pidPath,
         error: error instanceof Error ? error.message : String(error),
@@ -5595,7 +5595,7 @@ async function startNotifyFallbackWatcher(
 }
 
 async function startHookDerivedWatcher(cwd: string): Promise<void> {
-  if (process.env.OMX_HOOK_DERIVED_SIGNALS !== "1") return;
+  if (process.env.OWX_HOOK_DERIVED_SIGNALS !== "1") return;
 
   const { mkdir, writeFile, readFile } = await import("fs/promises");
   const pidPath = hookDerivedWatcherPidPath(cwd);
@@ -5612,17 +5612,17 @@ async function startHookDerivedWatcher(cwd: string): Promise<void> {
         process.kill(prev.pid, "SIGTERM");
       }
     } catch (error: unknown) {
-      console.warn("[omx] warning: failed to stop stale hook-derived watcher", {
+      console.warn("[owx] warning: failed to stop stale hook-derived watcher", {
         path: pidPath,
         error: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
-  await mkdir(join(omxRoot(cwd), "state"), { recursive: true }).catch(
+  await mkdir(join(owxRoot(cwd), "state"), { recursive: true }).catch(
     (error: unknown) => {
       console.warn(
-        "[omx] warning: failed to create hook-derived watcher state directory",
+        "[owx] warning: failed to create hook-derived watcher state directory",
         {
           cwd,
           error: error instanceof Error ? error.message : String(error),
@@ -5637,7 +5637,7 @@ async function startHookDerivedWatcher(cwd: string): Promise<void> {
       env: process.env,
     });
   } catch (error: unknown) {
-    console.warn("[omx] warning: failed to launch hook-derived watcher", {
+    console.warn("[owx] warning: failed to launch hook-derived watcher", {
       cwd,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -5655,7 +5655,7 @@ async function startHookDerivedWatcher(cwd: string): Promise<void> {
     ),
   ).catch((error: unknown) => {
     console.warn(
-      "[omx] warning: failed to write hook-derived watcher pid file",
+      "[owx] warning: failed to write hook-derived watcher pid file",
       {
         path: pidPath,
         error: error instanceof Error ? error.message : String(error),
@@ -5677,7 +5677,7 @@ async function stopNotifyFallbackWatcher(cwd: string): Promise<void> {
   } catch (error: unknown) {
     if (!hasErrnoCode(error, "ESRCH")) {
       console.warn(
-        "[omx] warning: failed to stop notify fallback watcher process",
+        "[owx] warning: failed to stop notify fallback watcher process",
         {
           path: pidPath,
           error: error instanceof Error ? error.message : String(error),
@@ -5688,7 +5688,7 @@ async function stopNotifyFallbackWatcher(cwd: string): Promise<void> {
 
   await unlink(pidPath).catch((error: unknown) => {
     console.warn(
-      "[omx] warning: failed to remove notify fallback watcher pid file",
+      "[owx] warning: failed to remove notify fallback watcher pid file",
       {
         path: pidPath,
         error: error instanceof Error ? error.message : String(error),
@@ -5710,7 +5710,7 @@ async function stopHookDerivedWatcher(cwd: string): Promise<void> {
       process.kill(parsed.pid, "SIGTERM");
     }
   } catch (error: unknown) {
-    console.warn("[omx] warning: failed to stop hook-derived watcher process", {
+    console.warn("[owx] warning: failed to stop hook-derived watcher process", {
       path: pidPath,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -5718,7 +5718,7 @@ async function stopHookDerivedWatcher(cwd: string): Promise<void> {
 
   await unlink(pidPath).catch((error: unknown) => {
     console.warn(
-      "[omx] warning: failed to remove hook-derived watcher pid file",
+      "[owx] warning: failed to remove hook-derived watcher pid file",
       {
         path: pidPath,
         error: error instanceof Error ? error.message : String(error),
@@ -5755,7 +5755,7 @@ async function flushNotifyFallbackOnce(
 }
 
 async function flushHookDerivedWatcherOnce(cwd: string): Promise<void> {
-  if (process.env.OMX_HOOK_DERIVED_SIGNALS !== "1") return;
+  if (process.env.OWX_HOOK_DERIVED_SIGNALS !== "1") return;
   const { spawnSync } = await import("child_process");
   const pkgRoot = getPackageRoot();
   const watcherScript = resolveHookDerivedWatcherScript(pkgRoot);
@@ -5767,7 +5767,7 @@ async function flushHookDerivedWatcherOnce(cwd: string): Promise<void> {
     windowsHide: true,
     env: {
       ...process.env,
-      OMX_HOOK_DERIVED_SIGNALS: "1",
+      OWX_HOOK_DERIVED_SIGNALS: "1",
     },
   });
 }

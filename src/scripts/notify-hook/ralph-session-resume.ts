@@ -142,8 +142,8 @@ function parsePositiveInteger(value: unknown): number | null {
 }
 
 function resolveActiveStateStaleThresholdMs(env: NodeJS.ProcessEnv = process.env): number {
-  return parsePositiveInteger(env.OMX_RALPH_ACTIVE_STATE_STALE_MS)
-    ?? parsePositiveInteger(env.OMX_RALPH_RESUME_STALE_MS)
+  return parsePositiveInteger(env.OWX_RALPH_ACTIVE_STATE_STALE_MS)
+    ?? parsePositiveInteger(env.OWX_RALPH_RESUME_STALE_MS)
     ?? DEFAULT_RALPH_ACTIVE_STATE_STALE_MS;
 }
 
@@ -211,7 +211,7 @@ async function markRalphStateAbandoned(
 }
 
 function readSessionIdFromEnvironment(env: NodeJS.ProcessEnv = process.env): string {
-  const candidates = [env.OMX_SESSION_ID, env.CODEX_SESSION_ID, env.SESSION_ID];
+  const candidates = [env.OWX_SESSION_ID, env.CODEX_SESSION_ID, env.SESSION_ID];
   for (const candidate of candidates) {
     const sessionId = safeString(candidate).trim();
     if (SESSION_ID_PATTERN.test(sessionId)) return sessionId;
@@ -303,7 +303,7 @@ export async function reconcileRalphSessionResume({
         currentOmxSessionId: '',
         resumed: false,
         updatedCurrentOwner: false,
-        reason: 'current_omx_session_missing',
+        reason: 'current_owx_session_missing',
       };
     }
 
@@ -331,8 +331,8 @@ export async function reconcileRalphSessionResume({
       let changed = false;
       const updated: Record<string, unknown> = { ...currentRalphState };
       const normalizedPayloadThreadId = safeString(payloadThreadId).trim();
-      if (safeString(updated.owner_omx_session_id).trim() !== currentOmxSessionId) {
-        updated.owner_omx_session_id = currentOmxSessionId;
+      if (safeString(updated.owner_owx_session_id).trim() !== currentOmxSessionId) {
+        updated.owner_owx_session_id = currentOmxSessionId;
         changed = true;
       }
       if (payloadSessionId && !safeString(updated.owner_codex_session_id).trim()) {
@@ -416,7 +416,7 @@ export async function reconcileRalphSessionResume({
 
     const nextState = bindCurrentPane({
       ...source.state,
-      owner_omx_session_id: currentOmxSessionId,
+      owner_owx_session_id: currentOmxSessionId,
       ...(normalizedPayloadSessionId ? { owner_codex_session_id: normalizedPayloadSessionId } : {}),
     }, nowIso, env);
     if (safeString(nextState.owner_codex_session_id).trim()) {

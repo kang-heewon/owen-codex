@@ -11,12 +11,12 @@ import {
 
 describe('autopilot ralplan gate', () => {
   it('rejects native review evidence from the session leader even when malformed tracking marks it as subagent', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-autopilot-ralplan-leader-spoof-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-leader-spoof-'));
     const sessionId = 'sess-autopilot-leader-spoof';
     const trackingPath = subagentTrackingPath(cwd);
     try {
       await mkdir(join(trackingPath, '..'), { recursive: true });
-      await writeFile(join(cwd, '.omx', 'state', 'session.json'), JSON.stringify({
+      await writeFile(join(cwd, '.owx', 'state', 'session.json'), JSON.stringify({
         session_id: sessionId,
         native_session_id: 'thread-leader',
       }, null, 2));
@@ -59,8 +59,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-leader',
-              artifact_path: '.omx/artifacts/architect.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/architect.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:34:51.000Z',
             },
             ralplan_critic_review: {
@@ -69,8 +69,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-critic',
-              artifact_path: '.omx/artifacts/critic.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/critic.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:35:10.000Z',
             },
           },
@@ -86,7 +86,7 @@ describe('autopilot ralplan gate', () => {
   });
 
   it('accepts fresh native review evidence when tracker leader id aliases a subagent lane', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-autopilot-ralplan-fresh-subagent-alias-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-fresh-subagent-alias-'));
     const sessionId = 'sess-autopilot-fresh-subagent-alias';
     const trackingPath = subagentTrackingPath(cwd);
     try {
@@ -132,8 +132,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-architect',
-              artifact_path: '.omx/artifacts/architect.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/architect.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:34:51.000Z',
             },
             ralplan_critic_review: {
@@ -142,8 +142,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-critic',
-              artifact_path: '.omx/artifacts/critic.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/critic.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:35:10.000Z',
             },
           },
@@ -159,12 +159,12 @@ describe('autopilot ralplan gate', () => {
   });
 
   it('rejects native review evidence from the current native session leader', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'omx-autopilot-ralplan-native-leader-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-native-leader-'));
     const sessionId = 'sess-autopilot-native-leader';
     const trackingPath = subagentTrackingPath(cwd);
     try {
       await mkdir(join(trackingPath, '..'), { recursive: true });
-      await writeFile(join(cwd, '.omx', 'state', 'session.json'), JSON.stringify({
+      await writeFile(join(cwd, '.owx', 'state', 'session.json'), JSON.stringify({
         session_id: sessionId,
         native_session_id: 'thread-leader',
       }, null, 2));
@@ -207,8 +207,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-leader',
-              artifact_path: '.omx/artifacts/architect.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/architect.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:34:51.000Z',
             },
             ralplan_critic_review: {
@@ -217,8 +217,8 @@ describe('autopilot ralplan gate', () => {
               verdict: 'approve',
               session_id: sessionId,
               thread_id: 'thread-critic',
-              artifact_path: '.omx/artifacts/critic.md',
-              tracker_path: '.omx/state/subagent-tracking.json',
+              artifact_path: '.owx/artifacts/critic.md',
+              tracker_path: '.owx/state/subagent-tracking.json',
               completed_at: '2026-05-28T18:35:10.000Z',
             },
           },

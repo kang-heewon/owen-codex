@@ -37,7 +37,7 @@ describe('ralph goal mode integration contract', () => {
 
   it('injects goal-mode guidance into launched Ralph sessions', () => {
     const instructions = buildRalphAppendInstructions('ship the integration', {
-      changedFilesPath: '.omx/ralph/changed-files.txt',
+      changedFilesPath: '.owx/ralph/changed-files.txt',
       noDeslop: false,
     });
 

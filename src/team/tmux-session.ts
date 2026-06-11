@@ -34,11 +34,11 @@ import { resolveOmxCliEntryPath } from '../utils/paths.js';
 
 const execFileAsync = promisify(execFile);
 import { HUD_RESIZE_RECONCILE_DELAY_SECONDS, HUD_TMUX_TEAM_HEIGHT_LINES } from '../hud/constants.js';
-import { OMX_TMUX_HUD_OWNER_ENV } from '../hud/reconcile.js';
-import { findHudWatchPaneIds, OMX_TMUX_HUD_LEADER_PANE_ENV } from '../hud/tmux.js';
+import { OWX_TMUX_HUD_OWNER_ENV } from '../hud/reconcile.js';
+import { findHudWatchPaneIds, OWX_TMUX_HUD_LEADER_PANE_ENV } from '../hud/tmux.js';
 
-const OMX_INSTANCE_OPTION = '@omx_instance_id';
-const OMX_PANE_INSTANCE_OPTION = '@omx_pane_instance_id';
+const OWX_INSTANCE_OPTION = '@owx_instance_id';
+const OWX_PANE_INSTANCE_OPTION = '@owx_pane_instance_id';
 
 export interface TeamSession {
   name: string; // tmux target in "session:window" form
@@ -55,21 +55,21 @@ export interface TeamSession {
   resizeHookTarget: string | null;
 }
 
-const INJECTION_MARKER = '[OMX_TMUX_INJECT]';
+const INJECTION_MARKER = '[OWX_TMUX_INJECT]';
 const MODEL_INSTRUCTIONS_FILE_KEY = 'model_instructions_file';
-const OMX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV = 'OMX_BYPASS_DEFAULT_SYSTEM_PROMPT';
-const OMX_MODEL_INSTRUCTIONS_FILE_ENV = 'OMX_MODEL_INSTRUCTIONS_FILE';
-const OMX_TEAM_WORKER_CLI_ENV = 'OMX_TEAM_WORKER_CLI';
-const OMX_TEAM_WORKER_CLI_MAP_ENV = 'OMX_TEAM_WORKER_CLI_MAP';
-const OMX_TEAM_WORKER_LAUNCH_MODE_ENV = 'OMX_TEAM_WORKER_LAUNCH_MODE';
-const OMX_TEAM_AUTO_INTERRUPT_RETRY_ENV = 'OMX_TEAM_AUTO_INTERRUPT_RETRY';
-const OMX_TEAM_WORKER_MCP_COMPAT_ENV = 'OMX_TEAM_WORKER_MCP_COMPAT';
+const OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV = 'OWX_BYPASS_DEFAULT_SYSTEM_PROMPT';
+const OWX_MODEL_INSTRUCTIONS_FILE_ENV = 'OWX_MODEL_INSTRUCTIONS_FILE';
+const OWX_TEAM_WORKER_CLI_ENV = 'OWX_TEAM_WORKER_CLI';
+const OWX_TEAM_WORKER_CLI_MAP_ENV = 'OWX_TEAM_WORKER_CLI_MAP';
+const OWX_TEAM_WORKER_LAUNCH_MODE_ENV = 'OWX_TEAM_WORKER_LAUNCH_MODE';
+const OWX_TEAM_AUTO_INTERRUPT_RETRY_ENV = 'OWX_TEAM_AUTO_INTERRUPT_RETRY';
+const OWX_TEAM_WORKER_MCP_COMPAT_ENV = 'OWX_TEAM_WORKER_MCP_COMPAT';
 const CODEX_SQLITE_HOME_ENV = 'CODEX_SQLITE_HOME';
 const GEMINI_PROMPT_INTERACTIVE_FLAG = '-i';
 const GEMINI_APPROVAL_MODE_FLAG = '--approval-mode';
 const GEMINI_APPROVAL_MODE_YOLO = 'yolo';
-const OMX_LEADER_NODE_PATH_ENV = 'OMX_LEADER_NODE_PATH';
-const OMX_LEADER_CLI_PATH_ENV = 'OMX_LEADER_CLI_PATH';
+const OWX_LEADER_NODE_PATH_ENV = 'OWX_LEADER_NODE_PATH';
+const OWX_LEADER_CLI_PATH_ENV = 'OWX_LEADER_CLI_PATH';
 const TMUX_WORKER_AMBIENT_ENV_ALLOWLIST = [
   'HTTPS_PROXY',
   'HTTP_PROXY',
@@ -79,13 +79,13 @@ const TMUX_WORKER_AMBIENT_ENV_ALLOWLIST = [
   'no_proxy',
 ] as const;
 
-const TEAM_WORKER_DISABLED_OMX_MCP_SERVERS = [
-  'omx_state',
-  'omx_memory',
-  'omx_code_intel',
-  'omx_trace',
-  'omx_wiki',
-  'omx_hermes',
+const TEAM_WORKER_DISABLED_OWX_MCP_SERVERS = [
+  'owx_state',
+  'owx_memory',
+  'owx_code_intel',
+  'owx_trace',
+  'owx_wiki',
+  'owx_hermes',
 ] as const;
 const TMUX_NO_UNDERLINE_STYLE_FLAGS = [
   'nounderscore',
@@ -101,7 +101,7 @@ const TMUX_COPY_MODE_STYLE_OPTIONS = [
 const TMUX_PANE_STABILITY_POLL_MS = 60;
 const TMUX_PANE_STABILITY_POLLS_REQUIRED = 2;
 const TMUX_PANE_STABILITY_TIMEOUT_MS = 750;
-const OMX_TEAM_STATE_ROOT_ENV = 'OMX_TEAM_STATE_ROOT';
+const OWX_TEAM_STATE_ROOT_ENV = 'OWX_TEAM_STATE_ROOT';
 
 export type TeamWorkerCli = 'codex' | 'claude' | 'gemini';
 type TeamWorkerCliMode = 'auto' | TeamWorkerCli;
@@ -176,7 +176,7 @@ function tagPaneInstance(paneTarget: string, instanceId: string): void {
   const target = paneTarget.trim();
   const sanitized = instanceId.trim();
   if (!target || !sanitized) return;
-  const result = runTmux(['set-option', '-p', '-t', target, OMX_PANE_INSTANCE_OPTION, sanitized]);
+  const result = runTmux(['set-option', '-p', '-t', target, OWX_PANE_INSTANCE_OPTION, sanitized]);
   if (!result.ok) {
     throw new Error(`failed to tag tmux pane ${target}: ${result.stderr}`);
   }
@@ -299,7 +299,7 @@ function waitForPaneToRemainPresent(
 
 function isHudWatchPane(pane: TmuxPaneInfo): boolean {
   const start = pane.startCommand || '';
-  return /\bomx\b.*\bhud\b.*--watch/i.test(start);
+  return /\bowx\b.*\bhud\b.*--watch/i.test(start);
 }
 
 export function chooseTeamLeaderPaneId(panes: TmuxPaneInfo[], preferredPaneId: string): string {
@@ -464,11 +464,11 @@ function formatHudEnvAssignments(
   const sessionId = (owner.sessionId ?? '').trim();
   const leaderPaneId = (owner.leaderPaneId ?? '').trim();
   const assignments = [
-    sessionId ? `OMX_SESSION_ID=${shellQuoteSingle(sessionId)}` : '',
-    `${OMX_TMUX_HUD_OWNER_ENV}=1`,
-    leaderPaneId ? `${OMX_TMUX_HUD_LEADER_PANE_ENV}=${shellQuoteSingle(leaderPaneId)}` : '',
-    ...(typeof env.OMX_ROOT === 'string' && env.OMX_ROOT.trim() !== ''
-      ? [`OMX_ROOT=${shellQuoteSingle(env.OMX_ROOT)}`]
+    sessionId ? `OWX_SESSION_ID=${shellQuoteSingle(sessionId)}` : '',
+    `${OWX_TMUX_HUD_OWNER_ENV}=1`,
+    leaderPaneId ? `${OWX_TMUX_HUD_LEADER_PANE_ENV}=${shellQuoteSingle(leaderPaneId)}` : '',
+    ...(typeof env.OWX_ROOT === 'string' && env.OWX_ROOT.trim() !== ''
+      ? [`OWX_ROOT=${shellQuoteSingle(env.OWX_ROOT)}`]
       : []),
   ].filter(Boolean);
   return assignments.join(' ');
@@ -528,7 +528,7 @@ export function buildResizeHookName(
   hudPaneId: string,
 ): string {
   return [
-    'omx_resize',
+    'owx_resize',
     normalizeTmuxHookToken(teamName),
     normalizeTmuxHookToken(sessionName),
     normalizeTmuxHookToken(windowIndex),
@@ -618,7 +618,7 @@ export function buildClientAttachedReconcileHookName(
   hudPaneId: string,
 ): string {
   return [
-    'omx_attached',
+    'owx_attached',
     normalizeTmuxHookToken(teamName),
     normalizeTmuxHookToken(sessionName),
     normalizeTmuxHookToken(windowIndex),
@@ -680,7 +680,7 @@ function buildShellLaunchSpec(shell: string, rcFile: string | null): WorkerLaunc
 export function shouldSourceTeamWorkerShellRc(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return String(env.OMX_TMUX_SOURCE_SHELL_RC ?? '').trim() === '1';
+  return String(env.OWX_TMUX_SOURCE_SHELL_RC ?? '').trim() === '1';
 }
 
 function resolveSupportedShellAffinity(shellPath: string | undefined): WorkerLaunchSpec | null {
@@ -740,7 +740,7 @@ function hasModelInstructionsOverride(args: string[]): boolean {
   return false;
 }
 
-function normalizeTeamWorkerCliMode(raw: string | undefined, sourceEnv: string = OMX_TEAM_WORKER_CLI_ENV): TeamWorkerCliMode {
+function normalizeTeamWorkerCliMode(raw: string | undefined, sourceEnv: string = OWX_TEAM_WORKER_CLI_ENV): TeamWorkerCliMode {
   const normalized = String(raw ?? 'auto').trim().toLowerCase();
   if (normalized === '' || normalized === 'auto') return 'auto';
   if (normalized === 'codex' || normalized === 'claude' || normalized === 'gemini') return normalized;
@@ -750,10 +750,10 @@ function normalizeTeamWorkerCliMode(raw: string | undefined, sourceEnv: string =
 export function resolveTeamWorkerLaunchMode(
   env: NodeJS.ProcessEnv = process.env,
 ): TeamWorkerLaunchMode {
-  const raw = String(env[OMX_TEAM_WORKER_LAUNCH_MODE_ENV] ?? 'interactive').trim().toLowerCase();
+  const raw = String(env[OWX_TEAM_WORKER_LAUNCH_MODE_ENV] ?? 'interactive').trim().toLowerCase();
   if (raw === '' || raw === 'interactive') return 'interactive';
   if (raw === 'prompt') return 'prompt';
-  throw new Error(`Invalid ${OMX_TEAM_WORKER_LAUNCH_MODE_ENV} value "${env[OMX_TEAM_WORKER_LAUNCH_MODE_ENV]}". Expected: interactive, prompt`);
+  throw new Error(`Invalid ${OWX_TEAM_WORKER_LAUNCH_MODE_ENV} value "${env[OWX_TEAM_WORKER_LAUNCH_MODE_ENV]}". Expected: interactive, prompt`);
 }
 
 function extractModelOverride(args: string[]): string | null {
@@ -777,7 +777,7 @@ function extractModelOverride(args: string[]): string | null {
 }
 
 export function resolveTeamWorkerCli(launchArgs: string[] = [], env: NodeJS.ProcessEnv = process.env): TeamWorkerCli {
-  const mode = normalizeTeamWorkerCliMode(env[OMX_TEAM_WORKER_CLI_ENV]);
+  const mode = normalizeTeamWorkerCliMode(env[OWX_TEAM_WORKER_CLI_ENV]);
   if (mode !== 'auto') return mode;
   return resolveTeamWorkerCliFromLaunchArgs(launchArgs);
 }
@@ -798,7 +798,7 @@ export function resolveTeamWorkerCliPlan(
     throw new Error(`workerCount must be >= 1 (got ${workerCount})`);
   }
 
-  const rawMap = String(env[OMX_TEAM_WORKER_CLI_MAP_ENV] ?? '').trim();
+  const rawMap = String(env[OWX_TEAM_WORKER_CLI_MAP_ENV] ?? '').trim();
   const fallback = (): TeamWorkerCli => resolveTeamWorkerCli(launchArgs, env);
   const fallbackAutoFromArgs = (): TeamWorkerCli => resolveTeamWorkerCliFromLaunchArgs(launchArgs);
 
@@ -813,26 +813,26 @@ export function resolveTeamWorkerCliPlan(
 
   if (entries.length === 0 || entries.every((part) => part.length === 0)) {
     throw new Error(
-      `Invalid ${OMX_TEAM_WORKER_CLI_MAP_ENV} value "${env[OMX_TEAM_WORKER_CLI_MAP_ENV]}". `
+      `Invalid ${OWX_TEAM_WORKER_CLI_MAP_ENV} value "${env[OWX_TEAM_WORKER_CLI_MAP_ENV]}". `
         + `Expected comma-separated values: auto|codex|claude|gemini.`,
     );
   }
   if (entries.some((part) => part.length === 0)) {
     throw new Error(
-      `Invalid ${OMX_TEAM_WORKER_CLI_MAP_ENV} value "${env[OMX_TEAM_WORKER_CLI_MAP_ENV]}". `
+      `Invalid ${OWX_TEAM_WORKER_CLI_MAP_ENV} value "${env[OWX_TEAM_WORKER_CLI_MAP_ENV]}". `
         + `Empty entries are not allowed.`,
     );
   }
   if (entries.length !== 1 && entries.length !== workerCount) {
     throw new Error(
-      `Invalid ${OMX_TEAM_WORKER_CLI_MAP_ENV} length ${entries.length}; `
+      `Invalid ${OWX_TEAM_WORKER_CLI_MAP_ENV} length ${entries.length}; `
         + `expected 1 or ${workerCount} comma-separated values.`,
     );
   }
 
   const expanded = entries.length === 1 ? Array.from({ length: workerCount }, () => entries[0] as string) : entries;
   return expanded.map((entry) => {
-    const mode = normalizeTeamWorkerCliMode(entry, OMX_TEAM_WORKER_CLI_MAP_ENV);
+    const mode = normalizeTeamWorkerCliMode(entry, OWX_TEAM_WORKER_CLI_MAP_ENV);
     return mode === 'auto' ? fallbackAutoFromArgs() : mode;
   });
 }
@@ -886,7 +886,7 @@ export function trustWorkerMiseConfigIfAvailable(workerCwd: string): boolean {
   const { result } = spawnPlatformCommandSync('mise', ['trust', '--yes', miseConfigPath], { encoding: 'utf-8' });
   if (result.error || result.status !== 0) {
     const reason = result.error?.message || String(result.stderr || '').trim() || `mise exited ${result.status}`;
-    console.warn(`[omx] mise trust failed for team worker config ${miseConfigPath}: ${reason}; continuing.`);
+    console.warn(`[owx] mise trust failed for team worker config ${miseConfigPath}: ${reason}; continuing.`);
     return false;
   }
   return true;
@@ -906,7 +906,7 @@ function resolveAbsoluteBinaryPath(binary: string): string {
  */
 let _leaderPaths: { node: string; } | null = null;
 function resolveLeaderNodePath(): string {
-  const envOverride = process.env[OMX_LEADER_NODE_PATH_ENV];
+  const envOverride = process.env[OWX_LEADER_NODE_PATH_ENV];
   if (typeof envOverride === 'string' && envOverride.trim() !== '') {
     return envOverride.trim();
   }
@@ -923,16 +923,16 @@ export function assertTeamWorkerCliBinaryAvailable(
   if (existsImpl(workerCli)) return;
   throw new Error(
     `Selected team worker CLI "${workerCli}" is not available on PATH. `
-      + `Install "${workerCli}" or set ${OMX_TEAM_WORKER_CLI_ENV}=codex|claude|gemini.`,
+      + `Install "${workerCli}" or set ${OWX_TEAM_WORKER_CLI_ENV}=codex|claude|gemini.`,
   );
 }
 
 function shouldBypassDefaultSystemPrompt(env: NodeJS.ProcessEnv): boolean {
-  return env[OMX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] !== '0';
+  return env[OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] !== '0';
 }
 
 function buildModelInstructionsOverride(cwd: string, env: NodeJS.ProcessEnv): string {
-  const filePath = translatePathForMsys(env[OMX_MODEL_INSTRUCTIONS_FILE_ENV] || join(cwd, 'AGENTS.md'));
+  const filePath = translatePathForMsys(env[OWX_MODEL_INSTRUCTIONS_FILE_ENV] || join(cwd, 'AGENTS.md'));
   return `${MODEL_INSTRUCTIONS_FILE_KEY}="${escapeTomlString(filePath)}"`;
 }
 
@@ -948,8 +948,8 @@ function readTmuxWorkerAmbientEnv(env: NodeJS.ProcessEnv = process.env): Record<
 
 export function scrubTeamWorkerHudOwnershipEnv<T extends Record<string, string | undefined>>(env: T): T {
   const scrubbed = { ...env };
-  delete scrubbed[OMX_TMUX_HUD_OWNER_ENV];
-  delete scrubbed[OMX_TMUX_HUD_LEADER_PANE_ENV];
+  delete scrubbed[OWX_TMUX_HUD_OWNER_ENV];
+  delete scrubbed[OWX_TMUX_HUD_LEADER_PANE_ENV];
   return scrubbed;
 }
 
@@ -972,7 +972,7 @@ function hasConfigOverride(args: readonly string[], key: string): boolean {
 }
 
 function shouldDisableOmxMcpForTeamWorker(env: NodeJS.ProcessEnv): boolean {
-  const raw = env[OMX_TEAM_WORKER_MCP_COMPAT_ENV]?.trim().toLowerCase();
+  const raw = env[OWX_TEAM_WORKER_MCP_COMPAT_ENV]?.trim().toLowerCase();
   return !(raw === '1' || raw === 'true' || raw === 'on' || raw === 'compat');
 }
 
@@ -997,7 +997,7 @@ function codexConfigDeclaresMcpServer(serverName: string, env: NodeJS.ProcessEnv
 
 function appendTeamWorkerMcpDisableOverrides(args: string[], env: NodeJS.ProcessEnv): void {
   if (!shouldDisableOmxMcpForTeamWorker(env)) return;
-  for (const server of TEAM_WORKER_DISABLED_OMX_MCP_SERVERS) {
+  for (const server of TEAM_WORKER_DISABLED_OWX_MCP_SERVERS) {
     if (!codexConfigDeclaresMcpServer(server, env)) continue;
     const key = `mcp_servers.${server}.enabled`;
     if (hasConfigOverride(args, key)) continue;
@@ -1045,7 +1045,7 @@ export function buildWorkerStartupCommand(
   if (processSpec.workerCli === 'codex') {
     appendTeamWorkerMcpDisableOverrides(startupArgs, { ...process.env, ...extraEnv });
   }
-  const resolvedLeaderNodePath = processSpec.env[OMX_LEADER_NODE_PATH_ENV]?.trim() || resolveLeaderNodePath();
+  const resolvedLeaderNodePath = processSpec.env[OWX_LEADER_NODE_PATH_ENV]?.trim() || resolveLeaderNodePath();
   const leaderNodeDir = /[\\/]/.test(resolvedLeaderNodePath)
     ? resolvedLeaderNodePath.replace(/[\\/][^\\/]+$/, '')
     : '';
@@ -1054,7 +1054,7 @@ export function buildWorkerStartupCommand(
     const pathBootstrap = leaderNodeDir
       ? `$env:PATH = ${quotePowerShellArg(`${leaderNodeDir};`)} + $env:PATH`
       : '';
-    const hudEnvUnset = [OMX_TMUX_HUD_OWNER_ENV, OMX_TMUX_HUD_LEADER_PANE_ENV]
+    const hudEnvUnset = [OWX_TMUX_HUD_OWNER_ENV, OWX_TMUX_HUD_LEADER_PANE_ENV]
       .map((key) => `Remove-Item Env:${key} -ErrorAction SilentlyContinue`)
       .join('; ');
     const envAssignments = Object.entries(startupEnv)
@@ -1089,7 +1089,7 @@ export function buildWorkerStartupCommand(
     : '';
   const inner = `${rcPrefix}${pathPrefix}${cliInvocation}`;
   const envParts = Object.entries(startupEnv).map(([key, value]) => `${key}=${value}`);
-  const unsetParts = ['-u', OMX_TMUX_HUD_OWNER_ENV, '-u', OMX_TMUX_HUD_LEADER_PANE_ENV];
+  const unsetParts = ['-u', OWX_TMUX_HUD_OWNER_ENV, '-u', OWX_TMUX_HUD_LEADER_PANE_ENV];
 
   return `env ${[...unsetParts, ...envParts].map(shellQuoteSingle).join(' ')} ${shellQuoteSingle(launchSpec.shell)} -c ${shellQuoteSingle(inner)}`;
 }
@@ -1107,7 +1107,7 @@ function buildWorkerStartupScriptContent(
   cwd: string,
   extraEnv: Record<string, string>,
 ): string {
-  const resolvedLeaderNodePath = processSpec.env[OMX_LEADER_NODE_PATH_ENV]?.trim() || resolveLeaderNodePath();
+  const resolvedLeaderNodePath = processSpec.env[OWX_LEADER_NODE_PATH_ENV]?.trim() || resolveLeaderNodePath();
   const leaderNodeDir = /[\\/]/.test(resolvedLeaderNodePath)
     ? resolvedLeaderNodePath.replace(/[\\/][^\\/]+$/, '')
     : '';
@@ -1129,7 +1129,7 @@ function buildWorkerStartupScriptContent(
   return [
     '#!/bin/sh',
     'set -eu',
-    `unset ${OMX_TMUX_HUD_OWNER_ENV} ${OMX_TMUX_HUD_LEADER_PANE_ENV}`,
+    `unset ${OWX_TMUX_HUD_OWNER_ENV} ${OWX_TMUX_HUD_LEADER_PANE_ENV}`,
     `cd ${shellQuoteSingle(cwd)}`,
     envExports,
     `exec ${shellQuoteSingle(launchSpec.shell)} -c ${shellQuoteSingle(`${rcPrefix}${pathPrefix}${cliInvocation}`)}`,
@@ -1148,7 +1148,7 @@ export function writeWorkerStartupScriptCommand(
   workerRole?: string,
 ): string | null {
   if (process.platform === 'win32') return null;
-  const stateRoot = extraEnv[OMX_TEAM_STATE_ROOT_ENV]?.trim();
+  const stateRoot = extraEnv[OWX_TEAM_STATE_ROOT_ENV]?.trim();
   if (!stateRoot) return null;
 
   const processSpec = buildWorkerProcessLaunchSpec(
@@ -1222,17 +1222,17 @@ export function buildWorkerProcessLaunchSpec(
       )
     : {};
   const internalWorkerIdentity = `${teamName}/worker-${workerIndex}`;
-  const displayTeamName = typeof extraEnv.OMX_TEAM_DISPLAY_NAME === 'string'
-    ? extraEnv.OMX_TEAM_DISPLAY_NAME.trim()
+  const displayTeamName = typeof extraEnv.OWX_TEAM_DISPLAY_NAME === 'string'
+    ? extraEnv.OWX_TEAM_DISPLAY_NAME.trim()
     : '';
   const publicWorkerIdentity = displayTeamName
     ? `${displayTeamName}/worker-${workerIndex}`
     : internalWorkerIdentity;
   const workerEnv: Record<string, string> = {
-    OMX_TEAM_WORKER: publicWorkerIdentity,
-    OMX_TEAM_INTERNAL_WORKER: internalWorkerIdentity,
-    [OMX_LEADER_NODE_PATH_ENV]: resolveLeaderNodePath(),
-    [OMX_LEADER_CLI_PATH_ENV]: resolvedLauncherPath,
+    OWX_TEAM_WORKER: publicWorkerIdentity,
+    OWX_TEAM_INTERNAL_WORKER: internalWorkerIdentity,
+    [OWX_LEADER_NODE_PATH_ENV]: resolveLeaderNodePath(),
+    [OWX_LEADER_CLI_PATH_ENV]: resolvedLauncherPath,
     ...(workerCli === 'codex' && workerCodexHomeOverride
       ? { CODEX_HOME: workerCodexHomeOverride }
       : {}),
@@ -1289,7 +1289,7 @@ export function isWsl2(): boolean {
 
 /**
  * Detect whether the process is running on native Windows (not WSL2).
- * OMX requires tmux, which is unavailable on native Windows.
+ * OWX requires tmux, which is unavailable on native Windows.
  */
 export function isNativeWindows(): boolean {
   return process.platform === 'win32' && !isWsl2() && !isMsysOrGitBash();
@@ -1357,9 +1357,9 @@ export function createTeamSession(
       throw new Error(`failed to parse current tmux target: ${context.stdout}`);
     }
     const teamTarget = `${sessionName}:${windowIndex}`;
-    const instanceId = (process.env.OMX_SESSION_ID || '').trim();
+    const instanceId = (process.env.OWX_SESSION_ID || '').trim();
     if (instanceId) {
-      const tagResult = runTmux(['set-option', '-t', sessionName, OMX_INSTANCE_OPTION, instanceId]);
+      const tagResult = runTmux(['set-option', '-t', sessionName, OWX_INSTANCE_OPTION, instanceId]);
       if (!tagResult.ok) {
         throw new Error(`failed to tag tmux session ${sessionName}: ${tagResult.stderr}`);
       }
@@ -1368,8 +1368,8 @@ export function createTeamSession(
     const leaderPaneId = chooseTeamLeaderPaneId(panes, detectedLeaderPaneId);
     tagPaneInstance(leaderPaneId, instanceId);
     const initialHudPaneIds = findHudPaneIds(teamTarget, leaderPaneId);
-    const omxEntry = resolveOmxCliEntryPath();
-    const canRecreateTeamHud = Boolean(omxEntry && omxEntry.trim() !== '');
+    const owxEntry = resolveOmxCliEntryPath();
+    const canRecreateTeamHud = Boolean(owxEntry && owxEntry.trim() !== '');
     // Team mode prioritizes leader + worker visibility. Remove HUD panes only
     // when we can recreate the team HUD. Otherwise keep the existing HUD alive
     // instead of making it disappear on team startup failures or broken installs.
@@ -1460,8 +1460,8 @@ export function createTeamSession(
     let hudPaneId: string | null = null;
     let resizeHookName: string | null = null;
     let resizeHookTarget: string | null = null;
-    if (canRecreateTeamHud && omxEntry) {
-      const hudCmd = `exec env ${formatHudEnvAssignments(process.env, { sessionId: instanceId, leaderPaneId })} node ${shellQuoteSingle(translatePathForMsys(omxEntry))} hud --watch`;
+    if (canRecreateTeamHud && owxEntry) {
+      const hudCmd = `exec env ${formatHudEnvAssignments(process.env, { sessionId: instanceId, leaderPaneId })} node ${shellQuoteSingle(translatePathForMsys(owxEntry))} hud --watch`;
       const hudCwd = translatePathForMsys(cwd);
       const hudResult = runTmux([
         'split-window', '-v', '-f', '-l', String(HUD_TMUX_TEAM_HEIGHT_LINES), '-t', teamTarget, '-d', '-P', '-F', '#{pane_id}', '-c', hudCwd, hudCmd,
@@ -1505,7 +1505,7 @@ export function createTeamSession(
               // delayed/direct resize checks below so real tmux/run-shell failures
               // still surface.
               console.warn(
-                `[omx] tmux resize hook unavailable for ${hookTarget} (${hookName}): ${registerHook.stderr}; `
+                `[owx] tmux resize hook unavailable for ${hookTarget} (${hookName}): ${registerHook.stderr}; `
                   + 'continuing with best-effort HUD resize fallback.',
               );
             }
@@ -1516,18 +1516,18 @@ export function createTeamSession(
               registeredClientAttachedHook = { name: clientAttachedHookName, target: hookTarget };
             } else {
               console.warn(
-                `[omx] tmux client-attached resize fallback unavailable for ${hookTarget} `
+                `[owx] tmux client-attached resize fallback unavailable for ${hookTarget} `
                   + `(${clientAttachedHookName}): ${registerClientAttachedHook.stderr}; continuing with delayed HUD resize fallback.`,
               );
             }
 
             const delayed = runTmux(buildScheduleDelayedHudResizeArgs(hudPaneId));
             if (!delayed.ok) {
-              console.warn(`[omx] tmux delayed HUD resize unavailable for ${hudPaneId}: ${delayed.stderr}; continuing.`);
+              console.warn(`[owx] tmux delayed HUD resize unavailable for ${hudPaneId}: ${delayed.stderr}; continuing.`);
             }
             const reconcile = runTmux(buildReconcileHudResizeArgs(hudPaneId));
             if (!reconcile.ok) {
-              console.warn(`[omx] tmux HUD resize reconcile unavailable for ${hudPaneId}: ${reconcile.stderr}; continuing.`);
+              console.warn(`[owx] tmux HUD resize reconcile unavailable for ${hudPaneId}: ${reconcile.stderr}; continuing.`);
             }
           }
         }
@@ -1541,8 +1541,8 @@ export function createTeamSession(
     // Enable mouse scrolling so agent output panes can be scrolled with the
     // mouse wheel without conflicting with keyboard up/down arrow-key input
     // history navigation in the Codex CLI input field. (issue #103)
-    // Opt-out: set OMX_TEAM_MOUSE=0 in the environment.
-    if (process.env.OMX_TEAM_MOUSE !== '0') {
+    // Opt-out: set OWX_TEAM_MOUSE=0 in the environment.
+    if (process.env.OWX_TEAM_MOUSE !== '0') {
       enableMouseScrolling(sessionName);
     }
 
@@ -1582,8 +1582,8 @@ export function restoreStandaloneHudPane(
   const normalizedLeaderPaneId = normalizePaneTarget(leaderPaneId);
   if (!normalizedLeaderPaneId) return null;
 
-  const omxEntry = resolveOmxCliEntryPath();
-  if (!omxEntry || omxEntry.trim() === '') return null;
+  const owxEntry = resolveOmxCliEntryPath();
+  if (!owxEntry || owxEntry.trim() === '') return null;
 
   const [existingHudPaneId, ...duplicateHudPaneIds] = findOwnedHudPaneIds(
     normalizedLeaderPaneId,
@@ -1603,7 +1603,7 @@ export function restoreStandaloneHudPane(
     return existingHudPaneId;
   }
 
-  const hudCmd = `exec env ${formatHudEnvAssignments(process.env, { leaderPaneId: normalizedLeaderPaneId })} ${shellQuoteSingle(translatePathForMsys(resolveLeaderNodePath()))} ${shellQuoteSingle(translatePathForMsys(omxEntry))} hud --watch`;
+  const hudCmd = `exec env ${formatHudEnvAssignments(process.env, { leaderPaneId: normalizedLeaderPaneId })} ${shellQuoteSingle(translatePathForMsys(resolveLeaderNodePath()))} ${shellQuoteSingle(translatePathForMsys(owxEntry))} hud --watch`;
   const hudCwd = translatePathForMsys(cwd);
   const hudResult = runTmux([
     'split-window',
@@ -1639,7 +1639,7 @@ export function restoreStandaloneHudPane(
  * Enable tmux mouse mode for a session so users can scroll pane content
  * (e.g. long agent output) with the mouse wheel instead of arrow keys.
  *
- * This helper is intentionally limited to session-scoped options so OMX
+ * This helper is intentionally limited to session-scoped options so OWX
  * does not overwrite server-global tmux bindings/options owned by users,
  * oh-my-tmux, or other sessions. Returns true if the session mouse option
  * was set successfully, false otherwise.
@@ -1653,7 +1653,7 @@ export function enableMouseScrolling(sessionTarget: string): boolean {
   runTmux(['set-option', '-t', sessionTarget, 'set-clipboard', 'on']);
 
   // Mouse selection enters tmux copy-mode. Keep the mitigation session-scoped
-  // so OMX does not mutate users' global tmux style defaults. (issue #1448)
+  // so OWX does not mutate users' global tmux style defaults. (issue #1448)
   mitigateCopyModeUnderlineArtifacts(sessionTarget);
 
   return true;
@@ -1728,7 +1728,7 @@ function acceptClaudeBypassPermissionsPrompt(target: string): void {
 }
 
 function dismissClaudeBypassPermissionsPromptIfPresent(target: string, captured: string): boolean {
-  if (process.env.OMX_TEAM_AUTO_ACCEPT_BYPASS === '0') return false;
+  if (process.env.OWX_TEAM_AUTO_ACCEPT_BYPASS === '0') return false;
   if (!paneHasClaudeBypassPermissionsPrompt(captured)) return false;
   acceptClaudeBypassPermissionsPrompt(target);
   return true;
@@ -1776,7 +1776,7 @@ export async function checkWorkerStartupInjectSafety(
 }
 
 function resolveSendStrategyFromEnv(): 'auto' | 'queue' | 'interrupt' {
-  const raw = String(process.env.OMX_TEAM_SEND_STRATEGY || '')
+  const raw = String(process.env.OWX_TEAM_SEND_STRATEGY || '')
     .trim()
     .toLowerCase();
   if (raw === 'interrupt' || raw === 'queue' || raw === 'auto') {
@@ -1790,14 +1790,14 @@ function resolveWorkerCliFromMapForSend(
   launchArgs: string[] = [],
   env: NodeJS.ProcessEnv = process.env,
 ): TeamWorkerCli | null {
-  const rawMap = String(env[OMX_TEAM_WORKER_CLI_MAP_ENV] ?? '').trim();
+  const rawMap = String(env[OWX_TEAM_WORKER_CLI_MAP_ENV] ?? '').trim();
   if (rawMap === '') return null;
   const entries = rawMap.split(',').map((entry) => entry.trim());
   if (entries.length === 0 || entries.some((entry) => entry.length === 0)) return null;
   const selectedRaw = entries.length === 1 ? entries[0] : entries[workerIndex - 1];
   if (!selectedRaw) return null;
   try {
-    const mode = normalizeTeamWorkerCliMode(selectedRaw, OMX_TEAM_WORKER_CLI_MAP_ENV);
+    const mode = normalizeTeamWorkerCliMode(selectedRaw, OWX_TEAM_WORKER_CLI_MAP_ENV);
     return mode === 'auto' ? resolveTeamWorkerCliFromLaunchArgs(launchArgs) : mode;
   } catch {
     return null;
@@ -1807,8 +1807,8 @@ function resolveWorkerCliFromMapForSend(
 /**
  * Worker CLI resolution contract for submit routing:
  * 1) explicit workerCli param from caller
- * 2) per-worker OMX_TEAM_WORKER_CLI_MAP entry (worker index aware)
- * 3) global/default OMX_TEAM_WORKER_CLI behavior
+ * 2) per-worker OWX_TEAM_WORKER_CLI_MAP entry (worker index aware)
+ * 3) global/default OWX_TEAM_WORKER_CLI behavior
  */
 export function resolveWorkerCliForSend(
   workerIndex: number,
@@ -1947,8 +1947,8 @@ export function waitForWorkerReady(
     }
     if (paneHasTrustPrompt(result.stdout)) {
       // Default-on for team workers: they are spawned explicitly by the leader in the same cwd.
-      // Opt-out by setting OMX_TEAM_AUTO_TRUST=0.
-      if (process.env.OMX_TEAM_AUTO_TRUST !== '0') {
+      // Opt-out by setting OWX_TEAM_AUTO_TRUST=0.
+      if (process.env.OWX_TEAM_AUTO_TRUST !== '0') {
         sendRobustEnter();
         promptDismissed = true;
         return false;
@@ -2023,8 +2023,8 @@ export async function waitForWorkerReadyAsync(
     }
     if (paneHasTrustPrompt(result.stdout)) {
       // Default-on for team workers: they are spawned explicitly by the leader in the same cwd.
-      // Opt-out by setting OMX_TEAM_AUTO_TRUST=0.
-      if (process.env.OMX_TEAM_AUTO_TRUST !== '0') {
+      // Opt-out by setting OWX_TEAM_AUTO_TRUST=0.
+      if (process.env.OWX_TEAM_AUTO_TRUST !== '0') {
         await sendRobustEnter();
         promptDismissed = true;
         return false;
@@ -2065,14 +2065,14 @@ export async function waitForWorkerReadyAsync(
 /**
  * Detect and auto-dismiss a Codex "Trust this directory?" prompt in a worker pane.
  * Returns true if a trust prompt was found and dismissed, false otherwise.
- * Opt-out: set OMX_TEAM_AUTO_TRUST=0 to disable auto-dismissal.
+ * Opt-out: set OWX_TEAM_AUTO_TRUST=0 to disable auto-dismissal.
  */
 export function dismissTrustPromptIfPresent(
   sessionName: string,
   workerIndex: number,
   workerPaneId?: string,
 ): boolean {
-  if (process.env.OMX_TEAM_AUTO_TRUST === '0') return false;
+  if (process.env.OWX_TEAM_AUTO_TRUST === '0') return false;
   if (!isTmuxAvailable()) return false;
   const target = paneTarget(sessionName, workerIndex, workerPaneId);
   const result = runTmux(sharedBuildVisibleCapturePaneArgv(target));
@@ -2152,7 +2152,7 @@ export async function sendToWorker(
   // Allow the input buffer to settle before sending C-m
   await sleep(150);
 
-  const allowAutoInterruptRetry = process.env[OMX_TEAM_AUTO_INTERRUPT_RETRY_ENV] !== '0';
+  const allowAutoInterruptRetry = process.env[OWX_TEAM_AUTO_INTERRUPT_RETRY_ENV] !== '0';
   const submitPlan = buildWorkerSubmitPlan(strategy, resolvedWorkerCli, paneBusy, allowAutoInterruptRetry);
   if (submitPlan.shouldInterrupt) {
     // Explicit interrupt mode: abort current turn first, then submit the new command.
@@ -2184,8 +2184,8 @@ export async function sendToWorker(
   }
 
   // Fail-open by default: Codex may keep the last submitted line visible even after executing it.
-  // If you need strictness for debugging, set OMX_TEAM_STRICT_SUBMIT=1.
-  const strict = process.env.OMX_TEAM_STRICT_SUBMIT === '1';
+  // If you need strictness for debugging, set OWX_TEAM_STRICT_SUBMIT=1.
+  const strict = process.env.OWX_TEAM_STRICT_SUBMIT === '1';
   if (strict) {
     throw new Error('sendToWorker: submit_failed (trigger text still visible after retries)');
   }
@@ -2486,7 +2486,7 @@ export function destroyTeamSession(sessionName: string): void {
   }
 }
 
-// List all tmux sessions matching omx-team-* pattern
+// List all tmux sessions matching owx-team-* pattern
 export function listTeamSessions(): string[] {
   const result = runTmux(['list-sessions', '-F', '#{session_name}']);
   if (!result.ok) return [];
@@ -2502,7 +2502,7 @@ export function listTeamSessions(): string[] {
  * Notify the leader through durable mailbox state only.
  *
  * Team leaders are a coordination endpoint, not a direct tmux control target:
- * workers and runtime paths may message `leader-fixed` via `omx team api`
+ * workers and runtime paths may message `leader-fixed` via `owx team api`
  * / mailbox persistence, but team code must not inject text or control keys
  * into the leader pane. This is the async mailbox-based replacement for
  * `notifyLeaderStatus()`.

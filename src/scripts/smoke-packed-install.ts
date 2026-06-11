@@ -39,7 +39,7 @@ function usage(): string {
   return [
     'Usage: node scripts/smoke-packed-install.mjs',
     '',
-    'Creates an npm tarball, installs it into an isolated prefix, and smoke tests the installed omx CLI.',
+    'Creates an npm tarball, installs it into an isolated prefix, and smoke tests the installed owx CLI.',
     'Release smoke stays intentionally minimal: install + boot + 1-2 core commands only.',
   ].join('\n');
 }
@@ -191,9 +191,9 @@ export function buildNativeHookSmokePayload(
 
 function smokeInstalledNativeHookDist(prefixDir: string): void {
   const globalNodeModules = resolveGlobalNodeModules(prefixDir);
-  const packageRoot = join(globalNodeModules, 'oh-my-codex');
+  const packageRoot = join(globalNodeModules, 'owen-codex');
   const hookScript = join(packageRoot, 'dist', 'scripts', 'codex-native-hook.js');
-  const smokeCwd = mkdtempSync(join(tmpdir(), 'omx-packed-hook-smoke-'));
+  const smokeCwd = mkdtempSync(join(tmpdir(), 'owx-packed-hook-smoke-'));
   try {
     for (const eventName of PACKED_INSTALL_NATIVE_HOOK_SMOKE_EVENTS) {
       const payload = buildNativeHookSmokePayload(eventName, smokeCwd);
@@ -201,11 +201,11 @@ function smokeInstalledNativeHookDist(prefixDir: string): void {
         cwd: smokeCwd,
         env: {
           ...process.env,
-          OMX_NATIVE_HOOK_DOCTOR_SMOKE: '1',
-          OMX_ROOT: join(smokeCwd, '.omx-packed-hook-root'),
-          OMX_SESSION_ID: `packed-install-smoke-${eventName}`,
-          OMX_SOURCE_CWD: smokeCwd,
-          OMX_STARTUP_CWD: smokeCwd,
+          OWX_NATIVE_HOOK_DOCTOR_SMOKE: '1',
+          OWX_ROOT: join(smokeCwd, '.owx-packed-hook-root'),
+          OWX_SESSION_ID: `packed-install-smoke-${eventName}`,
+          OWX_SOURCE_CWD: smokeCwd,
+          OWX_STARTUP_CWD: smokeCwd,
         },
         input: JSON.stringify(payload),
       });
@@ -229,7 +229,7 @@ async function main(): Promise<void> {
   parseArgs(process.argv.slice(2));
 
   const repoRoot = process.cwd();
-  const tempRoot = mkdtempSync(join(tmpdir(), 'omx-packed-install-'));
+  const tempRoot = mkdtempSync(join(tmpdir(), 'owx-packed-install-'));
   const prefixDir = join(tempRoot, 'prefix');
   mkdirSync(prefixDir, { recursive: true });
 
@@ -247,9 +247,9 @@ async function main(): Promise<void> {
 
     run('npm', ['install', '-g', tarballPath, '--prefix', prefixDir], { cwd: repoRoot });
 
-    const omxPath = join(prefixDir, process.platform === 'win32' ? '' : 'bin', npmBinName('omx'));
+    const owxPath = join(prefixDir, process.platform === 'win32' ? '' : 'bin', npmBinName('owx'));
     for (const argv of PACKED_INSTALL_SMOKE_CORE_COMMANDS) {
-      run(omxPath, argv, { cwd: repoRoot });
+      run(owxPath, argv, { cwd: repoRoot });
     }
     smokeInstalledNativeHookDist(prefixDir);
 

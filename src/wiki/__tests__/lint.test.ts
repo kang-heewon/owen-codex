@@ -59,7 +59,7 @@ describe('Wiki Lint', () => {
 
 
 
-  it('does not create canonical omx_wiki while linting legacy fallback', async () => {
+  it('does not create canonical owx_wiki while linting legacy fallback', async () => {
     await fsp.rm(getWikiDir(tempDir), { recursive: true, force: true });
     const legacyDir = getLegacyWikiDir(tempDir);
     fs.mkdirSync(legacyDir, { recursive: true });

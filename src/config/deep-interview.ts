@@ -14,7 +14,7 @@ export interface DeepInterviewConfigOptions {
 
 export interface DeepInterviewConfigCandidate {
   path: string;
-  precedence: 'project-omx' | 'project-root' | 'user';
+  precedence: 'project-owx' | 'project-root' | 'user';
 }
 
 export interface DeepInterviewRuntimeConfig {
@@ -103,12 +103,12 @@ function normalizeMaxRounds(value: unknown): number | undefined {
 
 function warnMalformedConfig(configPath: string, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
-  console.warn(`[omx] warning: ignoring malformed deep-interview config at ${configPath}: ${message}`);
+  console.warn(`[owx] warning: ignoring malformed deep-interview config at ${configPath}: ${message}`);
 }
 
 function extractDeepInterviewTable(parsed: unknown): DeepInterviewConfigTable | null {
-  if (!isRecord(parsed) || !isRecord(parsed.omx) || !isRecord(parsed.omx.deepInterview)) return null;
-  return parsed.omx.deepInterview as DeepInterviewConfigTable;
+  if (!isRecord(parsed) || !isRecord(parsed.owx) || !isRecord(parsed.owx.deepInterview)) return null;
+  return parsed.owx.deepInterview as DeepInterviewConfigTable;
 }
 
 function readDeepInterviewConfigTable(configPath: string): DeepInterviewConfigReadResult {
@@ -177,16 +177,16 @@ export function getDeepInterviewConfigCandidatePaths(options: Pick<DeepInterview
   const home = options.homeDir || homedir();
   const projectRoot = findGitLayout(options.cwd)?.worktreeRoot ?? options.cwd;
   const candidates: DeepInterviewConfigCandidate[] = [
-    { path: join(options.cwd, '.omx', 'config.toml'), precedence: 'project-omx' },
-    { path: join(options.cwd, 'omx.toml'), precedence: 'project-root' },
+    { path: join(options.cwd, '.owx', 'config.toml'), precedence: 'project-owx' },
+    { path: join(options.cwd, 'owx.toml'), precedence: 'project-root' },
   ];
   if (projectRoot !== options.cwd) {
     candidates.push(
-      { path: join(projectRoot, '.omx', 'config.toml'), precedence: 'project-omx' },
-      { path: join(projectRoot, 'omx.toml'), precedence: 'project-root' },
+      { path: join(projectRoot, '.owx', 'config.toml'), precedence: 'project-owx' },
+      { path: join(projectRoot, 'owx.toml'), precedence: 'project-root' },
     );
   }
-  candidates.push({ path: join(home, '.omx', 'config.toml'), precedence: 'user' });
+  candidates.push({ path: join(home, '.owx', 'config.toml'), precedence: 'user' });
 
   const seen = new Set<string>();
   return candidates.filter((candidate) => {

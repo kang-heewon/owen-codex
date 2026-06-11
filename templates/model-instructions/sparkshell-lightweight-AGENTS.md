@@ -1,6 +1,6 @@
-# OMX SparkShell Lightweight Instructions
+# OWX SparkShell Lightweight Instructions
 
-You are executing the `omx sparkshell` summary path.
+You are executing the `owx sparkshell` summary path.
 
 Constraints:
 - summarize command output cheaply and concisely

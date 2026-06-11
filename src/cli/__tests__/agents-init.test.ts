@@ -14,8 +14,8 @@ function runOmx(
 ): { status: number | null; stdout: string; stderr: string; error?: string } {
   const testDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = join(testDir, '..', '..', '..');
-  const omxBin = join(repoRoot, 'dist', 'cli', 'omx.js');
-  const result = spawnSync(process.execPath, [omxBin, ...argv], {
+  const owxBin = join(repoRoot, 'dist', 'cli', 'owx.js');
+  const result = spawnSync(process.execPath, [owxBin, ...argv], {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env },
@@ -56,16 +56,16 @@ async function readCurrentLinuxStartTicks(): Promise<number | undefined> {
   }
 }
 
-describe('omx agents-init', () => {
+describe('owx agents-init', () => {
   it('creates a managed root AGENTS.md plus direct-child AGENTS.md files while skipping ignored directories', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-agents-init-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-agents-init-'));
     try {
       await mkdir(join(wd, 'src'), { recursive: true });
-      await mkdir(join(wd, 'docs'), { recursive: true });
+      await mkdir(join(wd, 'content'), { recursive: true });
       await mkdir(join(wd, 'node_modules', 'dep'), { recursive: true });
       await mkdir(join(wd, 'dist'), { recursive: true });
       await writeFile(join(wd, 'src', 'index.ts'), 'export const value = 1;\n');
-      await writeFile(join(wd, 'docs', 'guide.md'), '# guide\n');
+      await writeFile(join(wd, 'content', 'guide.md'), '# guide\n');
       await writeFile(join(wd, 'package.json'), '{"name":"fixture"}\n');
 
       await withCwd(wd, async () => {
@@ -74,16 +74,16 @@ describe('omx agents-init', () => {
 
       const rootAgents = await readFile(join(wd, 'AGENTS.md'), 'utf-8');
       const srcAgents = await readFile(join(wd, 'src', 'AGENTS.md'), 'utf-8');
-      const docsAgents = await readFile(join(wd, 'docs', 'AGENTS.md'), 'utf-8');
+      const contentAgents = await readFile(join(wd, 'content', 'AGENTS.md'), 'utf-8');
 
-      assert.match(rootAgents, /OMX:AGENTS-INIT:MANAGED/);
+      assert.match(rootAgents, /OWX:AGENTS-INIT:MANAGED/);
       assert.match(rootAgents, /<!-- AUTONOMY DIRECTIVE — DO NOT REMOVE -->/);
-      assert.match(rootAgents, /<!-- END AUTONOMY DIRECTIVE -->\n\n# oh-my-codex - Intelligent Multi-Agent Orchestration/);
-      assert.match(rootAgents, /# oh-my-codex - Intelligent Multi-Agent Orchestration/);
+      assert.match(rootAgents, /<!-- END AUTONOMY DIRECTIVE -->\n\n# owen-codex - Intelligent Multi-Agent Orchestration/);
+      assert.match(rootAgents, /# owen-codex - Intelligent Multi-Agent Orchestration/);
       assert.match(rootAgents, /\.\/\.codex/);
       assert.match(srcAgents, /<!-- Parent: ..\/AGENTS\.md -->/);
       assert.match(srcAgents, /`index\.ts`/);
-      assert.match(docsAgents, /`guide\.md`/);
+      assert.match(contentAgents, /`guide\.md`/);
       assert.equal(existsSync(join(wd, 'node_modules', 'AGENTS.md')), false);
       assert.equal(existsSync(join(wd, 'dist', 'AGENTS.md')), false);
     } finally {
@@ -92,7 +92,7 @@ describe('omx agents-init', () => {
   });
 
   it('refreshes managed subtree files while preserving the manual notes block', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-agents-init-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-agents-init-'));
     try {
       await mkdir(join(wd, 'src', 'lib'), { recursive: true });
       await writeFile(join(wd, 'src', 'index.ts'), 'export const index = true;\n');
@@ -124,7 +124,7 @@ describe('omx agents-init', () => {
   });
 
   it('skips unmanaged AGENTS.md files by default but can adopt them with --force and a backup', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-agents-init-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-agents-init-'));
     const original = '# custom root guidance\n';
     try {
       await mkdir(join(wd, 'src'), { recursive: true });
@@ -142,8 +142,8 @@ describe('omx agents-init', () => {
       });
 
       const adopted = await readFile(join(wd, 'AGENTS.md'), 'utf-8');
-      assert.match(adopted, /OMX:AGENTS-INIT:MANAGED/);
-      const backupRoot = join(wd, '.omx', 'backups', 'agents-init');
+      assert.match(adopted, /OWX:AGENTS-INIT:MANAGED/);
+      const backupRoot = join(wd, '.owx', 'backups', 'agents-init');
       assert.equal(existsSync(backupRoot), true);
       const timestamps = await readdir(backupRoot);
       assert.equal(timestamps.length > 0, true);
@@ -154,16 +154,16 @@ describe('omx agents-init', () => {
     }
   });
 
-  it('protects project-root AGENTS.md during an active OMX session', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-agents-init-'));
+  it('protects project-root AGENTS.md during an active OWX session', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-agents-init-'));
     try {
       const pidStartTicks = await readCurrentLinuxStartTicks();
-      await mkdir(join(wd, '.omx', 'state'), { recursive: true });
+      await mkdir(join(wd, '.owx', 'state'), { recursive: true });
       await mkdir(join(wd, 'src'), { recursive: true });
       await writeFile(join(wd, 'AGENTS.md'), '# unmanaged\n');
       await writeFile(join(wd, 'src', 'index.ts'), 'export const x = 1;\n');
       await writeFile(
-        join(wd, '.omx', 'state', 'session.json'),
+        join(wd, '.owx', 'state', 'session.json'),
         JSON.stringify({
           session_id: 'session-1',
           started_at: new Date().toISOString(),
@@ -185,17 +185,17 @@ describe('omx agents-init', () => {
   });
 
   it('exposes help for agents-init and the deepinit alias', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'omx-agents-init-'));
+    const wd = await mkdtemp(join(tmpdir(), 'owx-agents-init-'));
     try {
       const helpRes = runOmx(wd, ['agents-init', '--help']);
       if (shouldSkipForSpawnPermissions(helpRes.error)) return;
       assert.equal(helpRes.status, 0, helpRes.stderr || helpRes.stdout);
-      assert.match(helpRes.stdout, /Usage: omx agents-init/);
+      assert.match(helpRes.stdout, /Usage: owx agents-init/);
 
       const aliasRes = runOmx(wd, ['deepinit', '--help']);
       if (shouldSkipForSpawnPermissions(aliasRes.error)) return;
       assert.equal(aliasRes.status, 0, aliasRes.stderr || aliasRes.stdout);
-      assert.match(aliasRes.stdout, /Usage: omx agents-init/);
+      assert.match(aliasRes.stdout, /Usage: owx agents-init/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

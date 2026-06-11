@@ -31,10 +31,10 @@ describe('native release workflow', () => {
     assert.match(workflow, /actions\/upload-artifact@v4/);
     assert.match(workflow, /actions\/download-artifact@v8/);
     assert.match(workflow, /softprops\/action-gh-release@v3/);
-    assert.match(workflow, /generate-release-body\.js/);
-    assert.match(workflow, /omx-api/);
-    assert.match(workflow, /omx-explore-harness/);
-    assert.match(workflow, /omx-sparkshell/);
+    assert.doesNotMatch(workflow, /generate-release-body\.js/);
+    assert.match(workflow, /owx-api/);
+    assert.match(workflow, /owx-explore-harness/);
+    assert.match(workflow, /owx-sparkshell/);
     assert.match(workflow, /native-release-manifest\.json/);
     assert.match(workflow, /Publish Native Assets/);
     assert.match(workflow, /Smoke Verify Native Assets/);
@@ -54,7 +54,7 @@ describe('native release workflow', () => {
 
     assert.match(workflow, /verify-version-sync:[\s\S]*Verify version sync against workspace crates[\s\S]*node --input-type=module/);
     assert.match(workflow, /publish-native-assets:[\s\S]*npm run build[\s\S]*node dist\/scripts\/generate-native-release-manifest\.js/);
-    assert.match(workflow, /publish-native-assets:[\s\S]*Generate release body[\s\S]*node dist\/scripts\/generate-release-body\.js --template RELEASE_BODY\.md --out RELEASE_BODY\.generated\.md/);
+    assert.match(workflow, /publish-native-assets:[\s\S]*Generate release body[\s\S]*Release assets are attached below\.[\s\S]*>\s*RELEASE_BODY\.generated\.md/);
     assert.match(workflow, /body_path:\s*RELEASE_BODY\.generated\.md/);
     assert.match(workflow, /smoke-verify-native:[\s\S]*npm run build[\s\S]*node dist\/scripts\/verify-native-release-assets\.js/);
     assert.match(workflow, /smoke-packed-install:[\s\S]*npm run build[\s\S]*Smoke test packed install boot \+ core commands[\s\S]*npm run smoke:packed-install/);

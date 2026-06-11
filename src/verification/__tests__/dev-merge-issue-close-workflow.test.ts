@@ -45,9 +45,9 @@ describe('dev merge issue close workflow', () => {
     assert.deepEqual(
       collectLinkedLocalIssueNumbers({
         title: 'Fixes #1540, #1541',
-        body: 'Resolves Yeachan-Heo/oh-my-codex#1542 and closes https://github.com/Yeachan-Heo/oh-my-codex/issues/1543',
-        owner: 'Yeachan-Heo',
-        repo: 'oh-my-codex',
+        body: 'Resolves kang-heewon/owen-codex#1542 and closes https://github.com/kang-heewon/owen-codex/issues/1543',
+        owner: 'kang-heewon',
+        repo: 'owen-codex',
       }),
       [1540, 1541, 1542, 1543],
     );
@@ -62,8 +62,8 @@ describe('dev merge issue close workflow', () => {
           'Fixes octo/example#1542',
           'Discussion says maybe close #1543 later.',
         ].join('\n'),
-        owner: 'Yeachan-Heo',
-        repo: 'oh-my-codex',
+        owner: 'kang-heewon',
+        repo: 'owen-codex',
       }),
       [],
     );
@@ -73,9 +73,9 @@ describe('dev merge issue close workflow', () => {
     assert.deepEqual(
       collectLinkedLocalIssueNumbers({
         title: 'Fixes #1540',
-        body: 'Closes #1540 and resolves Yeachan-Heo/oh-my-codex#1540',
-        owner: 'Yeachan-Heo',
-        repo: 'oh-my-codex',
+        body: 'Closes #1540 and resolves kang-heewon/owen-codex#1540',
+        owner: 'kang-heewon',
+        repo: 'owen-codex',
       }),
       [1540],
     );
@@ -85,7 +85,7 @@ describe('dev merge issue close workflow', () => {
       /Closing automatically because PR #1550 was merged into `dev` and explicitly referenced this issue in the PR title or body\./,
     );
     assert.match(comment, /A hot-fix build is available now\./);
-    assert.match(comment, /`omx update --dev`/);
+    assert.match(comment, /`owx update --dev`/);
     assert.match(comment, /let us know whether it resolves the issue/);
   });
 
@@ -96,7 +96,7 @@ describe('dev merge issue close workflow', () => {
       /Closed explicitly linked issues after this PR was merged into `dev`: #1540, #1541\./,
     );
     assert.match(comment, /A hot-fix build is available now\./);
-    assert.match(comment, /Issue creators can try it with `omx update --dev`/);
+    assert.match(comment, /Issue creators can try it with `owx update --dev`/);
     assert.match(comment, /let us know whether it resolves the issue/);
   });
 });

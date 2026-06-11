@@ -1,40 +1,40 @@
 
-oh-my-codex (omx) - Multi-agent orchestration for Codex CLI
+owen-codex (owx) - Multi-agent orchestration for Codex CLI
 
 Usage:
-  omx           Launch Codex CLI (HUD auto-attaches only when already inside tmux)
-  omx exec      Run codex exec non-interactively with OMX AGENTS/overlay injection
-  omx setup     Install skills, prompts, CLI-first config, and scope-specific AGENTS.md
+  owx           Launch Codex CLI (HUD auto-attaches only when already inside tmux)
+  owx exec      Run codex exec non-interactively with OWX AGENTS/overlay injection
+  owx setup     Install skills, prompts, CLI-first config, and scope-specific AGENTS.md
                 (user scope prompts for legacy vs plugin skill delivery when needed)
-  omx uninstall Remove OMX configuration and clean up installed artifacts
-  omx doctor    Check installation health
-  omx cleanup   Kill orphaned OMX MCP server processes from prior sessions
-  omx doctor --team  Check team/swarm runtime health diagnostics
-  omx ask       Ask local provider CLI (claude|gemini) and write artifact output
-  omx autoresearch [DEPRECATED] Use $autoresearch; direct CLI launch removed
-  omx explore   Default read-only exploration entrypoint (may adaptively use sparkshell backend)
-  omx session   Search prior local session transcripts and history artifacts
-  omx agents-init [path]
+  owx uninstall Remove OWX configuration and clean up installed artifacts
+  owx doctor    Check installation health
+  owx cleanup   Kill orphaned OWX MCP server processes from prior sessions
+  owx doctor --team  Check team/swarm runtime health diagnostics
+  owx ask       Ask local provider CLI (claude|gemini) and write artifact output
+  owx autoresearch [DEPRECATED] Use $autoresearch; direct CLI launch removed
+  owx explore   Default read-only exploration entrypoint (may adaptively use sparkshell backend)
+  owx session   Search prior local session transcripts and history artifacts
+  owx agents-init [path]
                 Bootstrap lightweight AGENTS.md files for a repo/subtree
-  omx deepinit [path]
+  owx deepinit [path]
                 Alias for agents-init (lightweight AGENTS bootstrap only)
-  omx team      Spawn parallel worker panes in tmux and bootstrap inbox/task state
-  omx ralph     Launch Codex with ralph persistence mode active
-  omx version   Show version information
-  omx tmux-hook Manage tmux prompt injection workaround (init|status|validate|test)
-  omx hooks     Manage hook plugins (init|status|validate|test)
-  omx hud       Show HUD statusline (--watch, --json, --preset=NAME)
-  omx sparkshell <command> [args...]
-  omx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]
+  owx team      Spawn parallel worker panes in tmux and bootstrap inbox/task state
+  owx ralph     Launch Codex with ralph persistence mode active
+  owx version   Show version information
+  owx tmux-hook Manage tmux prompt injection workaround (init|status|validate|test)
+  owx hooks     Manage hook plugins (init|status|validate|test)
+  owx hud       Show HUD statusline (--watch, --json, --preset=NAME)
+  owx sparkshell <command> [args...]
+  owx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]
                 Run native sparkshell sidecar for direct command execution or explicit tmux-pane summarization
                 (also used as an adaptive backend for qualifying read-only explore tasks)
-  omx help      Show this help message
-  omx status    Show active modes and state
-  omx cancel    Cancel active execution modes
-  omx reasoning Show or set model reasoning effort (low|medium|high|xhigh)
+  owx help      Show this help message
+  owx status    Show active modes and state
+  owx cancel    Cancel active execution modes
+  owx reasoning Show or set model reasoning effort (low|medium|high|xhigh)
 
 Options:
-  --yolo        Launch Codex in yolo mode (shorthand for: omx launch --yolo)
+  --yolo        Launch Codex in yolo mode (shorthand for: owx launch --yolo)
   --high        Launch Codex with high reasoning effort
                 (shorthand for: -c model_reasoning_effort="high")
   --xhigh       Launch Codex with xhigh reasoning effort
@@ -56,7 +56,7 @@ Options:
   --force       Force reinstall (overwrite existing files)
   --dry-run     Show what would be done without doing it
   --keep-config Skip config.toml cleanup during uninstall
-  --purge       Remove .omx/ cache directory during uninstall
+  --purge       Remove .owx/ cache directory during uninstall
   --verbose     Show detailed output
-  --scope       Setup scope for "omx setup" only:
+  --scope       Setup scope for "owx setup" only:
                 user | project
