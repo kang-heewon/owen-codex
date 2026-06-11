@@ -2765,9 +2765,6 @@ export async function setup(options: SetupOptions = {}): Promise<void> {
 	console.log(
 		'  6. "owx explore" and "owx sparkshell" can hydrate native release binaries on first use; source installs still allow repo-local fallbacks and OWX_EXPLORE_BIN / OWX_SPARKSHELL_BIN overrides',
 	);
-	if (isGitHubCliConfigured()) {
-		console.log("\nSupport the project: gh repo star kang-heewon/owen-codex");
-	}
 }
 
 function isLegacySkillPromptShim(content: string): boolean {

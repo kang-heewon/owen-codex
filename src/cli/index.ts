@@ -95,7 +95,6 @@ import {
 } from "../state/skill-active.js";
 import { isTrackedWorkflowMode } from "../state/workflow-transition.js";
 import { maybeCheckAndPromptUpdate, runImmediateUpdate, type UpdateChannel } from "./update.js";
-import { maybePromptGithubStar } from "./star-prompt.js";
 import {
   generateOverlay,
   removeSessionModelInstructionsFile,
@@ -2412,11 +2411,6 @@ export async function launchWithAuthHotswap(args: string[]): Promise<void> {
     logCliOperationFailure(err);
   }
   try {
-    await maybePromptGithubStar();
-  } catch (err) {
-    logCliOperationFailure(err);
-  }
-  try {
     const configPath = resolveCodexConfigPathForLaunch(launchCwd, process.env);
     const repaired = await repairConfigIfNeeded(
       configPath,
@@ -2535,13 +2529,6 @@ export async function launchWithHud(args: string[]): Promise<void> {
     // Non-fatal: update checks must never block launch
   }
 
-  try {
-    await maybePromptGithubStar();
-  } catch (err) {
-    logCliOperationFailure(err);
-    // Non-fatal: star prompt must never block launch
-  }
-
   // ── Phase 0.5: config repair ────────────────────────────────────────────
   // After an owx version upgrade the OLD setup code (still in memory) may
   // have written a config.toml with duplicate [tui] sections.  Codex CLI's
@@ -2651,12 +2638,6 @@ export async function execWithOverlay(args: string[]): Promise<void> {
 
   try {
     await maybeCheckAndPromptUpdate(cwd);
-  } catch (err) {
-    logCliOperationFailure(err);
-  }
-
-  try {
-    await maybePromptGithubStar();
   } catch (err) {
     logCliOperationFailure(err);
   }

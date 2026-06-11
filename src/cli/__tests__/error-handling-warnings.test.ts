@@ -34,13 +34,11 @@ describe('error-handling warning guards', () => {
     assert.match(source, /stdio: "ignore",\s+timeout: 3000,\s+windowsHide: true,/);
   });
 
-  it('hides Windows child windows for prompt and notification helpers', async () => {
-    const starPromptSource = await readSource('src/cli/star-prompt.ts');
+  it('hides Windows child windows for update and notification helpers', async () => {
     const updateSource = await readSource('src/cli/update.ts');
     const notifierSource = await readSource('src/notifications/notifier.ts');
     const replyListenerSource = await readSource('src/notifications/reply-listener.ts');
 
-    assert.match(starPromptSource, /windowsHide: true/);
     assert.match(updateSource, /windowsHide: true/);
     assert.match(notifierSource, /execFileAsync\(cmd, args, \{ windowsHide: true \}\)/);
     assert.match(replyListenerSource, /detached: true,\s+stdio: 'ignore',\s+windowsHide: true,/);

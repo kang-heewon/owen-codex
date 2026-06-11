@@ -1,6 +1,6 @@
 {
   "name": "owen-codex",
-  "version": "0.18.11",
+  "version": "0.0.1",
   "description": "Multi-agent orchestration layer for OpenAI Codex CLI",
   "author": {
     "name": "Owen",
