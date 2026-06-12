@@ -1743,6 +1743,9 @@ describe("owx setup install mode behavior", () => {
 						config,
 						/native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works/i,
 					);
+					assert.match(config, /When authoring source code, implement the intended behavior directly without fallback code/);
+					assert.match(config, /Prefer declarative, immutable, type-safe code/);
+					assert.match(config, /Avoid unnecessary comments/);
 					assert.doesNotMatch(config, /Native subagents live in \.codex\/agents/);
 					assert.doesNotMatch(config, /Treat installed prompts as narrower execution surfaces/);
 					assert.match(config, /^plugin_hooks = true$/m);
@@ -1776,6 +1779,9 @@ describe("owx setup install mode behavior", () => {
 						agentsMd,
 						/native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works/i,
 					);
+					assert.match(agentsMd, /do not add fallback code that masks missing state/);
+					assert.match(agentsMd, /Prefer declarative, immutable, type-safe code/);
+					assert.match(agentsMd, /Avoid unnecessary comments/);
 					assert.doesNotMatch(agentsMd, /Role prompts under `prompts\/\*\.md`/);
 					assert.doesNotMatch(agentsMd, /load the installed prompt\/skill\/agent surfaces from/);
 				});
