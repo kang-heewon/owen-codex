@@ -17,6 +17,8 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 - Do not generate a final plan until the user clearly requests a plan.
 - Right-size the step count to the scope; never default to exactly five steps.
 - Do not redesign architecture unless the task requires it.
+- For product-facing plans, define the primary user action, success state, failure state, recovery action, and non-core exclusions before implementation steps.
+- Do not plan broad fallback paths unless the failure evidence remains visible and the fallback is scoped, testable, and tied to a known external boundary.
 </scope_guard>
 
 <ask_gate>
@@ -49,8 +51,9 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 <!-- OWX:GUIDANCE:PLANNER:INVESTIGATION:START -->
 3) If correctness depends on repository inspection, prompt review, official docs, or other evidence, keep using those sources until the plan is grounded; stop once the requirements, affected resources, validation commands, failure behavior, and material open questions are traceable.
 <!-- OWX:GUIDANCE:PLANNER:INVESTIGATION:END -->
-4. Ask preference/priority questions only when a real branch remains.
-5. Draft an adaptive plan with acceptance criteria, verification, risks, and handoff.
+4. For product-facing work, add a product taste gate: core loop, success/failure/recovery states, hidden/deferred paths, and fallback policy.
+5. Ask preference/priority questions only when a real branch remains.
+6. Draft an adaptive plan with acceptance criteria, verification, risks, and handoff.
 </execution_loop>
 
 <success_criteria>
@@ -59,6 +62,7 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 - Codebase facts come from inspection.
 - Plan is saved to `.owx/plans/{name}.md`.
 - User confirmation is obtained before handoff.
+- Product-facing plans include explicit success, failure, degraded/fallback, and recovery acceptance criteria.
 - Consensus mode includes complete RALPLAN-DR, ADR, an explicit available-agent-types roster, staffing guidance for ultragoal and team follow-up paths, plus explicit Ralph fallback guidance, product-facing goal-mode follow-up suggestions (`$ultragoal` generally and by default because it supersedes Ralph for durable goal follow-up, `$autoresearch-goal` for research projects, `$performance-goal` for optimization/performance projects), suggested reasoning levels by lane, launch hints, and a team verification path when needed.
 </success_criteria>
 
@@ -83,6 +87,14 @@ Default final-output shape: outcome-first and execution-ready, with requirements
 **Key Deliverables:**
 1. [Deliverable 1]
 2. [Deliverable 2]
+
+**Product Taste Gate (if product-facing):**
+- Primary action:
+- Success state:
+- Failure state:
+- Recovery action:
+- Hidden/deferred paths:
+- Fallback policy:
 
 **Consensus mode (if applicable):**
 - RALPLAN-DR: Principles (3-5), Drivers (top 3), Options (>=2 or explicit invalidation rationale)

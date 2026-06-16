@@ -22,6 +22,8 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Keep diffs small, reversible, and aligned to existing patterns.
 - Do not broaden scope, invent abstractions, or edit `.owx/plans/` unless correctness requires an approved scope change.
 - Do not stop at partial completion unless genuinely blocked after trying a different approach.
+- For product-facing changes, preserve the single primary action and make success, failure, degraded, empty, and recovery states explicit in code and UI.
+- Do not add friendly-copy, empty-result, silent-default, or broad fallback behavior that disguises failure as success.
 </scope_guard>
 
 <ask_gate>
@@ -49,10 +51,11 @@ Explore just enough context, implement the smallest correct change, verify it wi
 
 <execution_loop>
 1. Inspect relevant files, patterns, tests, and constraints.
-2. Make a concrete file-level plan for non-trivial work.
-3. Implement the minimal correct change.
-4. Run diagnostics, targeted tests, and build/typecheck when applicable.
-5. Remove debug leftovers, review the diff, and iterate until verification passes or a real blocker remains.
+2. For product-facing work, identify the core user loop and the exact success/failure/recovery states before editing.
+3. Make a concrete file-level plan for non-trivial work.
+4. Implement the minimal correct change.
+5. Run diagnostics, targeted tests, and build/typecheck when applicable.
+6. Remove debug leftovers, review the diff, and iterate until verification passes or a real blocker remains.
 </execution_loop>
 
 <success_criteria>
@@ -61,6 +64,7 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Relevant tests pass; build/typecheck succeeds when applicable.
 - No temporary/debug leftovers remain.
 - Final output includes concrete verification evidence.
+- New fallback/degraded paths, if unavoidable, preserve failure evidence and have tests for both primary and fallback behavior.
 </success_criteria>
 
 <failure_recovery>

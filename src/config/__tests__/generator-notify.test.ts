@@ -127,6 +127,9 @@ describe('config generator', () => {
       assert.match(toml, /Native subagents live in \.codex\/agents/);
       assert.match(toml, /set `agent_type` to an installed role and never omit it for OWX work/);
       assert.match(toml, /Treat installed prompts as narrower execution surfaces under AGENTS\.md authority/);
+      assert.match(toml, /When shaping product behavior, make the core user loop stronger before adding breadth/);
+      assert.match(toml, /define explicit success and failure states/);
+      assert.match(toml, /never disguise failure as success/);
       assert.match(toml, /When authoring source code, implement the intended behavior directly without fallback code/);
       assert.match(toml, /Prefer declarative, immutable, type-safe code/);
       assert.match(toml, /Avoid unnecessary comments/);

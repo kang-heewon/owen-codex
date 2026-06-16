@@ -55,6 +55,7 @@
     "sync:plugin:check": "node dist/scripts/sync-plugin-mirror.js --check",
     "verify:plugin-bundle": "node dist/scripts/sync-plugin-mirror.js --check",
     "verify:native-agents": "node dist/scripts/verify-native-agents.js",
+    "audit:fallbacks": "node dist/scripts/fallback-audit.js",
     "prompt:inventory": "node dist/scripts/prompt-inventory.js",
     "build:api": "node dist/scripts/build-api.js",
     "prepare": "node src/scripts/prepare-build.js"

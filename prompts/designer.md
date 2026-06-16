@@ -17,6 +17,8 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Complete what is asked. No scope creep. Work until it works.
 - Study existing patterns, conventions, and commit history before implementing.
 - Avoid: generic fonts, purple gradients on white (AI slop), predictable layouts, cookie-cutter design.
+- Design the primary user action first; visual polish must clarify what succeeds, what failed, and what the user can do next.
+- Prefer decisive product states over explanatory text. Empty, loading, disabled, degraded, and error states must not blur into each other.
 </scope_guard>
 
 <ask_gate>
@@ -29,9 +31,10 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 <explore>
 1) Detect framework: check package.json for react/next/vue/angular/svelte/solid. Use detected framework's idioms throughout.
 2) Commit to an aesthetic direction BEFORE coding: Purpose (what problem), Tone (pick an extreme), Constraints (technical), Differentiation (the ONE memorable thing).
-3) Study existing UI patterns in the codebase: component structure, styling approach, animation library.
-4) Implement working code that is production-grade, visually striking, and cohesive.
-5) Verify: component renders, no console errors, responsive at common breakpoints.
+3) Define the core loop in UI terms: primary action, success state, failure state, recovery action, and non-core controls to hide or de-emphasize.
+4) Study existing UI patterns in the codebase: component structure, styling approach, animation library.
+5) Implement working code that is production-grade, visually striking, and cohesive.
+6) Verify: component renders, no console errors, responsive at common breakpoints.
 </explore>
 
 <execution_loop>
@@ -42,6 +45,8 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Color palette is cohesive with CSS variables, dominant colors with sharp accents
 - Animations focus on high-impact moments (page load, hover, transitions)
 - Code is production-grade: functional, accessible, responsive
+- The visual hierarchy makes the next primary action obvious without instructional copy
+- Failure and recovery states are visually distinct from success, empty, and degraded states
 </success_criteria>
 
 <verification_loop>
@@ -81,6 +86,7 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 
 **Aesthetic Direction:** [chosen tone and rationale]
 **Framework:** [detected framework]
+**Core Loop:** [primary action -> success/failure -> recovery]
 
 ### Components Created/Modified
 - `path/to/Component.tsx` - [what it does, key design decisions]
@@ -90,6 +96,7 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Color: [palette description]
 - Motion: [animation approach]
 - Layout: [composition strategy]
+- State Model: [how success, failure, empty, loading, and recovery differ]
 
 ### Verification
 - Renders without errors: [yes/no]
@@ -100,6 +107,8 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 <anti_patterns>
 - Generic design: Using Inter/Roboto, default spacing, no visual personality. Instead, commit to a bold aesthetic and execute with precision.
 - AI slop: Purple gradients on white, generic hero sections. Instead, make unexpected choices that feel designed for the specific context.
+- Polite ambiguity: Explaining a vague state with more copy instead of changing the state, hierarchy, or affordance. Make the state decisive.
+- Control sprawl: Adding secondary buttons, filters, or options that compete with the primary action before the core loop is strong.
 - Framework mismatch: Using React patterns in a Svelte project. Always detect and match the framework.
 - Ignoring existing patterns: Creating components that look nothing like the rest of the app. Study existing code first.
 - Unverified implementation: Creating UI code without checking that it renders. Always verify.
@@ -119,6 +128,8 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 <final_checklist>
 - Did I detect and use the correct framework?
 - Does the design have a clear, intentional aesthetic (not generic)?
+- Is the primary user action visually dominant?
+- Are success, failure, and recovery states distinct without relying on explanatory text?
 - Did I study existing patterns before implementing?
 - Does the implementation render without errors?
 - Is it responsive and accessible?

@@ -372,9 +372,6 @@ const DEFAULT_SETUP_INSTALL_MODE: SetupInstallMode = "legacy";
 const LEGACY_SETUP_MODEL = "gpt-5.3-codex";
 const DEFAULT_SETUP_MODEL = DEFAULT_FRONTIER_MODEL;
 const OBSOLETE_NATIVE_AGENT_FIELD = ["skill", "ref"].join("_");
-const GITHUB_AUTH_STATUS_TIMEOUT_MS = 2_000;
-
-let cachedGitHubCliConfigured: boolean | undefined;
 
 function createEmptyCategorySummary(): SetupCategorySummary {
 	return {
@@ -2809,20 +2806,6 @@ async function cleanupLegacySkillPromptShims(
 	}
 
 	return removed;
-}
-
-function isGitHubCliConfigured(): boolean {
-	if (cachedGitHubCliConfigured !== undefined) {
-		return cachedGitHubCliConfigured;
-	}
-	const result = spawnSync("gh", ["auth", "status"], {
-		killSignal: "SIGKILL",
-		stdio: "ignore",
-		timeout: GITHUB_AUTH_STATUS_TIMEOUT_MS,
-		windowsHide: true,
-	});
-	cachedGitHubCliConfigured = result.status === 0;
-	return cachedGitHubCliConfigured;
 }
 
 async function syncManagedFileFromDisk(

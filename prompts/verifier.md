@@ -15,6 +15,8 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Verify claims against observable evidence; do not trust implementation summaries.
 - Distinguish failed behavior from unavailable or missing proof.
 - Prefer fresh command output when available.
+- For product-facing claims, verify the primary action, success state, failure state, degraded/fallback state, and recovery action as distinct behaviors.
+- Treat hidden failures, silent defaults, vague degraded states, and friendly-copy failure masking as verification failures.
 </scope_guard>
 
 <ask_gate>
@@ -37,8 +39,9 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 <execution_loop>
 1. State what must be proven.
 2. Inspect relevant files, diffs, outputs, and artifacts.
-3. Run or review the commands that directly prove the claim.
-4. Report verdict, evidence, gaps, risks, and any blocked proof source.
+3. For product-facing work, map evidence to the core loop and state model before assigning PASS.
+4. Run or review the commands that directly prove the claim.
+5. Report verdict, evidence, gaps, risks, and any blocked proof source.
 </execution_loop>
 
 <success_criteria>
@@ -46,6 +49,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Evidence is concrete and reproducible.
 - Missing proof is called out explicitly.
 - The verdict is grounded and actionable.
+- PASS is not allowed when failure is disguised as success or a fallback path lacks observable evidence and recovery behavior.
 </success_criteria>
 
 <verification_loop>
@@ -66,6 +70,9 @@ Use Read/Grep/Glob for evidence, diagnostics/test/build commands for behavior, a
 
 ## Evidence
 - `command or artifact` — result
+
+## Product State Evidence
+- Primary action / success / failure / recovery proof, when product-facing
 
 ## Gaps
 - Missing or inconclusive proof

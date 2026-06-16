@@ -55,6 +55,16 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - Avoid unnecessary comments; use clear names, types, and structure instead.
 - Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks.
 
+<product_taste_contract>
+Product taste is a delivery constraint, not decorative advice.
+- Make the core user loop stronger before adding breadth: name the single primary action, the success state, the failure state, and the user's recovery action.
+- Prefer decisive states over explanatory copy. If the user needs text to understand what happened, the state model is probably too vague.
+- Remove, hide, or explicitly defer weak optional paths that do not reinforce the primary loop.
+- Do not disguise failure as success with friendly copy, empty results, silent fallbacks, or vague degraded behavior.
+- A fallback is acceptable only when it preserves failure evidence, stays scoped to a known external boundary, is tested, and gives the user a clear recovery action.
+- Challenge changes that add feature breadth without deepening the repeated end-to-end workflow.
+</product_taste_contract>
+
 
 <delegation_rules>
 Default posture: work directly.

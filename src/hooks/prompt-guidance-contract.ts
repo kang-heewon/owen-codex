@@ -41,6 +41,9 @@ const ROOT_TEMPLATE_PATTERNS = [
   rx('do not skip prerequisites|task is grounded and verified'),
   rx('coding work.*targeted tests|targeted tests for changed behavior'),
   rx('validation.*cannot run|validation gap'),
+  rx('Product taste is a delivery constraint'),
+  rx('core user loop.*single primary action|single primary action.*success state.*failure state'),
+  rx('Do not disguise failure as success|friendly copy.*empty results.*silent fallbacks'),
 ];
 
 const CORE_ROLE_PATTERNS = {
@@ -56,6 +59,8 @@ const CORE_ROLE_PATTERNS = {
     rx('AUTO-CONTINUE branches.*permission-handoff phrasing'),
     rx('Keep going unless blocked'),
     rx('Ask only when progress is impossible|Ask only when blocked'),
+    rx('product-facing changes.*single primary action|primary action.*success.*failure.*recovery'),
+    rx('Do not add.*silent-default|disguises failure as success'),
   ],
   planner: [
     rx('outcome-first.*execution-ready plans'),
@@ -69,6 +74,8 @@ const CORE_ROLE_PATTERNS = {
     rx('AUTO-CONTINUE branches.*permission-handoff phrasing'),
     rx('Keep advancing the current planning branch unless blocked'),
     rx('Ask only when a real planning blocker|Ask only when blocked'),
+    rx('product-facing plans.*primary user action|Product Taste Gate'),
+    rx('failure evidence remains visible|fallback policy'),
   ],
   verifier: [
     rx('outcome-first, evidence-dense verdicts'),
@@ -81,8 +88,56 @@ const CORE_ROLE_PATTERNS = {
     rx('AUTO-CONTINUE branches.*permission-handoff phrasing'),
     rx('Keep gathering evidence until the verdict is grounded or blocked'),
     rx('Ask only when the acceptance target is materially unclear|Ask only when blocked'),
+    rx('product-facing claims.*primary action.*success state.*failure state'),
+    rx('failure is disguised as success|friendly-copy failure masking'),
   ],
 };
+
+export const PRODUCT_TASTE_CONTRACTS: GuidanceSurfaceContract[] = [
+  {
+    id: 'product-manager-taste',
+    path: 'prompts/product-manager.md',
+    requiredPatterns: [
+      rx('Product taste is enforced through exclusions as much as additions'),
+      rx('single primary user action|Primary User Action'),
+      rx('Success State'),
+      rx('Failure State'),
+      rx('Recovery Action'),
+      rx('Removed / Hidden / Deferred Paths'),
+    ],
+  },
+  {
+    id: 'designer-taste',
+    path: 'prompts/designer.md',
+    requiredPatterns: [
+      rx('Design the primary user action first'),
+      rx('decisive product states'),
+      rx('Core Loop'),
+      rx('State Model'),
+      rx('Control sprawl'),
+    ],
+  },
+  {
+    id: 'analyst-taste',
+    path: 'prompts/analyst.md',
+    requiredPatterns: [
+      rx('testable core loop'),
+      rx('fallback, empty, degraded, and error behavior as acceptance criteria'),
+      rx('Core Loop Gaps'),
+      rx('success, failure, fallback/degraded, and recovery behavior'),
+    ],
+  },
+  {
+    id: 'code-reviewer-taste',
+    path: 'prompts/code-reviewer.md',
+    requiredPatterns: [
+      rx('Product taste guard'),
+      rx('primary user action, success state, failure state, and recovery action'),
+      rx('friendly-copy masking|polite copy'),
+      rx('Product Taste Gate'),
+    ],
+  },
+];
 
 const WAVE_TWO_PATTERNS = [
   rx('Default final-output shape: outcome-first and evidence-dense'),
