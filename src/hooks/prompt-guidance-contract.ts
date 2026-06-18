@@ -112,6 +112,10 @@ export const PRODUCT_TASTE_CONTRACTS: GuidanceSurfaceContract[] = [
     requiredPatterns: [
       rx('Design the primary user action first'),
       rx('decisive product states'),
+      rx('Ground the visual direction in the product\'s subject'),
+      rx('two-pass design gate'),
+      rx('Signature'),
+      rx('Template Audit'),
       rx('Core Loop'),
       rx('State Model'),
       rx('Control sprawl'),

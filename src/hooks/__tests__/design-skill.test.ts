@@ -38,6 +38,19 @@ describe('design skill contract', () => {
     }
   });
 
+  it('requires distinctive frontend design guardrails before implementation', () => {
+    for (const pattern of [
+      /Ground the visual direction in the subject/i,
+      /Palette: 4-6 named color tokens/i,
+      /Signature: one memorable element/i,
+      /Template audit/i,
+      /two-pass design gate/i,
+      /subject anchor, distinctive thesis, signature element, and template risks/i,
+    ]) {
+      assert.match(designSkill, pattern);
+    }
+  });
+
   it('separates design governance from Visual Ralph matching', () => {
     assert.match(designSkill, /`\$visual-ralph` owns implementation against an approved generated\/static\/live-URL visual reference/i);
     assert.match(designSkill, /does not replace the `DESIGN\.md` discovery\/interview\/refresh workflow/i);
