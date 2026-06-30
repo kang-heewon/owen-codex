@@ -188,6 +188,8 @@ describe('team model contract', () => {
       assert.equal(resolveAgentDefaultModel('writer'), 'gpt-5.5');
       assert.equal(resolveAgentDefaultModel('executor'), 'gpt-5.5');
       assert.equal(resolveAgentDefaultModel('architect'), 'gpt-5.5');
+      assert.equal(resolveAgentDefaultModel('planner'), 'gpt-5.5');
+      assert.equal(resolveAgentDefaultModel('git-master'), 'gpt-5.4-mini');
       assert.equal(resolveAgentDefaultModel('does-not-exist'), undefined);
     });
   });

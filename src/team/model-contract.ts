@@ -222,9 +222,11 @@ export function resolveAgentDefaultModel(
   const normalized = agentType.trim().toLowerCase();
   if (normalized === '') return undefined;
   if (normalized.endsWith('-low')) return resolveTeamLowComplexityDefaultModel(codexHomeOverride);
+  const agent = getAgent(normalized);
+  if (agent?.exactModel) return agent.exactModel;
   if (normalized === 'executor') return getMainDefaultModel(codexHomeOverride);
 
-  switch (getAgent(normalized)?.modelClass) {
+  switch (agent?.modelClass) {
     case 'fast':
       return resolveTeamLowComplexityDefaultModel(codexHomeOverride);
     case 'frontier':

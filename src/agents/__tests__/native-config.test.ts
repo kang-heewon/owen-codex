@@ -134,11 +134,11 @@ describe("agents/native-config", () => {
   });
 
 
-  it("pins ralplan thesis/antithesis and researcher to exact gpt-5.4-mini without downgrading judgment roles", () => {
+  it("keeps ralplan thesis/antithesis on frontier and pins researcher/git-master to exact gpt-5.4-mini", () => {
     process.env.OWX_DEFAULT_FRONTIER_MODEL = "gpt-5.5";
     process.env.OWX_DEFAULT_STANDARD_MODEL = "gpt-5.5";
 
-    for (const role of ["planner", "architect", "researcher"] as const) {
+    for (const role of ["researcher", "git-master"] as const) {
       const toml = generateAgentToml(AGENT_DEFINITIONS[role], `${role} prompt`);
       assert.match(toml, /model = "gpt-5\.4-mini"/, `${role} should use exact mini`);
       assert.match(toml, /exact gpt-5\.4-mini model/, `${role} should receive exact-mini guidance`);
@@ -149,7 +149,14 @@ describe("agents/native-config", () => {
     assert.match(plannerToml, /model_reasoning_effort = "high"/);
 
     const architectToml = generateAgentToml(AGENT_DEFINITIONS.architect, "architect prompt");
+    assert.match(architectToml, /model = "gpt-5\.5"/);
     assert.match(architectToml, /model_reasoning_effort = "high"/);
+    assert.doesNotMatch(architectToml, /exact gpt-5\.4-mini model/);
+
+    const plannerTomlFrontier = generateAgentToml(AGENT_DEFINITIONS.planner, "planner prompt");
+    assert.match(plannerTomlFrontier, /model = "gpt-5\.5"/);
+    assert.match(plannerTomlFrontier, /model_reasoning_effort = "high"/);
+    assert.doesNotMatch(plannerTomlFrontier, /exact gpt-5\.4-mini model/);
 
     const researcherToml = generateAgentToml(AGENT_DEFINITIONS.researcher, "researcher prompt");
     assert.match(researcherToml, /model_reasoning_effort = "high"/);
@@ -221,23 +228,23 @@ describe("agents/native-config", () => {
     assert.ok(guardIndex > modelDelegationIndex, "leaf guard should override model delegation text");
     assert.ok(metadataIndex > guardIndex, "metadata should remain final non-policy bookkeeping");
 
-    const architectToml = generateAgentToml(
-      AGENT_DEFINITIONS.architect,
-      "architect prompt",
+    const gitMasterToml = generateAgentToml(
+      AGENT_DEFINITIONS["git-master"],
+      "git-master prompt",
     );
-    const exactMiniIndex = architectToml.indexOf(
+    const exactMiniIndex = gitMasterToml.indexOf(
       "strict execution order: inspect -> plan -> act -> verify",
     );
-    const architectGuardIndex = architectToml.indexOf("<native_subagent_leaf_guard>");
-    const architectMetadataIndex = architectToml.indexOf("## OWX Agent Metadata");
+    const gitMasterGuardIndex = gitMasterToml.indexOf("<native_subagent_leaf_guard>");
+    const gitMasterMetadataIndex = gitMasterToml.indexOf("## OWX Agent Metadata");
 
-    assert.ok(exactMiniIndex >= 0, "architect should exercise the exact-model overlay path");
+    assert.ok(exactMiniIndex >= 0, "git-master should exercise the exact-model overlay path");
     assert.ok(
-      architectGuardIndex > exactMiniIndex,
+      gitMasterGuardIndex > exactMiniIndex,
       "leaf guard should override exact-model overlay guidance",
     );
     assert.ok(
-      architectMetadataIndex > architectGuardIndex,
+      gitMasterMetadataIndex > gitMasterGuardIndex,
       "metadata should remain final non-policy bookkeeping for exact-model roles",
     );
 
