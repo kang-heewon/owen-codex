@@ -51,6 +51,7 @@ import { mcpParityCommand } from "./mcp-parity.js";
 import { mcpServeCommand } from "./mcp-serve.js";
 import { adaptCommand } from "./adapt.js";
 import { listCommand } from "./list.js";
+import { surfaceCommand } from "./surface.js";
 import { authCommand } from "./auth.js";
 import { runAuthHotswap } from "../auth/hotswap.js";
 import {
@@ -215,6 +216,7 @@ Usage:
   owx uninstall Remove OWX configuration and clean up installed artifacts
   owx doctor    Check installation health
   owx list      List packaged OWX skills and native agent prompts (--json)
+  owx surface   Inspect and govern public product surface (check)
   owx cleanup   Kill orphaned OWX MCP server processes and remove stale OWX /tmp directories
   owx doctor --team  Check team/swarm runtime health diagnostics
   owx ask       Ask local provider CLI (claude|gemini) and write artifact output
@@ -370,6 +372,7 @@ type CliCommand =
   | "setup"
   | "update"
   | "list"
+  | "surface"
   | "agents"
   | "agents-init"
   | "deepinit"
@@ -417,6 +420,7 @@ const NESTED_HELP_COMMANDS = new Set<CliCommand>([
   "imagegen",
   "hooks",
   "list",
+  "surface",
   "hud",
   "sidecar",
   "state",
@@ -2055,6 +2059,7 @@ export async function main(args: string[]): Promise<void> {
     "setup",
     "update",
     "list",
+    "surface",
     "agents",
     "agents-init",
     "deepinit",
@@ -2135,6 +2140,9 @@ export async function main(args: string[]): Promise<void> {
         break;
       case "list":
         await listCommand(args.slice(1));
+        break;
+      case "surface":
+        await surfaceCommand(args.slice(1), HELP);
         break;
       case "agents":
         await agentsCommand(args.slice(1));

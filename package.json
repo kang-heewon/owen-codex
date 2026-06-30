@@ -67,6 +67,8 @@
     "Cargo.toml",
     "Cargo.lock",
     "dist/",
+    "PLAN.md",
+    "surface/",
     "crates/",
     "!crates/**/.owx/**",
     "skills/",

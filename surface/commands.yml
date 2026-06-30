@@ -1,0 +1,222 @@
+schema_version: 1
+commands:
+  - name: "owx"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Launch Codex CLI with OWX orchestration."
+  - name: "owx exec"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Run codex exec non-interactively with OWX injection."
+  - name: "owx imagegen"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Queue built-in image generation continuations."
+  - name: "owx setup"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Install skills, prompts, config, and AGENTS surfaces."
+  - name: "owx update"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Install an OWX update and refresh setup."
+  - name: "owx uninstall"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Remove OWX configuration and installed artifacts."
+  - name: "owx doctor"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Check installation and runtime health."
+  - name: "owx list"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "List packaged skills and native agent prompts."
+  - name: "owx cleanup"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Clean orphaned OWX processes and stale temporary directories."
+  - name: "owx ask"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Ask a local provider CLI and write an artifact."
+  - name: "owx auth"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Manage Codex OAuth auth slots."
+  - name: "owx question"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "Run the OWX-owned blocking question UI."
+  - name: "owx adapt"
+    tier: advanced
+    status: beta
+    hidden: false
+    purpose: "Scaffold adapter foundations for persistent external targets."
+  - name: "owx resume"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Resume a previous interactive Codex session."
+  - name: "owx explore"
+    tier: advanced
+    status: deprecated
+    hidden: false
+    purpose: "Deprecated compatibility command for repository inspection."
+  - name: "owx api"
+    tier: advanced
+    status: beta
+    hidden: false
+    purpose: "Run native owx-api localhost gateway commands."
+  - name: "owx session"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Search prior local session transcripts and history artifacts."
+  - name: "owx agents-init"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Bootstrap lightweight AGENTS.md files."
+  - name: "owx agents"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Manage Codex native agent TOML files."
+  - name: "owx deepinit"
+    tier: advanced
+    status: legacy
+    hidden: false
+    purpose: "Alias for agents-init."
+  - name: "owx team"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Spawn parallel worker panes and bootstrap team state."
+  - name: "owx ralph"
+    tier: advanced
+    status: legacy
+    hidden: false
+    purpose: "Launch Codex with Ralph persistence mode active."
+  - name: "owx ultragoal"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Create, resume, and checkpoint durable multi-goal plans."
+  - name: "owx performance-goal"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Create and gate evaluator-backed performance goals."
+  - name: "owx autoresearch-goal"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Create and gate professor-critic research goals."
+  - name: "owx autoresearch"
+    tier: advanced
+    status: deprecated
+    hidden: false
+    purpose: "Deprecated direct CLI launch for autoresearch."
+  - name: "owx version"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Show version information."
+  - name: "owx tmux-hook"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Manage tmux prompt injection workaround."
+  - name: "owx hooks"
+    tier: advanced
+    status: beta
+    hidden: false
+    purpose: "Manage hook plugins."
+  - name: "owx hud"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Show HUD statusline."
+  - name: "owx sidecar"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Show read-only team and multi-agent visualization."
+  - name: "owx state"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "Read and write OWX mode state via CLI parity surface."
+  - name: "owx notepad"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "JSON CLI surface for OWX notepad operations."
+  - name: "owx project-memory"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "JSON CLI surface for OWX project-memory operations."
+  - name: "owx trace"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "JSON CLI surface for OWX trace operations."
+  - name: "owx code-intel"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "JSON CLI surface for OWX code-intel operations."
+  - name: "owx wiki"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "JSON CLI surface for OWX wiki operations."
+  - name: "owx mcp-serve"
+    tier: internal
+    status: stable
+    hidden: false
+    purpose: "Launch an OWX stdio MCP server target."
+  - name: "owx sparkshell"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Run native sparkshell command execution or tmux-pane summarization."
+  - name: "owx help"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Show top-level help."
+  - name: "owx status"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Show active modes and state."
+  - name: "owx cancel"
+    tier: core
+    status: stable
+    hidden: false
+    purpose: "Cancel active execution modes."
+  - name: "owx reasoning"
+    tier: advanced
+    status: stable
+    hidden: false
+    purpose: "Show or set model reasoning effort."
+  - name: "owx surface"
+    tier: core
+    status: beta
+    hidden: false
+    purpose: "Inspect and govern public product surface."

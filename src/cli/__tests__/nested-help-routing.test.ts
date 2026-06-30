@@ -32,6 +32,7 @@ describe('nested help routing', () => {
     [['hud', '--help'], /Usage:\s*\n\s*owx hud\s+Show current HUD state/i],
     [['hooks', '--help'], /Usage:\s*\n\s*owx hooks init/i],
     [['state', '--help'], /Usage:\s*owx state <read\|write\|clear\|list-active\|get-status>/i],
+    [['surface', '--help'], /Usage:\s*owx surface check \[--json\]/i],
     [['mcp-serve', '--help'], /Usage:\s*owx mcp-serve <target>/i],
     [['tmux-hook', '--help'], /Usage:\s*\n\s*owx tmux-hook init/i],
     [['ralph', '--help'], /owx ralph - Launch Codex with ralph persistence mode active/i],

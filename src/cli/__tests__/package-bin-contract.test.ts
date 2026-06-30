@@ -91,6 +91,8 @@ describe('package bin contract', () => {
     }
 
     assert.equal(pkg.files?.includes('dist/'), true, 'expected package files allowlist to include dist/');
+    assert.equal(pkg.files?.includes('PLAN.md'), true, 'expected package files allowlist to include PLAN.md');
+    assert.equal(pkg.files?.includes('surface/'), true, 'expected package files allowlist to include surface/');
     assert.equal(pkg.files?.includes('bin/'), false, 'did not expect broad bin/ allowlist in package files');
     assert.equal(pkg.files?.includes('agents/'), false, 'native agent TOMLs are setup output, not package input');
     assert.ok(pkg.files?.includes('Cargo.toml'));
@@ -203,6 +205,9 @@ describe('package bin contract', () => {
     const crateManifestEntry = results[0]?.files?.find((file) => file.path === 'crates/owx-explore/Cargo.toml');
     const crateMainEntry = results[0]?.files?.find((file) => file.path === 'crates/owx-explore/src/main.rs');
     const marketplaceEntry = results[0]?.files?.find((file) => file.path === '.agents/plugins/marketplace.json');
+    const planEntry = results[0]?.files?.find((file) => file.path === 'PLAN.md');
+    const surfaceCommandsEntry = results[0]?.files?.find((file) => file.path === 'surface/commands.yml');
+    const surfaceConceptsEntry = results[0]?.files?.find((file) => file.path === 'surface/concepts.yml');
     const pluginManifestEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.codex-plugin/plugin.json');
     const pluginMcpEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.mcp.json');
     const pluginAppsEntry = results[0]?.files?.find((file) => file.path === 'plugins/owen-codex/.app.json');
@@ -231,6 +236,9 @@ describe('package bin contract', () => {
     assert.ok(crateManifestEntry, 'expected npm pack output to include crates/owx-explore/Cargo.toml');
     assert.ok(crateMainEntry, 'expected npm pack output to include crates/owx-explore/src/main.rs');
     assert.ok(marketplaceEntry, 'expected npm pack output to include .agents/plugins/marketplace.json');
+    assert.ok(planEntry, 'expected npm pack output to include PLAN.md');
+    assert.ok(surfaceCommandsEntry, 'expected npm pack output to include surface/commands.yml');
+    assert.ok(surfaceConceptsEntry, 'expected npm pack output to include surface/concepts.yml');
     assert.ok(pluginManifestEntry, 'expected npm pack output to include plugins/owen-codex/.codex-plugin/plugin.json');
     assert.ok(pluginMcpEntry, 'expected npm pack output to include plugins/owen-codex/.mcp.json');
     assert.ok(pluginAppsEntry, 'expected npm pack output to include plugins/owen-codex/.app.json');
