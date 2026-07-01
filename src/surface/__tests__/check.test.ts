@@ -4,9 +4,48 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { extractHelpCommands, runSurfaceCheck } from '../check.js';
-import { readSurfaceCommands, readSurfaceRegistry, type SurfaceRegistry } from '../registry.js';
+import {
+  readSurfaceConcepts,
+  readSurfaceCommands,
+  readSurfaceRegistry,
+  type SurfaceCommandEntry,
+  type SurfaceConceptEntry,
+  type SurfaceRegistry,
+} from '../registry.js';
 
-function registry(commands: SurfaceRegistry['commands'], concepts: SurfaceRegistry['concepts'] = [
+type MinimalCommand = Pick<SurfaceCommandEntry, 'name' | 'tier' | 'status' | 'hidden' | 'purpose'>
+  & Partial<SurfaceCommandEntry>;
+type MinimalConcept = Pick<SurfaceConceptEntry, 'term' | 'public' | 'status' | 'definition'>
+  & Partial<SurfaceConceptEntry>;
+
+function materializeCommand(command: MinimalCommand): SurfaceCommandEntry {
+  return {
+    visibility: command.tier === 'internal' || command.status === 'internal'
+      ? 'internal'
+      : command.status === 'legacy'
+        ? 'legacy'
+        : command.status === 'deprecated'
+          ? 'deprecated'
+          : command.tier === 'advanced'
+            ? 'advanced'
+            : 'default',
+    owner: 'surface-owner',
+    docs: {},
+    nested_help: { required: !command.hidden },
+    ...command,
+  };
+}
+
+function materializeConcept(concept: MinimalConcept): SurfaceConceptEntry {
+  return {
+    aliases: [],
+    allowed_in: [],
+    forbidden_in: [],
+    ...concept,
+  };
+}
+
+function registry(commands: MinimalCommand[], concepts: MinimalConcept[] = [
   {
     term: 'Surface',
     public: true,
@@ -18,16 +57,24 @@ function registry(commands: SurfaceRegistry['commands'], concepts: SurfaceRegist
     schemaVersion: 1,
     commandsPath: 'memory:commands',
     conceptsPath: 'memory:concepts',
-    commands,
-    concepts,
+    commands: commands.map(materializeCommand),
+    concepts: concepts.map(materializeConcept),
   };
 }
 
 describe('surface check', () => {
   it('loads the repository registry', () => {
     const loaded = readSurfaceRegistry();
-    assert.ok(loaded.commands.some((command) => command.name === 'owx surface'));
-    assert.ok(loaded.concepts.some((concept) => concept.term === 'Surface' && concept.public));
+    const surfaceCommand = loaded.commands.find((command) => command.name === 'owx surface');
+    const surfaceConcept = loaded.concepts.find((concept) => concept.term === 'Surface');
+    assert.equal(surfaceCommand?.visibility, 'default');
+    assert.equal(surfaceCommand?.owner, 'surface-owner');
+    assert.equal(surfaceCommand?.docs.canonical, 'COMMANDS.md#owx-surface');
+    assert.equal(surfaceCommand?.nested_help.required, true);
+    assert.equal(surfaceCommand?.output_contract, 'schemas/outputs/surface-check.schema.json');
+    assert.equal(surfaceConcept?.public, true);
+    assert.deepEqual(surfaceConcept?.aliases, ['product surface']);
+    assert.ok(surfaceConcept?.allowed_in.includes('public-docs'));
   });
 
   it('extracts top-level help commands and dedupes subcommand variants', () => {
@@ -238,5 +285,101 @@ describe('surface check', () => {
     ].join('\n'));
 
     assert.throws(() => readSurfaceCommands(path), /duplicate_command:owx help/);
+  });
+
+  it('loads expanded command and concept metadata', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'owx-surface-expanded-registry-'));
+    const surfaceDir = join(root, 'surface');
+    await mkdir(surfaceDir, { recursive: true });
+    await writeFile(join(surfaceDir, 'commands.yml'), [
+      'schema_version: 1',
+      'commands:',
+      '  - name: "owx surface"',
+      '    tier: core',
+      '    status: beta',
+      '    hidden: false',
+      '    visibility: default',
+      '    owner: surface-owner',
+      '    purpose: "Inspect surface."',
+      '    docs:',
+      '      canonical: "COMMANDS.md#owx-surface"',
+      '      troubleshooting: "TROUBLESHOOTING.md#owx-surface"',
+      '    nested_help:',
+      '      required: true',
+      '      expected_heading: "Usage: owx surface"',
+      '    output_contract: "schemas/outputs/surface-check.schema.json"',
+    ].join('\n'));
+    await writeFile(join(surfaceDir, 'concepts.yml'), [
+      'schema_version: 1',
+      'concepts:',
+      '  - term: "Surface"',
+      '    public: true',
+      '    status: beta',
+      '    definition: "User-visible product contract."',
+      '    aliases:',
+      '      - "product surface"',
+      '    allowed_in:',
+      '      - "public-docs"',
+      '    forbidden_in:',
+      '      - "internal-only-docs"',
+    ].join('\n'));
+
+    const loaded = readSurfaceRegistry(root);
+    assert.equal(loaded.commands[0]?.visibility, 'default');
+    assert.equal(loaded.commands[0]?.docs.troubleshooting, 'TROUBLESHOOTING.md#owx-surface');
+    assert.equal(loaded.commands[0]?.nested_help.expected_heading, 'Usage: owx surface');
+    assert.equal(loaded.commands[0]?.output_contract, 'schemas/outputs/surface-check.schema.json');
+    assert.deepEqual(loaded.concepts[0]?.aliases, ['product surface']);
+    assert.deepEqual(loaded.concepts[0]?.allowed_in, ['public-docs']);
+    assert.deepEqual(loaded.concepts[0]?.forbidden_in, ['internal-only-docs']);
+  });
+
+  it('rejects invalid command and concept metadata', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'owx-surface-invalid-metadata-'));
+    const commandPath = join(root, 'commands.yml');
+    const conceptPath = join(root, 'concepts.yml');
+    await mkdir(root, { recursive: true });
+    const base = [
+      'schema_version: 1',
+      'commands:',
+      '  - name: "owx surface"',
+      '    tier: core',
+      '    status: beta',
+      '    hidden: false',
+      '    visibility: spotlight',
+      '    purpose: "Inspect surface."',
+    ];
+    await writeFile(commandPath, base.join('\n'));
+    assert.throws(() => readSurfaceCommands(commandPath), /0\.visibility/);
+
+    await writeFile(commandPath, base.map((line) => (
+      line === '    status: beta' ? '    status: preview' : line === '    visibility: spotlight' ? '    visibility: default' : line
+    )).join('\n'));
+    assert.throws(() => readSurfaceCommands(commandPath), /0\.status/);
+
+    await writeFile(commandPath, [
+      'schema_version: 1',
+      'commands:',
+      '  - name: "owx surface"',
+      '    tier: core',
+      '    status: beta',
+      '    hidden: false',
+      '    visibility: default',
+      '    purpose: "Inspect surface."',
+      '    docs:',
+      '      canonical: "COMMANDS.md#owx-surface"',
+      '      extra: "not supported"',
+    ].join('\n'));
+    assert.throws(() => readSurfaceCommands(commandPath), /0\.docs\.extra/);
+
+    await writeFile(conceptPath, [
+      'schema_version: 1',
+      'concepts:',
+      '  - term: "Surface"',
+      '    public: true',
+      '    status: preview',
+      '    definition: "User-visible product contract."',
+    ].join('\n'));
+    assert.throws(() => readSurfaceConcepts(conceptPath), /0\.status/);
   });
 });

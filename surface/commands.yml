@@ -4,219 +4,577 @@ commands:
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Launch Codex CLI with OWX orchestration."
+    docs:
+      canonical: "COMMANDS.md#owx"
+      troubleshooting: "TROUBLESHOOTING.md#owx"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx"
   - name: "owx exec"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Run codex exec non-interactively with OWX injection."
+    docs:
+      canonical: "COMMANDS.md#owx-exec"
+      troubleshooting: "TROUBLESHOOTING.md#owx-exec"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx exec"
   - name: "owx imagegen"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Queue built-in image generation continuations."
+    docs:
+      canonical: "COMMANDS.md#owx-imagegen"
+      troubleshooting: "TROUBLESHOOTING.md#owx-imagegen"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx imagegen"
   - name: "owx setup"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Install skills, prompts, config, and AGENTS surfaces."
+    docs:
+      canonical: "COMMANDS.md#owx-setup"
+      troubleshooting: "TROUBLESHOOTING.md#owx-setup"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx setup"
   - name: "owx update"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Install an OWX update and refresh setup."
+    docs:
+      canonical: "COMMANDS.md#owx-update"
+      troubleshooting: "TROUBLESHOOTING.md#owx-update"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx update"
   - name: "owx uninstall"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Remove OWX configuration and installed artifacts."
+    docs:
+      canonical: "COMMANDS.md#owx-uninstall"
+      troubleshooting: "TROUBLESHOOTING.md#owx-uninstall"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx uninstall"
   - name: "owx doctor"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Check installation and runtime health."
+    docs:
+      canonical: "COMMANDS.md#owx-doctor"
+      troubleshooting: "TROUBLESHOOTING.md#owx-doctor"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx doctor"
   - name: "owx list"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "List packaged skills and native agent prompts."
+    docs:
+      canonical: "COMMANDS.md#owx-list"
+      troubleshooting: "TROUBLESHOOTING.md#owx-list"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx list"
+    output_contract: "schemas/outputs/list.schema.json"
   - name: "owx cleanup"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Clean orphaned OWX processes and stale temporary directories."
+    docs:
+      canonical: "COMMANDS.md#owx-cleanup"
+      troubleshooting: "TROUBLESHOOTING.md#owx-cleanup"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx cleanup"
   - name: "owx ask"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Ask a local provider CLI and write an artifact."
+    docs:
+      canonical: "COMMANDS.md#owx-ask"
+      troubleshooting: "TROUBLESHOOTING.md#owx-ask"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx ask"
   - name: "owx auth"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Manage Codex OAuth auth slots."
+    docs:
+      canonical: "COMMANDS.md#owx-auth"
+      troubleshooting: "TROUBLESHOOTING.md#owx-auth"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx auth"
   - name: "owx question"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "Run the OWX-owned blocking question UI."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-question"
+      troubleshooting: "TROUBLESHOOTING.md#owx-question"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx question"
   - name: "owx adapt"
     tier: advanced
     status: beta
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Scaffold adapter foundations for persistent external targets."
+    docs:
+      canonical: "COMMANDS.md#owx-adapt"
+      troubleshooting: "TROUBLESHOOTING.md#owx-adapt"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx adapt"
   - name: "owx resume"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Resume a previous interactive Codex session."
+    docs:
+      canonical: "COMMANDS.md#owx-resume"
+      troubleshooting: "TROUBLESHOOTING.md#owx-resume"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx resume"
   - name: "owx explore"
     tier: advanced
     status: deprecated
     hidden: false
+    visibility: deprecated
+    owner: surface-owner
     purpose: "Deprecated compatibility command for repository inspection."
+    docs:
+      canonical: "COMMANDS.md#owx-explore"
+      troubleshooting: "TROUBLESHOOTING.md#owx-explore"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx explore"
   - name: "owx api"
     tier: advanced
     status: beta
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Run native owx-api localhost gateway commands."
+    docs:
+      canonical: "COMMANDS.md#owx-api"
+      troubleshooting: "TROUBLESHOOTING.md#owx-api"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx api"
   - name: "owx session"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Search prior local session transcripts and history artifacts."
+    docs:
+      canonical: "COMMANDS.md#owx-session"
+      troubleshooting: "TROUBLESHOOTING.md#owx-session"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx session"
   - name: "owx agents-init"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Bootstrap lightweight AGENTS.md files."
+    docs:
+      canonical: "COMMANDS.md#owx-agents-init"
+      troubleshooting: "TROUBLESHOOTING.md#owx-agents-init"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx agents-init"
   - name: "owx agents"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Manage Codex native agent TOML files."
+    docs:
+      canonical: "COMMANDS.md#owx-agents"
+      troubleshooting: "TROUBLESHOOTING.md#owx-agents"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx agents"
   - name: "owx deepinit"
     tier: advanced
     status: legacy
     hidden: false
+    visibility: legacy
+    owner: surface-owner
     purpose: "Alias for agents-init."
+    docs:
+      canonical: "COMMANDS.md#owx-deepinit"
+      troubleshooting: "TROUBLESHOOTING.md#owx-deepinit"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx deepinit"
   - name: "owx team"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Spawn parallel worker panes and bootstrap team state."
+    docs:
+      canonical: "COMMANDS.md#owx-team"
+      troubleshooting: "TROUBLESHOOTING.md#owx-team"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx team"
   - name: "owx ralph"
     tier: advanced
     status: legacy
     hidden: false
+    visibility: legacy
+    owner: surface-owner
     purpose: "Launch Codex with Ralph persistence mode active."
+    docs:
+      canonical: "COMMANDS.md#owx-ralph"
+      troubleshooting: "TROUBLESHOOTING.md#owx-ralph"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx ralph"
   - name: "owx ultragoal"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Create, resume, and checkpoint durable multi-goal plans."
+    docs:
+      canonical: "COMMANDS.md#owx-ultragoal"
+      troubleshooting: "TROUBLESHOOTING.md#owx-ultragoal"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx ultragoal"
   - name: "owx performance-goal"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Create and gate evaluator-backed performance goals."
+    docs:
+      canonical: "COMMANDS.md#owx-performance-goal"
+      troubleshooting: "TROUBLESHOOTING.md#owx-performance-goal"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx performance-goal"
   - name: "owx autoresearch-goal"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Create and gate professor-critic research goals."
+    docs:
+      canonical: "COMMANDS.md#owx-autoresearch-goal"
+      troubleshooting: "TROUBLESHOOTING.md#owx-autoresearch-goal"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx autoresearch-goal"
   - name: "owx autoresearch"
     tier: advanced
     status: deprecated
     hidden: false
+    visibility: deprecated
+    owner: surface-owner
     purpose: "Deprecated direct CLI launch for autoresearch."
+    docs:
+      canonical: "COMMANDS.md#owx-autoresearch"
+      troubleshooting: "TROUBLESHOOTING.md#owx-autoresearch"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx autoresearch"
   - name: "owx version"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Show version information."
+    docs:
+      canonical: "COMMANDS.md#owx-version"
+      troubleshooting: "TROUBLESHOOTING.md#owx-version"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx version"
   - name: "owx tmux-hook"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Manage tmux prompt injection workaround."
+    docs:
+      canonical: "COMMANDS.md#owx-tmux-hook"
+      troubleshooting: "TROUBLESHOOTING.md#owx-tmux-hook"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx tmux-hook"
   - name: "owx hooks"
     tier: advanced
     status: beta
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Manage hook plugins."
+    docs:
+      canonical: "COMMANDS.md#owx-hooks"
+      troubleshooting: "TROUBLESHOOTING.md#owx-hooks"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx hooks"
   - name: "owx hud"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Show HUD statusline."
+    docs:
+      canonical: "COMMANDS.md#owx-hud"
+      troubleshooting: "TROUBLESHOOTING.md#owx-hud"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx hud"
+    output_contract: "schemas/outputs/hud-status.schema.json"
   - name: "owx sidecar"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Show read-only team and multi-agent visualization."
+    docs:
+      canonical: "COMMANDS.md#owx-sidecar"
+      troubleshooting: "TROUBLESHOOTING.md#owx-sidecar"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx sidecar"
+    output_contract: "schemas/outputs/sidecar-status.schema.json"
   - name: "owx state"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "Read and write OWX mode state via CLI parity surface."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-state"
+      troubleshooting: "TROUBLESHOOTING.md#owx-state"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx state"
+    output_contract: "schemas/outputs/state.schema.json"
   - name: "owx notepad"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "JSON CLI surface for OWX notepad operations."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-notepad"
+      troubleshooting: "TROUBLESHOOTING.md#owx-notepad"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx notepad"
   - name: "owx project-memory"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "JSON CLI surface for OWX project-memory operations."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-project-memory"
+      troubleshooting: "TROUBLESHOOTING.md#owx-project-memory"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx project-memory"
   - name: "owx trace"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "JSON CLI surface for OWX trace operations."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-trace"
+      troubleshooting: "TROUBLESHOOTING.md#owx-trace"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx trace"
   - name: "owx code-intel"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "JSON CLI surface for OWX code-intel operations."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-code-intel"
+      troubleshooting: "TROUBLESHOOTING.md#owx-code-intel"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx code-intel"
   - name: "owx wiki"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "JSON CLI surface for OWX wiki operations."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-wiki"
+      troubleshooting: "TROUBLESHOOTING.md#owx-wiki"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx wiki"
   - name: "owx mcp-serve"
     tier: internal
     status: stable
     hidden: false
+    visibility: internal
+    owner: surface-owner
     purpose: "Launch an OWX stdio MCP server target."
+    docs:
+      canonical: "docs/internal/COMMANDS.md#owx-mcp-serve"
+      troubleshooting: "TROUBLESHOOTING.md#owx-mcp-serve"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx mcp-serve"
   - name: "owx sparkshell"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Run native sparkshell command execution or tmux-pane summarization."
+    docs:
+      canonical: "COMMANDS.md#owx-sparkshell"
+      troubleshooting: "TROUBLESHOOTING.md#owx-sparkshell"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx sparkshell"
   - name: "owx help"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Show top-level help."
+    docs:
+      canonical: "COMMANDS.md#owx-help"
+      troubleshooting: "TROUBLESHOOTING.md#owx-help"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx help"
   - name: "owx status"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Show active modes and state."
+    docs:
+      canonical: "COMMANDS.md#owx-status"
+      troubleshooting: "TROUBLESHOOTING.md#owx-status"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx status"
+    output_contract: "schemas/outputs/status.schema.json"
   - name: "owx cancel"
     tier: core
     status: stable
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Cancel active execution modes."
+    docs:
+      canonical: "COMMANDS.md#owx-cancel"
+      troubleshooting: "TROUBLESHOOTING.md#owx-cancel"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx cancel"
   - name: "owx reasoning"
     tier: advanced
     status: stable
     hidden: false
+    visibility: advanced
+    owner: surface-owner
     purpose: "Show or set model reasoning effort."
+    docs:
+      canonical: "COMMANDS.md#owx-reasoning"
+      troubleshooting: "TROUBLESHOOTING.md#owx-reasoning"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx reasoning"
   - name: "owx surface"
     tier: core
     status: beta
     hidden: false
+    visibility: default
+    owner: surface-owner
     purpose: "Inspect and govern public product surface."
+    docs:
+      canonical: "COMMANDS.md#owx-surface"
+      troubleshooting: "TROUBLESHOOTING.md#owx-surface"
+    nested_help:
+      required: true
+      expected_heading: "Usage: owx surface"
+    output_contract: "schemas/outputs/surface-check.schema.json"

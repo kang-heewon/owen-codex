@@ -4,14 +4,30 @@ import { getPackageRoot } from '../utils/package.js';
 
 export type SurfaceCommandTier = 'core' | 'advanced' | 'internal';
 export type SurfaceCommandStatus = 'stable' | 'beta' | 'legacy' | 'deprecated' | 'internal';
+export type SurfaceCommandVisibility = 'default' | 'advanced' | 'internal' | 'legacy' | 'deprecated';
 export type SurfaceConceptStatus = 'stable' | 'beta' | 'planned' | 'legacy' | 'deprecated' | 'internal';
+
+export interface SurfaceCommandDocs {
+  canonical?: string;
+  troubleshooting?: string;
+}
+
+export interface SurfaceCommandNestedHelp {
+  required: boolean;
+  expected_heading?: string;
+}
 
 export interface SurfaceCommandEntry {
   name: string;
   tier: SurfaceCommandTier;
   status: SurfaceCommandStatus;
   hidden: boolean;
+  visibility: SurfaceCommandVisibility;
+  owner: string;
   purpose: string;
+  docs: SurfaceCommandDocs;
+  nested_help: SurfaceCommandNestedHelp;
+  output_contract?: string;
 }
 
 export interface SurfaceConceptEntry {
@@ -19,6 +35,9 @@ export interface SurfaceConceptEntry {
   public: boolean;
   status: SurfaceConceptStatus;
   definition: string;
+  aliases: string[];
+  allowed_in: string[];
+  forbidden_in: string[];
   replaced_by?: string;
 }
 
@@ -34,16 +53,19 @@ export const SURFACE_SCHEMA_VERSION = 1;
 
 const COMMAND_TIERS = new Set<SurfaceCommandTier>(['core', 'advanced', 'internal']);
 const COMMAND_STATUSES = new Set<SurfaceCommandStatus>(['stable', 'beta', 'legacy', 'deprecated', 'internal']);
+const COMMAND_VISIBILITIES = new Set<SurfaceCommandVisibility>(['default', 'advanced', 'internal', 'legacy', 'deprecated']);
 const CONCEPT_STATUSES = new Set<SurfaceConceptStatus>(['stable', 'beta', 'planned', 'legacy', 'deprecated', 'internal']);
 
-type FlatYamlValue = string | boolean;
-type FlatYamlRecord = Record<string, FlatYamlValue>;
-interface FlatYamlDocument {
+type RegistryScalar = string | boolean;
+type RegistryObject = Record<string, RegistryScalar>;
+type RegistryYamlValue = RegistryScalar | RegistryObject | string[];
+type RegistryYamlRecord = Record<string, RegistryYamlValue>;
+interface RegistryYamlDocument {
   schemaVersion: number;
-  records: FlatYamlRecord[];
+  records: RegistryYamlRecord[];
 }
 
-function parseScalar(raw: string, field: string): FlatYamlValue {
+function parseScalar(raw: string, field: string): RegistryScalar {
   const value = raw.trim();
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -59,16 +81,63 @@ function parseScalar(raw: string, field: string): FlatYamlValue {
   return value;
 }
 
-function assignKeyValue(target: FlatYamlRecord, raw: string, path: string, lineNumber: number): void {
+function parseKeyValue(raw: string, path: string, lineNumber: number): { key: string; value?: RegistryScalar } {
   const match = raw.match(/^([A-Za-z_][A-Za-z0-9_-]*):(?:\s+(.*))?$/);
   if (!match) {
     throw new Error(`surface_registry_invalid:${path}:${lineNumber}`);
   }
   const [, key, value] = match;
-  if (!key || value === undefined) {
+  if (!key) {
     throw new Error(`surface_registry_invalid:${path}:${lineNumber}:${key ?? 'key'}`);
   }
-  target[key] = parseScalar(value, `${path}:${lineNumber}:${key}`);
+  return {
+    key,
+    ...(value === undefined ? {} : { value: parseScalar(value, `${path}:${lineNumber}:${key}`) }),
+  };
+}
+
+function assignKeyValue(target: RegistryYamlRecord | RegistryObject, raw: string, path: string, lineNumber: number): string | null {
+  const { key, value } = parseKeyValue(raw, path, lineNumber);
+  if (value === undefined) {
+    target[key] = {};
+    return key;
+  }
+  target[key] = value;
+  return null;
+}
+
+function indentation(line: string): number {
+  return line.match(/^ */)?.[0].length ?? 0;
+}
+
+function assignNestedValue(
+  target: RegistryYamlRecord,
+  key: string,
+  raw: string,
+  path: string,
+  lineNumber: number,
+): void {
+  const value = target[key];
+  if (raw.startsWith('- ')) {
+    if (Array.isArray(value)) {
+      const item = parseScalar(raw.slice(2), `${path}:${lineNumber}:${key}`);
+      if (typeof item !== 'string') throw new Error(`surface_registry_invalid:${path}:${lineNumber}:${key}`);
+      value.push(item);
+      return;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+      const item = parseScalar(raw.slice(2), `${path}:${lineNumber}:${key}`);
+      if (typeof item !== 'string') throw new Error(`surface_registry_invalid:${path}:${lineNumber}:${key}`);
+      target[key] = [item];
+      return;
+    }
+    throw new Error(`surface_registry_invalid:${path}:${lineNumber}:${key}`);
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`surface_registry_invalid:${path}:${lineNumber}:${key}`);
+  }
+  assignKeyValue(value, raw, path, lineNumber);
 }
 
 function parseSchemaVersion(raw: string, path: string, lineNumber: number): number {
@@ -82,11 +151,12 @@ function parseSchemaVersion(raw: string, path: string, lineNumber: number): numb
   return schemaVersion;
 }
 
-function parseFlatListDocument(raw: string, rootKey: string, path: string): FlatYamlDocument {
-  const items: FlatYamlRecord[] = [];
+function parseFlatListDocument(raw: string, rootKey: string, path: string): RegistryYamlDocument {
+  const items: RegistryYamlRecord[] = [];
   let schemaVersion: number | null = null;
   let sawRoot = false;
-  let current: FlatYamlRecord | null = null;
+  let current: RegistryYamlRecord | null = null;
+  let activeNestedKey: string | null = null;
 
   const pushCurrent = (): void => {
     if (current) items.push(current);
@@ -118,16 +188,25 @@ function parseFlatListDocument(raw: string, rootKey: string, path: string): Flat
       sawRoot = true;
       return;
     }
-    if (trimmed.startsWith('- ')) {
+    const indent = indentation(line);
+    if (indent === 2 && trimmed.startsWith('- ')) {
       pushCurrent();
       current = {};
-      assignKeyValue(current, trimmed.slice(2), path, lineNumber);
+      activeNestedKey = assignKeyValue(current, trimmed.slice(2), path, lineNumber);
       return;
     }
-    if (!current || !line.startsWith('    ')) {
+    if (!current) {
       throw new Error(`surface_registry_invalid:${path}:${lineNumber}:indentation`);
     }
-    assignKeyValue(current, trimmed, path, lineNumber);
+    if (indent === 4) {
+      activeNestedKey = assignKeyValue(current, trimmed, path, lineNumber);
+      return;
+    }
+    if (indent === 6 && activeNestedKey) {
+      assignNestedValue(current, activeNestedKey, trimmed, path, lineNumber);
+      return;
+    }
+    throw new Error(`surface_registry_invalid:${path}:${lineNumber}:indentation`);
   });
 
   pushCurrent();
@@ -140,7 +219,7 @@ function parseFlatListDocument(raw: string, rootKey: string, path: string): Flat
   return { schemaVersion, records: items };
 }
 
-function requiredString(record: FlatYamlRecord, key: string, path: string, index: number): string {
+function requiredString(record: RegistryYamlRecord | RegistryObject, key: string, path: string, index: number): string {
   const value = record[key];
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`surface_registry_invalid:${path}:${index}.${key}`);
@@ -148,12 +227,39 @@ function requiredString(record: FlatYamlRecord, key: string, path: string, index
   return value.trim();
 }
 
-function requiredBoolean(record: FlatYamlRecord, key: string, path: string, index: number): boolean {
+function optionalString(record: RegistryYamlRecord | RegistryObject, key: string, path: string, index: number): string | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`surface_registry_invalid:${path}:${index}.${key}`);
+  }
+  return value.trim();
+}
+
+function requiredBoolean(record: RegistryYamlRecord | RegistryObject, key: string, path: string, index: number): boolean {
   const value = record[key];
   if (typeof value !== 'boolean') {
     throw new Error(`surface_registry_invalid:${path}:${index}.${key}`);
   }
   return value;
+}
+
+function optionalObject(record: RegistryYamlRecord, key: string, path: string, index: number): RegistryObject | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`surface_registry_invalid:${path}:${index}.${key}`);
+  }
+  return value;
+}
+
+function optionalStringList(record: RegistryYamlRecord, key: string, path: string, index: number): string[] {
+  const value = record[key];
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim() === '')) {
+    throw new Error(`surface_registry_invalid:${path}:${index}.${key}`);
+  }
+  return value.map((item) => item.trim());
 }
 
 function validateUnique(names: string[], label: string): void {
@@ -164,14 +270,72 @@ function validateUnique(names: string[], label: string): void {
   }
 }
 
+function validateKnownKeys(
+  record: RegistryYamlRecord | RegistryObject,
+  allowedKeys: readonly string[],
+  path: string,
+  index: number,
+  label = '',
+): void {
+  const allowed = new Set(allowedKeys);
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) {
+      throw new Error(`surface_registry_invalid:${path}:${index}.${label}${key}`);
+    }
+  }
+}
+
 function readRequiredFile(path: string): string {
   if (!existsSync(path)) throw new Error(`surface_registry_missing:${path}`);
   return readFileSync(path, 'utf-8');
 }
 
+function defaultVisibility(tier: SurfaceCommandTier, status: SurfaceCommandStatus): SurfaceCommandVisibility {
+  if (status === 'deprecated') return 'deprecated';
+  if (status === 'legacy') return 'legacy';
+  if (status === 'internal' || tier === 'internal') return 'internal';
+  if (tier === 'advanced') return 'advanced';
+  return 'default';
+}
+
+function readCommandDocs(record: RegistryYamlRecord, path: string, index: number): SurfaceCommandDocs {
+  const docs = optionalObject(record, 'docs', path, index);
+  if (!docs) return {};
+  validateKnownKeys(docs, ['canonical', 'troubleshooting'], path, index, 'docs.');
+  const canonical = optionalString(docs, 'canonical', path, index);
+  const troubleshooting = optionalString(docs, 'troubleshooting', path, index);
+  return {
+    ...(canonical ? { canonical } : {}),
+    ...(troubleshooting ? { troubleshooting } : {}),
+  };
+}
+
+function readNestedHelp(record: RegistryYamlRecord, hidden: boolean, path: string, index: number): SurfaceCommandNestedHelp {
+  const nestedHelp = optionalObject(record, 'nested_help', path, index);
+  if (!nestedHelp) return { required: !hidden };
+  validateKnownKeys(nestedHelp, ['required', 'expected_heading'], path, index, 'nested_help.');
+  const expectedHeading = optionalString(nestedHelp, 'expected_heading', path, index);
+  return {
+    required: requiredBoolean(nestedHelp, 'required', path, index),
+    ...(expectedHeading ? { expected_heading: expectedHeading } : {}),
+  };
+}
+
 export function readSurfaceCommandDocument(path: string): { schemaVersion: number; commands: SurfaceCommandEntry[] } {
   const document = parseFlatListDocument(readRequiredFile(path), 'commands', path);
   const commands = document.records.map((record, index): SurfaceCommandEntry => {
+    validateKnownKeys(record, [
+      'name',
+      'tier',
+      'status',
+      'hidden',
+      'visibility',
+      'owner',
+      'purpose',
+      'docs',
+      'nested_help',
+      'output_contract',
+    ], path, index);
     const name = requiredString(record, 'name', path, index);
     if (!/^owx(?:\s+[a-z][a-z0-9-]*)?$/.test(name)) {
       throw new Error(`surface_registry_invalid:${path}:${index}.name`);
@@ -180,12 +344,21 @@ export function readSurfaceCommandDocument(path: string): { schemaVersion: numbe
     const status = requiredString(record, 'status', path, index) as SurfaceCommandStatus;
     if (!COMMAND_TIERS.has(tier)) throw new Error(`surface_registry_invalid:${path}:${index}.tier`);
     if (!COMMAND_STATUSES.has(status)) throw new Error(`surface_registry_invalid:${path}:${index}.status`);
+    const visibility = (optionalString(record, 'visibility', path, index) ?? defaultVisibility(tier, status)) as SurfaceCommandVisibility;
+    if (!COMMAND_VISIBILITIES.has(visibility)) throw new Error(`surface_registry_invalid:${path}:${index}.visibility`);
+    const hidden = requiredBoolean(record, 'hidden', path, index);
+    const outputContract = optionalString(record, 'output_contract', path, index);
     return {
       name,
       tier,
       status,
-      hidden: requiredBoolean(record, 'hidden', path, index),
+      hidden,
+      visibility,
+      owner: optionalString(record, 'owner', path, index) ?? 'surface-owner',
       purpose: requiredString(record, 'purpose', path, index),
+      docs: readCommandDocs(record, path, index),
+      nested_help: readNestedHelp(record, hidden, path, index),
+      ...(outputContract ? { output_contract: outputContract } : {}),
     };
   });
   validateUnique(commands.map((entry) => entry.name), 'command');
@@ -199,6 +372,16 @@ export function readSurfaceCommands(path: string): SurfaceCommandEntry[] {
 export function readSurfaceConceptDocument(path: string): { schemaVersion: number; concepts: SurfaceConceptEntry[] } {
   const document = parseFlatListDocument(readRequiredFile(path), 'concepts', path);
   const concepts = document.records.map((record, index): SurfaceConceptEntry => {
+    validateKnownKeys(record, [
+      'term',
+      'public',
+      'status',
+      'definition',
+      'aliases',
+      'allowed_in',
+      'forbidden_in',
+      'replaced_by',
+    ], path, index);
     const status = requiredString(record, 'status', path, index) as SurfaceConceptStatus;
     if (!CONCEPT_STATUSES.has(status)) throw new Error(`surface_registry_invalid:${path}:${index}.status`);
     const replacedBy = record.replaced_by;
@@ -210,6 +393,9 @@ export function readSurfaceConceptDocument(path: string): { schemaVersion: numbe
       public: requiredBoolean(record, 'public', path, index),
       status,
       definition: requiredString(record, 'definition', path, index),
+      aliases: optionalStringList(record, 'aliases', path, index),
+      allowed_in: optionalStringList(record, 'allowed_in', path, index),
+      forbidden_in: optionalStringList(record, 'forbidden_in', path, index),
       ...(replacedBy ? { replaced_by: replacedBy } : {}),
     };
   });

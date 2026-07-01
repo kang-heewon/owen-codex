@@ -4,77 +4,206 @@ concepts:
     public: true
     status: stable
     definition: "The product and CLI surface for Owen Codex orchestration."
+    aliases:
+      - "owen-codex"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Work"
     public: true
     status: planned
     definition: "A tracked unit of user intent backed by a spec, evidence, and report."
+    aliases:
+      - "work item"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Spec"
     public: true
     status: planned
     definition: "The contract that defines scope, non-goals, acceptance, and verification."
+    aliases:
+      - "WorkSpec"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Agent"
     public: true
     status: stable
     definition: "A bounded role that performs tasks inside explicit constraints."
+    aliases:
+      - "agent role"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Team"
     public: true
     status: stable
     definition: "A coordinated set of agents or workers used for larger work."
+    aliases:
+      - "multi-agent team"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Evidence"
     public: true
     status: planned
     definition: "Test results, logs, diffs, reviews, and checks that support claims."
+    aliases:
+      - "proof"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Report"
     public: true
     status: planned
     definition: "A proof-backed summary of changes, checks, failures, and unverified assumptions."
+    aliases:
+      - "ProofBundle report"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Policy"
     public: true
     status: planned
     definition: "Rules that govern execution, safety, surface changes, and verification."
+    aliases:
+      - "guardrail"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "Surface"
     public: true
     status: beta
     definition: "User-visible commands, flags, states, config, errors, outputs, and docs."
+    aliases:
+      - "product surface"
+    allowed_in:
+      - "public-docs"
+      - "default-help"
+      - "reports"
   - term: "UltraGoal"
     public: false
     status: internal
     definition: "Durable goal-mode execution engine behind OWX work orchestration."
+    aliases:
+      - "ultragoal"
+      - "ultra-goal"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Work"
   - term: "Ralph"
     public: false
     status: legacy
     definition: "Legacy persistent single-owner execution loop."
+    aliases:
+      - "ralph"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Work"
   - term: "Autopilot"
     public: false
     status: internal
     definition: "Strict autonomous delivery loop over interview, planning, execution, review, and QA."
+    aliases:
+      - "autopilot"
+      - "auto pilot"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Work"
   - term: "Ralplan"
     public: false
     status: internal
     definition: "Consensus planning gate using Planner, Architect, and Critic reviews."
+    aliases:
+      - "ralplan"
+      - "consensus planning"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Spec"
   - term: "Spark"
     public: false
     status: internal
     definition: "Low-latency model or lane used for lightweight lookup and routing."
+    aliases:
+      - "spark"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
   - term: "Ledger"
     public: false
     status: internal
     definition: "Durable audit trail for execution checkpoints."
+    aliases:
+      - "execution ledger"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Evidence"
   - term: "Sidecar"
     public: false
     status: internal
     definition: "Read-only visualization surface for team or multi-agent state."
+    aliases:
+      - "sidecar"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
   - term: "Mailbox"
     public: false
     status: internal
     definition: "Team runtime coordination channel."
+    aliases:
+      - "mailbox"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
   - term: "Worker"
     public: false
     status: internal
     definition: "Team-runtime execution lane."
+    aliases:
+      - "worker lane"
+    allowed_in:
+      - "internal-docs"
+      - "traces"
+    forbidden_in:
+      - "public-docs"
+      - "default-help"
     replaced_by: "Agent"
