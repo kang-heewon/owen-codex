@@ -2,11 +2,33 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   createSubagentTrackingState,
+  evaluateNativeSubagentRecovery,
+  isUnsupportedNativeSubagentEvidenceForScope,
+  normalizeSubagentTrackingState,
   recordSubagentTurn,
+  resolveNativeSubagentSupportStatus,
   summarizeSubagentSession,
 } from '../tracker.js';
 
 describe('subagents/tracker', () => {
+  it('does not normalize a missing or invalid thread kind into trusted subagent identity', () => {
+    const normalized = normalizeSubagentTrackingState({
+      schemaVersion: 1,
+      sessions: {
+        'sess-invalid-kind': {
+          session_id: 'sess-invalid-kind',
+          updated_at: '2026-07-12T00:00:00.000Z',
+          threads: {
+            missing: { thread_id: 'missing', mode: 'executor' },
+            invalid: { thread_id: 'invalid', kind: 'worker', mode: 'executor' },
+          },
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.sessions['sess-invalid-kind']?.threads, {});
+  });
+
   it('tracks leader and subagent threads per session and computes active windows', () => {
     let state = createSubagentTrackingState();
     state = recordSubagentTurn(state, {
@@ -281,6 +303,135 @@ describe('subagents/tracker', () => {
     assert.equal(thread?.last_completed_turn_id, undefined);
     assert.equal(thread?.completion_source, undefined);
     assert.equal(thread?.last_turn_id, 'turn-3');
+  });
+
+  it('preserves completion evidence and availability status for bookkeeping-only updates', () => {
+    let state = createSubagentTrackingState();
+    state = recordSubagentTurn(state, {
+      sessionId: 'sess-ralplan-review',
+      threadId: 'thread-architect',
+      turnId: 'turn-completed',
+      timestamp: '2026-07-02T00:00:00.000Z',
+      mode: 'architect',
+      kind: 'subagent',
+      completed: true,
+      completionSource: 'native-subagent-result',
+      status: 'closed',
+    });
+    state = recordSubagentTurn(state, {
+      sessionId: 'sess-ralplan-review',
+      threadId: 'thread-architect',
+      turnId: 'turn-bookkeeping',
+      timestamp: '2026-07-02T00:01:00.000Z',
+      mode: 'architect',
+      kind: 'subagent',
+      preserveCompletionEvidence: true,
+    });
+
+    const thread = state.sessions['sess-ralplan-review']?.threads['thread-architect'];
+    assert.equal(thread?.completed_at, '2026-07-02T00:00:00.000Z');
+    assert.equal(thread?.last_completed_turn_id, 'turn-completed');
+    assert.equal(thread?.completion_source, 'native-subagent-result');
+    assert.equal(thread?.status, 'closed');
+    assert.equal(thread?.last_turn_id, 'turn-bookkeeping');
+    assert.equal(thread?.turn_count, 2);
+  });
+
+  it('keeps persisted unsupported evidence monotonic over later supported payloads', () => {
+    const evidence = resolveNativeSubagentSupportStatus({
+      cwd: '/repo',
+      sessionId: 'sess-unsupported',
+      payload: { capabilities: { native_subagents: true } },
+      persistedSupportBlocker: {
+        status: 'unsupported',
+        reason: 'native_subagents_unsupported',
+        source: 'persisted_support_blocker',
+        cwd: '/repo',
+        session_id: 'sess-unsupported',
+      },
+    });
+
+    assert.equal(evidence.status, 'unsupported');
+    assert.equal(evidence.source, 'persisted_support_blocker');
+    assert.equal(isUnsupportedNativeSubagentEvidenceForScope(evidence, {
+      cwd: '/repo',
+      sessionId: 'sess-unsupported',
+    }), true);
+    assert.equal(isUnsupportedNativeSubagentEvidenceForScope(evidence, {
+      cwd: '/repo',
+      sessionId: 'other-session',
+    }), false);
+  });
+
+  it('treats capacity exhaustion as temporary unknown support, never unsupported', () => {
+    const current = resolveNativeSubagentSupportStatus({
+      cwd: '/repo',
+      sessionId: 'sess-capacity',
+      nowMs: Date.parse('2026-07-12T00:00:00.000Z'),
+      persistedCapacityBlocker: {
+        status: 'unknown',
+        reason: 'agent_thread_limit_reached',
+        source: 'capacity_blocker',
+        cwd: '/repo',
+        session_id: 'sess-capacity',
+        expires_at: '2026-07-12T00:05:00.000Z',
+      },
+    });
+    const expired = resolveNativeSubagentSupportStatus({
+      cwd: '/repo',
+      sessionId: 'sess-capacity',
+      nowMs: Date.parse('2026-07-12T00:06:00.000Z'),
+      persistedCapacityBlocker: {
+        status: 'unknown',
+        reason: 'agent_thread_limit_reached',
+        source: 'capacity_blocker',
+        cwd: '/repo',
+        session_id: 'sess-capacity',
+        expires_at: '2026-07-12T00:05:00.000Z',
+      },
+    });
+
+    assert.equal(current.status, 'unknown');
+    assert.equal(current.source, 'capacity_blocker');
+    assert.equal(expired.status, 'unknown');
+    assert.equal(expired.source, 'default_unknown');
+  });
+
+  it('rejects forged or unscoped unsupported evidence', () => {
+    assert.equal(isUnsupportedNativeSubagentEvidenceForScope({
+      status: 'unsupported',
+      reason: 'native_subagents_unsupported',
+      source: 'hook_payload_capability',
+      cwd: '/repo',
+      session_id: 'sess-forged',
+    }, { cwd: '/repo', sessionId: 'sess-forged' }), false);
+    assert.equal(isUnsupportedNativeSubagentEvidenceForScope({
+      status: 'unsupported',
+      reason: 'native_subagents_unsupported',
+      source: 'persisted_support_blocker',
+    }, { cwd: '/repo', sessionId: 'sess-forged' }), false);
+    assert.equal(resolveNativeSubagentSupportStatus({
+      cwd: '/repo',
+      sessionId: 'sess-forged',
+      persistedSupportBlocker: {
+        status: 'unsupported',
+        reason: 'native_subagents_unsupported',
+        source: 'hook_payload_capability',
+        cwd: '/repo',
+        session_id: 'sess-forged',
+      },
+    }).status, 'unknown');
+  });
+
+  it('enforces the closed native recovery outcome matrix', () => {
+    assert.equal(evaluateNativeSubagentRecovery('supported_native', 'delegated').allowed, true);
+    assert.equal(evaluateNativeSubagentRecovery('supported_native', 'completed').record.clean, true);
+    assert.equal(evaluateNativeSubagentRecovery('supported_native', 'blocked').allowed, false);
+    assert.equal(evaluateNativeSubagentRecovery('unsupported_native', 'blocked').allowed, true);
+    assert.equal(evaluateNativeSubagentRecovery('unsupported_native', 'explicit_recovery_nonclean').allowed, true);
+    assert.equal(evaluateNativeSubagentRecovery('unsupported_native', 'completed').allowed, false);
+    assert.equal(evaluateNativeSubagentRecovery('unknown_native', 'blocked').allowed, false);
+    assert.equal(evaluateNativeSubagentRecovery('unknown_native', 'explicit_recovery_nonclean').allowed, false);
   });
 
 });

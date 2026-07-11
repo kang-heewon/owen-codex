@@ -17,6 +17,10 @@ import {
   type TeamWorkerGoalInstruction,
 } from "./goal-workflow.js";
 import { normalizeTeamTaskCoordinationPlanForRender } from "./coordination-protocol.js";
+import {
+  renderCodeGraphInstructions,
+  type WorktreeToolContext,
+} from "./worktree.js";
 
 const TEAM_OVERLAY_START = "<!-- OWX:TEAM:WORKER:START -->";
 const TEAM_OVERLAY_END = "<!-- OWX:TEAM:WORKER:END -->";
@@ -35,6 +39,7 @@ interface WorkerRootAgentsOptions {
   teamStateRoot: string;
   leaderCwd: string;
   worktreePath: string;
+  toolContext?: WorktreeToolContext;
 }
 
 interface WorkerRootAgentsBackup {
@@ -70,6 +75,9 @@ function buildWorkerRootAgentsBackupPath(
 export function generateWorkerRootAgentsContent(
   options: WorkerRootAgentsOptions,
 ): string {
+  const codeGraphInstructions = options.toolContext
+    ? renderCodeGraphInstructions(options.toolContext)
+    : "";
   return `# Team Worker Runtime Instructions
 
 This file is generated for a live OWX team worker run and is disposable.
@@ -87,6 +95,9 @@ This file is generated for a live OWX team worker run and is disposable.
 - Task directory: ${options.teamStateRoot}/team/${options.teamName}/tasks
 - Worker status path: ${options.teamStateRoot}/team/${options.teamName}/workers/${options.workerName}/status.json
 - Worker identity path: ${options.teamStateRoot}/team/${options.teamName}/workers/${options.workerName}/identity.json
+${codeGraphInstructions ? `
+${codeGraphInstructions}
+` : ""}
 
 ## Protocol
 1. Read your inbox at \`${options.teamStateRoot}/team/${options.teamName}/workers/${options.workerName}/inbox.md\`.

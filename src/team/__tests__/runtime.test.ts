@@ -49,6 +49,8 @@ import { readTeamEvents } from '../state/events.js';
 import { sanitizeTeamName } from '../tmux-session.js';
 import { buildInternalTeamName, resolveTeamIdentityScope } from '../team-identity.js';
 import { writePersistedApprovedTeamExecutionBinding } from '../approved-execution.js';
+import { dispatchCodexNativeHook } from '../../scripts/codex-native-hook.js';
+import { executeStateOperation } from '../../state/operations.js';
 
 const coverageRun = process.env.NODE_V8_COVERAGE ? true : false;
 const skipSlowLifecycleUnderCoverage = coverageRun
@@ -3875,9 +3877,10 @@ exit 0
     }
   });
 
-  it('startTeam routes detached worktree worker inbox and mailbox triggers through leader-root state references', async () => {
+  it('composes ralplan recovery with direct-root detached Team context and preserves the leader write boundary', async () => {
     const repo = await initRepo();
     const toolingDir = await mkdtemp(join(tmpdir(), 'owx-runtime-worktree-tools-'));
+    const directTeamStateRoot = join(toolingDir, 'direct-team-state');
     const binDir = join(toolingDir, 'bin');
     const fakeCodexPath = join(binDir, 'codex');
     const logDir = join(toolingDir, 'worker-logs');
@@ -3899,6 +3902,15 @@ fs.writeFileSync(path.join(logDir, 'env.json'), JSON.stringify({
   cwd: process.cwd(),
   teamStateRoot: process.env.OWX_TEAM_STATE_ROOT || '',
   worker: process.env.OWX_TEAM_WORKER || '',
+  repoRoot: process.env.OWX_REPO_ROOT || '',
+  worktreeRoot: process.env.OWX_WORKTREE_ROOT || '',
+  gitCommonDir: process.env.OWX_GIT_COMMON_DIR || '',
+  worktreeScope: process.env.OWX_WORKTREE_SCOPE || '',
+  codeGraphMode: process.env.OWX_CODEGRAPH_MODE || '',
+  codeGraphProjectPath: process.env.OWX_CODEGRAPH_PROJECT_PATH || '',
+  pwd: process.env.PWD || '',
+  gitDir: process.env.GIT_DIR || '',
+  gitWorkTree: process.env.GIT_WORK_TREE || '',
 }));
 process.stdin.on('data', (chunk) => {
   fs.appendFileSync(path.join(logDir, 'stdin.log'), chunk.toString());
@@ -3915,12 +3927,132 @@ process.on('SIGTERM', () => process.exit(0));
     const prevLaunchMode = process.env.OWX_TEAM_WORKER_LAUNCH_MODE;
     const prevWorkerCli = process.env.OWX_TEAM_WORKER_CLI;
     const prevLogDir = process.env.OWX_TEST_LOG_DIR;
+    const prevRepoRoot = process.env.OWX_REPO_ROOT;
+    const prevWorktreeRoot = process.env.OWX_WORKTREE_ROOT;
+    const prevGitCommonDir = process.env.OWX_GIT_COMMON_DIR;
+    const prevCodeGraphProjectPath = process.env.OWX_CODEGRAPH_PROJECT_PATH;
+    const prevCodeGraphRequestedMode = process.env.OWX_CODEGRAPH_REQUESTED_MODE;
+    const prevPwd = process.env.PWD;
+    const prevGitDir = process.env.GIT_DIR;
+    const prevGitWorkTree = process.env.GIT_WORK_TREE;
+    const prevTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+
+    const sessionId = 'sess-cross-theme-lifecycle';
+    const observedAt = '2026-07-12T00:00:00.000Z';
+    const stateDir = join(repo, '.owx', 'state');
+    const sessionDir = join(stateDir, 'sessions', sessionId);
+    await writeFile(join(repo, '.git', 'info', 'exclude'), '.owx/\n', { flag: 'a' });
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(stateDir, 'session.json'), JSON.stringify({ session_id: sessionId, cwd: repo }, null, 2));
+    await writeFile(join(sessionDir, 'skill-active-state.json'), JSON.stringify({
+      active: true,
+      skill: 'ralplan',
+      phase: 'planning',
+      session_id: sessionId,
+      active_skills: [{ skill: 'ralplan', phase: 'planning', active: true, session_id: sessionId }],
+    }, null, 2));
+    await writeFile(join(sessionDir, 'ralplan-state.json'), JSON.stringify({
+      active: true,
+      mode: 'ralplan',
+      current_phase: 'planning',
+      session_id: sessionId,
+      cwd: repo,
+    }, null, 2));
+    await writeFile(join(stateDir, 'subagent-tracking.json'), JSON.stringify({
+      schemaVersion: 1,
+      sessions: {
+        [sessionId]: {
+          session_id: sessionId,
+          leader_thread_id: 'thread-leader',
+          updated_at: observedAt,
+          threads: {
+            'thread-leader': {
+              thread_id: 'thread-leader',
+              kind: 'leader',
+              first_seen_at: observedAt,
+              last_seen_at: observedAt,
+              turn_count: 1,
+            },
+            'thread-architect': {
+              thread_id: 'thread-architect',
+              kind: 'subagent',
+              mode: 'architect',
+              first_seen_at: observedAt,
+              last_seen_at: observedAt,
+              turn_count: 1,
+            },
+          },
+        },
+      },
+    }, null, 2));
+
+    const allowedContextPatch = await dispatchCodexNativeHook({
+      hook_event_name: 'PreToolUse',
+      cwd: repo,
+      session_id: sessionId,
+      thread_id: 'thread-leader',
+      tool_name: 'apply_patch',
+      tool_input: {
+        input: '*** Begin Patch\n*** Add File: .owx/context/lifecycle.md\n+context\n*** End Patch',
+      },
+    }, { cwd: repo });
+    assert.equal(allowedContextPatch.outputJson, null);
+    await mkdir(join(repo, '.owx', 'context'), { recursive: true });
+    await writeFile(join(repo, '.owx', 'context', 'lifecycle.md'), 'context\n');
+
+    await dispatchCodexNativeHook({
+      hook_event_name: 'PostToolUse',
+      cwd: repo,
+      session_id: sessionId,
+      thread_id: 'thread-leader',
+      turn_id: 'turn-architect-interrupted',
+      tool_name: 'interrupt_agent',
+      error: 'native subagents unsupported in this runtime',
+    }, { cwd: repo });
+    const recovery = await executeStateOperation('state_write', {
+      workingDirectory: repo,
+      session_id: sessionId,
+      mode: 'ralplan',
+      active: false,
+      current_phase: 'failed',
+    });
+    assert.equal(recovery.isError, undefined);
+    const recoveredRalplan = JSON.parse(await readFile(join(sessionDir, 'ralplan-state.json'), 'utf-8')) as {
+      native_subagent_support?: { status?: string };
+      native_subagent_recovery?: { outcome?: string; clean?: boolean };
+    };
+    assert.equal(recoveredRalplan.native_subagent_support?.status, 'unsupported');
+    assert.deepEqual(recoveredRalplan.native_subagent_recovery, {
+      schema_version: 1,
+      support: 'unsupported_native',
+      outcome: 'explicit_recovery_nonclean',
+      clean: false,
+      reason: 'native support is unavailable and recovery is terminal non-clean',
+    });
+
+    const resumedBoundary = await executeStateOperation('state_write', {
+      workingDirectory: repo,
+      session_id: sessionId,
+      mode: 'ralplan',
+      active: true,
+      current_phase: 'planning',
+    });
+    assert.equal(resumedBoundary.isError, undefined);
 
     process.env.PATH = `${binDir}:${prevPath ?? ''}`;
     delete process.env.TMUX;
     process.env.OWX_TEAM_WORKER_LAUNCH_MODE = 'prompt';
     process.env.OWX_TEAM_WORKER_CLI = 'codex';
     process.env.OWX_TEST_LOG_DIR = logDir;
+    process.env.OWX_REPO_ROOT = '/stale/repo';
+    process.env.OWX_WORKTREE_ROOT = '/stale/worktree';
+    process.env.OWX_GIT_COMMON_DIR = '/stale/.git';
+    process.env.OWX_CODEGRAPH_PROJECT_PATH = '/stale/codegraph';
+    process.env.OWX_CODEGRAPH_REQUESTED_MODE = 'shared';
+    process.env.PWD = '/stale/pwd';
+    process.env.GIT_DIR = join(repo, '.git');
+    process.env.GIT_WORK_TREE = repo;
+    process.env.OWX_TEAM_STATE_ROOT = directTeamStateRoot;
 
     let runtime: TeamRuntime | null = null;
     try {
@@ -3939,6 +4071,19 @@ process.on('SIGTERM', () => process.exit(0));
       const workerPath = runtime.config.workers[0]?.worktree_path;
       assert.ok(workerPath, 'detached worker should have a worktree path');
       assert.notEqual(workerPath, repo);
+      const cleanGitEnv = { ...process.env };
+      delete cleanGitEnv.GIT_DIR;
+      delete cleanGitEnv.GIT_WORK_TREE;
+      const canonicalRepo = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: repo,
+        encoding: 'utf-8',
+        env: cleanGitEnv,
+      }).trim();
+      const canonicalWorkerPath = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: workerPath as string,
+        encoding: 'utf-8',
+        env: cleanGitEnv,
+      }).trim();
       const workerAgents = await readFile(join(workerPath as string, 'AGENTS.md'), 'utf-8');
       assert.match(workerAgents, /Team Worker Runtime Instructions/);
       assert.match(workerAgents, new RegExp(runtime.teamName));
@@ -3960,13 +4105,36 @@ process.on('SIGTERM', () => process.exit(0));
         cwd: string;
         teamStateRoot: string;
         worker: string;
+        repoRoot: string;
+        worktreeRoot: string;
+        gitCommonDir: string;
+        worktreeScope: string;
+        codeGraphMode: string;
+        codeGraphProjectPath: string;
+        pwd: string;
+        gitDir: string;
+        gitWorkTree: string;
       };
       assert.equal(envLog.cwd, workerPath);
-      assert.equal(envLog.teamStateRoot, join(repo, '.owx', 'state'));
+      assert.equal(envLog.teamStateRoot, directTeamStateRoot);
       assert.equal(envLog.worker, 'team-detached-worktree-paths/worker-1');
+      assert.equal(envLog.repoRoot, canonicalRepo);
+      assert.equal(envLog.worktreeRoot, canonicalWorkerPath);
+      assert.equal(envLog.gitCommonDir, join(canonicalRepo, '.git'));
+      assert.equal(envLog.worktreeScope, 'team');
+      assert.equal(envLog.codeGraphMode, 'shared');
+      assert.equal(envLog.codeGraphProjectPath, canonicalRepo);
+      assert.equal(envLog.pwd, '');
+      assert.equal(envLog.gitDir, '');
+      assert.equal(envLog.gitWorkTree, '');
+      assert.equal(existsSync(join(directTeamStateRoot, 'team', runtime.teamName)), true);
+      assert.equal(existsSync(join(repo, '.owx', 'state', 'team', runtime.teamName)), false);
+      assert.equal(existsSync(join(workerPath, '.owx', 'state', 'team', runtime.teamName)), false);
       const rootAgents = await readFile(join(workerPath, 'AGENTS.md'), 'utf-8');
       assert.match(rootAgents, /Team Worker Runtime Instructions/);
       assert.match(rootAgents, new RegExp(`Inbox path: .*${runtime.teamName}/workers/worker-1/inbox\\.md`));
+      assert.match(rootAgents, /## CodeGraph/);
+      assert.match(rootAgents, /shared leader index/);
 
       await sendWorkerMessage(runtime.teamName, 'leader-fixed', 'worker-1', 'follow-up', repo);
       const mailboxLog = await waitForFileText(
@@ -3980,6 +4148,29 @@ process.on('SIGTERM', () => process.exit(0));
 
       await shutdownTeam(runtime.teamName, repo, { force: true });
       runtime = null;
+
+      delete process.env.OWX_TEAM_STATE_ROOT;
+      const sourceDiffBefore = execFileSync('git', ['diff', '--', 'README.md'], {
+        cwd: repo,
+        encoding: 'utf-8',
+        env: cleanGitEnv,
+      });
+      const blockedSourceWrite = await dispatchCodexNativeHook({
+        hook_event_name: 'PreToolUse',
+        cwd: repo,
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        tool_name: 'apply_patch',
+        tool_input: {
+          input: '*** Begin Patch\n*** Update File: README.md\n@@\n-hello\n+mutated\n*** End Patch',
+        },
+      }, { cwd: repo });
+      assert.equal(blockedSourceWrite.outputJson?.decision, 'block');
+      assert.equal(execFileSync('git', ['diff', '--', 'README.md'], {
+        cwd: repo,
+        encoding: 'utf-8',
+        env: cleanGitEnv,
+      }), sourceDiffBefore);
     } finally {
       if (runtime) {
         await shutdownTeam(runtime.teamName, repo, { force: true }).catch(() => {});
@@ -3994,6 +4185,24 @@ process.on('SIGTERM', () => process.exit(0));
       else delete process.env.OWX_TEAM_WORKER_CLI;
       if (typeof prevLogDir === 'string') process.env.OWX_TEST_LOG_DIR = prevLogDir;
       else delete process.env.OWX_TEST_LOG_DIR;
+      if (typeof prevRepoRoot === 'string') process.env.OWX_REPO_ROOT = prevRepoRoot;
+      else delete process.env.OWX_REPO_ROOT;
+      if (typeof prevWorktreeRoot === 'string') process.env.OWX_WORKTREE_ROOT = prevWorktreeRoot;
+      else delete process.env.OWX_WORKTREE_ROOT;
+      if (typeof prevGitCommonDir === 'string') process.env.OWX_GIT_COMMON_DIR = prevGitCommonDir;
+      else delete process.env.OWX_GIT_COMMON_DIR;
+      if (typeof prevCodeGraphProjectPath === 'string') process.env.OWX_CODEGRAPH_PROJECT_PATH = prevCodeGraphProjectPath;
+      else delete process.env.OWX_CODEGRAPH_PROJECT_PATH;
+      if (typeof prevCodeGraphRequestedMode === 'string') process.env.OWX_CODEGRAPH_REQUESTED_MODE = prevCodeGraphRequestedMode;
+      else delete process.env.OWX_CODEGRAPH_REQUESTED_MODE;
+      if (typeof prevPwd === 'string') process.env.PWD = prevPwd;
+      else delete process.env.PWD;
+      if (typeof prevGitDir === 'string') process.env.GIT_DIR = prevGitDir;
+      else delete process.env.GIT_DIR;
+      if (typeof prevGitWorkTree === 'string') process.env.GIT_WORK_TREE = prevGitWorkTree;
+      else delete process.env.GIT_WORK_TREE;
+      if (typeof prevTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamStateRoot;
+      else delete process.env.OWX_TEAM_STATE_ROOT;
       await rm(toolingDir, { recursive: true, force: true });
       await rm(repo, { recursive: true, force: true });
     }

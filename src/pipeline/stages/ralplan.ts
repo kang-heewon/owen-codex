@@ -6,6 +6,7 @@
  */
 
 import type { PipelineStage, StageContext, StageResult } from '../types.js';
+import { existsSync, readFileSync } from 'node:fs';
 import { isPlanningComplete, readPlanningArtifacts } from '../../planning/artifacts.js';
 import { isNonCleanReviewVerdict } from '../review-verdict.js';
 import {
@@ -18,6 +19,13 @@ import {
   hasDurableRalplanConsensusEvidenceForCwd,
   type RalplanConsensusGateEvidence,
 } from '../../ralplan/consensus-gate.js';
+import {
+  evaluateNativeSubagentRecovery,
+  isUnsupportedNativeSubagentEvidenceForScope,
+  nativeSubagentSupportPath,
+  resolveNativeSubagentSupportStatus,
+  type NativeSubagentSupportEvidence,
+} from '../../subagents/tracker.js';
 
 export interface CreateRalplanStageOptions {
   executor?: RalplanConsensusExecutor;
@@ -41,6 +49,7 @@ export function createRalplanStage(options: CreateRalplanStageOptions = {}): Pip
     name: 'ralplan',
 
     canSkip(ctx: StageContext): boolean {
+      if (options.requireNativeSubagents && readUnsupportedNativeSupport(ctx)) return false;
       if (hasReviewLoopContext(ctx.artifacts)) {
         return false;
       }
@@ -52,6 +61,21 @@ export function createRalplanStage(options: CreateRalplanStageOptions = {}): Pip
     async run(ctx: StageContext): Promise<StageResult> {
       const startTime = Date.now();
       try {
+        const unsupportedSupport = options.requireNativeSubagents
+          ? readUnsupportedNativeSupport(ctx)
+          : null;
+        if (unsupportedSupport) {
+          return {
+            status: 'failed',
+            artifacts: {
+              stage: 'ralplan',
+              nativeSubagentSupport: unsupportedSupport,
+              nativeSubagentRecovery: evaluateNativeSubagentRecovery('unsupported_native', 'blocked').record,
+            },
+            duration_ms: Date.now() - startTime,
+            error: 'ralplan_native_subagent_support_unsupported',
+          };
+        }
         if (options.executor) {
           const runtimeResult = await runRalplanConsensus(options.executor, {
             task: ctx.task,
@@ -87,6 +111,9 @@ export function createRalplanStage(options: CreateRalplanStageOptions = {}): Pip
               criticReviews: runtimeResult.criticReviews,
               ralplanConsensusGate: consensusGate,
               ...runtimeResult.artifacts,
+              ...(options.requireNativeSubagents && consensusComplete
+                ? { nativeSubagentRecovery: evaluateNativeSubagentRecovery('supported_native', 'completed').record }
+                : {}),
             },
             duration_ms: Date.now() - startTime,
             error: runtimeResult.error ?? (consensusComplete ? undefined : 'ralplan_consensus_evidence_missing'),
@@ -123,6 +150,9 @@ export function createRalplanStage(options: CreateRalplanStageOptions = {}): Pip
             planningComplete,
             stage: 'ralplan',
             ralplanConsensusGate: consensusGate,
+            ...(options.requireNativeSubagents && consensusComplete
+              ? { nativeSubagentRecovery: evaluateNativeSubagentRecovery('supported_native', 'completed').record }
+              : {}),
             instruction: consensusComplete
               ? `Run RALPLAN consensus planning for: ${ctx.task}`
               : `Remain in RALPLAN for: ${ctx.task}. Do not hand off to execution until durable Architect approval followed by Critic approval is recorded in ralplan state or handoff artifacts.`,
@@ -140,6 +170,22 @@ export function createRalplanStage(options: CreateRalplanStageOptions = {}): Pip
       }
     },
   };
+}
+
+function readUnsupportedNativeSupport(ctx: StageContext): NativeSubagentSupportEvidence | null {
+  if (!ctx.sessionId) return null;
+  const path = nativeSubagentSupportPath(ctx.cwd, ctx.sessionId);
+  if (!existsSync(path)) return null;
+  const blocker = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  const evidence = resolveNativeSubagentSupportStatus({
+    persistedSupportBlocker: blocker,
+    cwd: ctx.cwd,
+    sessionId: ctx.sessionId,
+  });
+  return isUnsupportedNativeSubagentEvidenceForScope(evidence, {
+    cwd: ctx.cwd,
+    sessionId: ctx.sessionId,
+  }) ? evidence : null;
 }
 
 function buildRalplanConsensusGate(runtimeResult: {

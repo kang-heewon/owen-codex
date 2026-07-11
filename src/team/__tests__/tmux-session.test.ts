@@ -1253,10 +1253,15 @@ describe('buildWorkerStartupCommand', () => {
         {
           OWX_TEAM_STATE_ROOT: '/tmp/leader/.owx/state',
           OWX_TEAM_LEADER_CWD: '/tmp/leader',
+          PWD: '/tmp/stale-parent',
+          GIT_DIR: '/tmp/stale-parent/.git',
+          GIT_WORK_TREE: '/tmp/stale-parent',
         },
       );
       assert.match(cmd, /OWX_TEAM_STATE_ROOT=\/tmp\/leader\/\.owx\/state/);
       assert.match(cmd, /OWX_TEAM_LEADER_CWD=\/tmp\/leader/);
+      assert.match(cmd, /'-u' 'PWD' '-u' 'GIT_DIR' '-u' 'GIT_WORK_TREE'/);
+      assert.doesNotMatch(cmd, /stale-parent/);
     } finally {
       if (typeof prevShell === 'string') process.env.SHELL = prevShell;
       else delete process.env.SHELL;
@@ -1317,7 +1322,7 @@ describe('buildWorkerStartupCommand', () => {
       const script = await readFile(join(stateRoot, 'team', 'alpha', 'runtime', 'worker-1-startup.sh'), 'utf-8');
       assert.match(script, /^#!\/bin\/sh/m);
       assert.match(script, new RegExp(`cd '${wd.replace(/'/g, `'\\\\''`)}'`));
-      assert.match(script, /^unset OWX_TMUX_HUD_OWNER OWX_TMUX_HUD_LEADER_PANE$/m);
+      assert.match(script, /^unset OWX_TMUX_HUD_OWNER OWX_TMUX_HUD_LEADER_PANE PWD GIT_DIR GIT_WORK_TREE$/m);
       assert.match(script, /export OWX_TEAM_STATE_ROOT=/);
       assert.doesNotMatch(script, /^export OWX_TMUX_HUD_OWNER=/m);
       assert.doesNotMatch(script, /^export OWX_TMUX_HUD_LEADER_PANE=/m);

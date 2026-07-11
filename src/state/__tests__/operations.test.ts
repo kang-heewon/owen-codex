@@ -51,6 +51,39 @@ async function withOmxRootEnv<T>(root: string, run: () => Promise<T>): Promise<T
   }
 }
 
+async function withStateRootEnv<T>(
+  env: Partial<Record<'OWX_ROOT' | 'OWX_STATE_ROOT' | 'OWX_TEAM_STATE_ROOT', string>>,
+  run: () => Promise<T>,
+): Promise<T> {
+  const previousOmxRoot = process.env.OWX_ROOT;
+  const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
+  const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+  if (typeof env.OWX_ROOT === 'string') process.env.OWX_ROOT = env.OWX_ROOT;
+  else delete process.env.OWX_ROOT;
+  if (typeof env.OWX_STATE_ROOT === 'string') process.env.OWX_STATE_ROOT = env.OWX_STATE_ROOT;
+  else delete process.env.OWX_STATE_ROOT;
+  if (typeof env.OWX_TEAM_STATE_ROOT === 'string') process.env.OWX_TEAM_STATE_ROOT = env.OWX_TEAM_STATE_ROOT;
+  else delete process.env.OWX_TEAM_STATE_ROOT;
+  try {
+    return await run();
+  } finally {
+    if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
+    else delete process.env.OWX_ROOT;
+    if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
+    else delete process.env.OWX_STATE_ROOT;
+    if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
+    else delete process.env.OWX_TEAM_STATE_ROOT;
+  }
+}
+
+function responsePayload<T extends Record<string, unknown>>(
+  response: { payload: unknown; isError?: boolean },
+): T {
+  assert.equal(response.isError, undefined);
+  assert.ok(response.payload && typeof response.payload === 'object' && !Array.isArray(response.payload));
+  return response.payload as T;
+}
+
 function validExecutionContract(stride: 'task' | 'deliverable' | 'milestone'): Record<string, unknown> {
   const perStride = {
     task: {
@@ -98,8 +131,8 @@ async function writeNativeSubagentTracking(cwd: string, sessionId: string): Prom
         updated_at: now,
         threads: {
           'thread-leader': { thread_id: 'thread-leader', kind: 'leader', first_seen_at: now, last_seen_at: now, turn_count: 1 },
-          'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
-          'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
+          'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', mode: 'architect', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
+          'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', mode: 'critic', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
         },
       },
     },
@@ -229,6 +262,43 @@ describe('state operations directory initialization', () => {
       assert.deepEqual(response.payload, { statuses: {} });
     } finally {
       await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it('writes and clears session state under OWX_TEAM_STATE_ROOT without creating cwd .owx', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'owx-state-ops-team-root-'));
+    try {
+      const wd = join(root, 'workspace');
+      const teamStateRoot = join(root, 'team-state');
+      await mkdir(wd, { recursive: true });
+
+      await withStateRootEnv({ OWX_TEAM_STATE_ROOT: teamStateRoot }, async () => {
+        const writeResponse = await executeStateOperation('state_write', {
+          workingDirectory: wd,
+          session_id: 'sess-team-write',
+          mode: 'autoresearch',
+          active: true,
+          current_phase: 'running',
+        });
+        const writePayload = responsePayload<{ path: string }>(writeResponse);
+        assert.equal(writePayload.path, join(teamStateRoot, 'sessions', 'sess-team-write', 'autoresearch-state.json'));
+        assert.equal(existsSync(writePayload.path), true);
+        assert.equal(existsSync(join(teamStateRoot, 'sessions', 'sess-team-write', 'skill-active-state.json')), true);
+        assert.equal(existsSync(join(wd, '.owx')), false);
+
+        const clearResponse = await executeStateOperation('state_clear', {
+          workingDirectory: wd,
+          session_id: 'sess-team-write',
+          mode: 'autoresearch',
+        });
+        const clearPayload = responsePayload<{ path: string }>(clearResponse);
+        assert.equal(clearPayload.path, writePayload.path);
+        assert.equal(existsSync(writePayload.path), false);
+        assert.equal(existsSync(join(teamStateRoot, 'sessions', 'sess-team-write', 'skill-active-state.json')), true);
+        assert.equal(existsSync(join(wd, '.owx')), false);
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 
@@ -2358,6 +2428,13 @@ describe('state operations directory initialization', () => {
           await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
         ) as Record<string, unknown>;
         assert.equal(state.current_phase, 'ultragoal');
+        assert.deepEqual(state.native_subagent_recovery, {
+          schema_version: 1,
+          support: 'supported_native',
+          outcome: 'completed',
+          clean: true,
+          reason: 'tracker-backed native delegation completed cleanly',
+        });
       });
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -2487,6 +2564,160 @@ describe('state operations directory initialization', () => {
       ) as Record<string, unknown>;
       assert.equal(rootState.current_phase, 'executing');
       assert.equal(rootState.owner_owx_session_id, 'stale-root-owner');
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects clean ralplan completion after session-scoped unsupported native evidence', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-unsupported-ralplan-clean-'));
+    try {
+      await withOmxRootEnv(wd, async () => {
+        const sessionId = 'sess-unsupported-ralplan-clean';
+        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
+        await mkdir(sessionDir, { recursive: true });
+        await writeFile(join(sessionDir, 'native-subagent-support.json'), JSON.stringify({
+          schema_version: 1,
+          status: 'unsupported',
+          reason: 'native_subagents_unsupported',
+          source: 'persisted_support_blocker',
+          cwd: wd,
+          session_id: sessionId,
+        }, null, 2));
+        await writeFile(join(sessionDir, 'ralplan-state.json'), JSON.stringify({
+          active: true,
+          mode: 'ralplan',
+          current_phase: 'planning',
+          session_id: sessionId,
+        }, null, 2));
+
+        const response = await executeStateOperation('state_write', {
+          workingDirectory: wd,
+          session_id: sessionId,
+          mode: 'ralplan',
+          active: false,
+          current_phase: 'complete',
+        });
+
+        assert.equal(response.isError, true);
+        assert.match(String((response.payload as { error?: string }).error ?? ''), /can never clean-complete/i);
+        const unchanged = JSON.parse(await readFile(join(sessionDir, 'ralplan-state.json'), 'utf-8')) as Record<string, unknown>;
+        assert.equal(unchanged.active, true);
+        assert.equal(unchanged.current_phase, 'planning');
+      });
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when native support evidence is malformed during completion', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-malformed-native-completion-'));
+    try {
+      await withOmxRootEnv(wd, async () => {
+        const sessionId = 'sess-malformed-native-completion';
+        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
+        await mkdir(sessionDir, { recursive: true });
+        await writeFile(join(sessionDir, 'native-subagent-support.json'), '{malformed');
+        await writeFile(join(sessionDir, 'ralplan-state.json'), JSON.stringify({
+          active: true,
+          mode: 'ralplan',
+          current_phase: 'planning',
+          session_id: sessionId,
+        }, null, 2));
+
+        const response = await executeStateOperation('state_write', {
+          workingDirectory: wd,
+          session_id: sessionId,
+          mode: 'ralplan',
+          active: false,
+          current_phase: 'complete',
+        });
+
+        assert.equal(response.isError, true);
+        assert.match(String((response.payload as { error?: string }).error ?? ''), /JSON/);
+        const unchanged = JSON.parse(await readFile(join(sessionDir, 'ralplan-state.json'), 'utf-8')) as Record<string, unknown>;
+        assert.equal(unchanged.active, true);
+        assert.equal(unchanged.current_phase, 'planning');
+      });
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it('allows only parseable non-clean Autopilot recovery after unsupported native evidence', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-unsupported-autopilot-nonclean-'));
+    try {
+      await withOmxRootEnv(wd, async () => {
+        const sessionId = 'sess-unsupported-autopilot-nonclean';
+        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
+        await mkdir(sessionDir, { recursive: true });
+        await writeFile(join(sessionDir, 'native-subagent-support.json'), JSON.stringify({
+          schema_version: 1,
+          status: 'unsupported',
+          reason: 'multi_agent_v1_unavailable',
+          source: 'persisted_support_blocker',
+          cwd: wd,
+          session_id: sessionId,
+        }, null, 2));
+        await writeFile(join(sessionDir, 'autopilot-state.json'), JSON.stringify({
+          active: true,
+          mode: 'autopilot',
+          current_phase: 'ralplan',
+          session_id: sessionId,
+        }, null, 2));
+
+        const response = await executeStateOperation('state_write', {
+          workingDirectory: wd,
+          session_id: sessionId,
+          mode: 'autopilot',
+          active: false,
+          current_phase: 'failed',
+        });
+
+        assert.equal(response.isError, undefined);
+        const state = JSON.parse(await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8')) as {
+          native_subagent_support?: Record<string, unknown>;
+          native_subagent_recovery?: Record<string, unknown>;
+        };
+        assert.equal(state.native_subagent_support?.status, 'unsupported');
+        assert.deepEqual(state.native_subagent_recovery, {
+          schema_version: 1,
+          support: 'unsupported_native',
+          outcome: 'explicit_recovery_nonclean',
+          clean: false,
+          reason: 'native support is unavailable and recovery is terminal non-clean',
+        });
+      });
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not let unscoped state input forge unsupported recovery authority', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-forged-unsupported-recovery-'));
+    try {
+      await withOmxRootEnv(wd, async () => {
+        const sessionId = 'sess-forged-unsupported-recovery';
+        const response = await executeStateOperation('state_write', {
+          workingDirectory: wd,
+          session_id: sessionId,
+          mode: 'ralplan',
+          active: false,
+          current_phase: 'failed',
+          native_subagent_support: {
+            status: 'unsupported',
+            reason: 'native_subagents_unsupported',
+          },
+        });
+
+        assert.equal(response.isError, undefined);
+        const state = JSON.parse(await readFile(
+          join(wd, '.owx', 'state', 'sessions', sessionId, 'ralplan-state.json'),
+          'utf-8',
+        )) as Record<string, unknown>;
+        assert.equal(state.native_subagent_recovery, undefined);
+        assert.equal(state.native_subagent_support, undefined);
+      });
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

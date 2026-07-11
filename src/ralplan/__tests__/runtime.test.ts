@@ -39,17 +39,27 @@ async function writeNativeSubagentTracking(cwd: string, sessionId: string): Prom
           'thread-architect': {
             thread_id: 'thread-architect',
             kind: 'subagent',
+            mode: 'architect',
             first_seen_at: now,
             last_seen_at: now,
             completed_at: now,
+            last_turn_id: 'turn-architect',
+            last_completed_turn_id: 'turn-architect',
+            completion_source: 'native-subagent-result',
+            status: 'closed',
             turn_count: 1,
           },
           'thread-critic': {
             thread_id: 'thread-critic',
             kind: 'subagent',
+            mode: 'critic',
             first_seen_at: now,
             last_seen_at: now,
             completed_at: now,
+            last_turn_id: 'turn-critic',
+            last_completed_turn_id: 'turn-critic',
+            completion_source: 'native-subagent-result',
+            status: 'closed',
             turn_count: 1,
           },
         },
@@ -124,6 +134,8 @@ describe('ralplan runtime', () => {
       assert.equal(result.phase, 'complete');
       assert.equal(result.iteration, 1);
       assert.equal(result.planningComplete, true);
+      assert.equal(result.architectReviews[0]?.agent_role, 'architect');
+      assert.equal(result.criticReviews[0]?.agent_role, 'critic');
       assert.deepEqual(seenPhases, ['draft', 'architect-review', 'critic-review']);
       assert.equal(existsSync(join(cwd, '.owx', 'state', 'ralplan-state.json')), false);
       assert.equal(existsSync(sessionStatePath(cwd, sessionId)), true);
@@ -210,8 +222,74 @@ describe('ralplan runtime', () => {
 
       assert.equal(result.status, 'failed');
       assert.equal(result.ralplanConsensusGate.complete, false);
-      assert.equal(result.ralplanConsensusGate.blocked_reason, 'native_subagent_consensus_evidence_missing');
-      assert.equal(result.error, 'ralplan_consensus_not_reached_after_1_iterations');
+      assert.equal(result.ralplanConsensusGate.blocked_reason, 'architect_review_missing_or_not_approved');
+      assert.match(result.error || '', /ralplan_architect_review_role_missing/);
+      assert.equal(result.architectReviews.length, 0);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a mismatched architect lane role before recording the review', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-ralplan-runtime-role-mismatch-'));
+    const sessionId = 'sess-ralplan-role-mismatch';
+    try {
+      await mkdir(join(sessionStatePath(cwd, sessionId), '..'), { recursive: true });
+      await writeFile(join(sessionStatePath(cwd, sessionId), '..', '..', '..', 'session.json'), JSON.stringify({ session_id: sessionId }));
+
+      const result = await runRalplanConsensus({
+        async draft() {
+          return { summary: 'draft' };
+        },
+        async architectReview() {
+          return {
+            verdict: 'approve',
+            summary: 'critic incorrectly used the architect lane',
+            thread_id: 'thread-reviewer',
+            agent_role: 'critic',
+          };
+        },
+        async criticReview() {
+          return { verdict: 'approve', summary: 'should not run' };
+        },
+      }, { task: 'reject mismatched review role', cwd, sessionId, maxIterations: 1 });
+
+      assert.equal(result.status, 'failed');
+      assert.match(result.error || '', /ralplan_architect_review_role_mismatch/);
+      assert.equal(result.architectReviews.length, 0);
+      assert.equal(existsSync(subagentTrackingPath(cwd)), false);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a thread-backed review that omits its lane role', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-ralplan-runtime-thread-role-missing-'));
+    const sessionId = 'sess-ralplan-thread-role-missing';
+    try {
+      await mkdir(join(sessionStatePath(cwd, sessionId), '..'), { recursive: true });
+      await writeFile(join(sessionStatePath(cwd, sessionId), '..', '..', '..', 'session.json'), JSON.stringify({ session_id: sessionId }));
+
+      const result = await runRalplanConsensus({
+        async draft() {
+          return { summary: 'draft' };
+        },
+        async architectReview() {
+          return {
+            verdict: 'approve',
+            summary: 'thread evidence without a role',
+            thread_id: 'thread-architect',
+          };
+        },
+        async criticReview() {
+          return { verdict: 'approve', summary: 'should not run' };
+        },
+      }, { task: 'reject missing thread role', cwd, sessionId, maxIterations: 1 });
+
+      assert.equal(result.status, 'failed');
+      assert.match(result.error || '', /ralplan_architect_review_role_missing/);
+      assert.equal(result.architectReviews.length, 0);
+      assert.equal(existsSync(subagentTrackingPath(cwd)), false);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
@@ -271,6 +349,126 @@ describe('ralplan runtime', () => {
       assert.equal(result.ralplanConsensusGate.blocked_reason, null);
       assert.equal(result.ralplanConsensusGate.ralplan_architect_review?.thread_id, 'thread-architect');
       assert.equal(result.ralplanConsensusGate.ralplan_critic_review?.thread_id, 'thread-critic');
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not let executor review output create native subagent provenance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-ralplan-runtime-native-provenance-laundering-'));
+    const sessionId = 'sess-ralplan-native-provenance-laundering';
+    try {
+      await mkdir(join(sessionStatePath(cwd, sessionId), '..'), { recursive: true });
+      await writeFile(join(sessionStatePath(cwd, sessionId), '..', '..', '..', 'session.json'), JSON.stringify({ session_id: sessionId }));
+
+      const result = await runRalplanConsensus({
+        async draft() {
+          const plansDir = join(cwd, '.owx', 'plans');
+          await mkdir(plansDir, { recursive: true });
+          const prdPath = join(plansDir, 'prd-native-provenance-laundering.md');
+          await writeFile(prdPath, '# plan\n');
+          await writeFile(join(plansDir, 'test-spec-native-provenance-laundering.md'), '# tests\n');
+          return { summary: 'draft', planPath: prdPath };
+        },
+        async architectReview() {
+          return {
+            verdict: 'approve',
+            provenance_kind: 'native_subagent',
+            session_id: sessionId,
+            thread_id: 'thread-architect-claimed',
+            artifact_path: '.owx/artifacts/architect.md',
+            agent_role: 'architect',
+            tracker_path: '.owx/state/subagent-tracking.json',
+          };
+        },
+        async criticReview() {
+          return {
+            verdict: 'approve',
+            provenance_kind: 'native_subagent',
+            session_id: sessionId,
+            thread_id: 'thread-critic-claimed',
+            artifact_path: '.owx/artifacts/critic.md',
+            agent_role: 'critic',
+            tracker_path: '.owx/state/subagent-tracking.json',
+          };
+        },
+      }, {
+        task: 'reject executor-created native provenance',
+        cwd,
+        sessionId,
+        maxIterations: 1,
+        requireNativeSubagents: true,
+      });
+
+      assert.equal(result.status, 'failed');
+      assert.equal(result.ralplanConsensusGate.complete, false);
+      assert.equal(result.ralplanConsensusGate.blocked_reason, 'native_subagent_consensus_evidence_missing');
+      assert.equal(existsSync(subagentTrackingPath(cwd)), false);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('does not disturb completed tracker evidence while consuming review results', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-ralplan-runtime-preserve-review-completion-'));
+    const sessionId = 'sess-ralplan-preserve-review-completion';
+    const completedAt = '2026-05-28T00:00:00.000Z';
+    try {
+      await mkdir(join(sessionStatePath(cwd, sessionId), '..'), { recursive: true });
+      await writeFile(join(sessionStatePath(cwd, sessionId), '..', '..', '..', 'session.json'), JSON.stringify({ session_id: sessionId }));
+      await writeNativeSubagentTracking(cwd, sessionId);
+
+      const result = await runRalplanConsensus({
+        async draft() {
+          const plansDir = join(cwd, '.owx', 'plans');
+          await mkdir(plansDir, { recursive: true });
+          const prdPath = join(plansDir, 'prd-preserve-review-completion.md');
+          await writeFile(prdPath, '# plan\n');
+          await writeFile(join(plansDir, 'test-spec-preserve-review-completion.md'), '# tests\n');
+          return { summary: 'draft', planPath: prdPath };
+        },
+        async architectReview() {
+          return {
+            verdict: 'approve',
+            summary: 'architect ok',
+            thread_id: 'thread-architect',
+            agent_role: 'architect',
+          };
+        },
+        async criticReview() {
+          return {
+            verdict: 'approve',
+            summary: 'critic ok',
+            thread_id: 'thread-critic',
+            agent_role: 'critic',
+          };
+        },
+      }, {
+        task: 'preserve completed review evidence',
+        cwd,
+        sessionId,
+        maxIterations: 1,
+      });
+
+      assert.equal(result.status, 'completed');
+      const tracking = JSON.parse(await readFile(subagentTrackingPath(cwd), 'utf-8')) as {
+        sessions?: Record<string, { threads?: Record<string, {
+          completed_at?: string;
+          last_completed_turn_id?: string;
+          completion_source?: string;
+          status?: string;
+        }> }>;
+      };
+      for (const [threadId, completedTurnId] of [
+        ['thread-architect', 'turn-architect'],
+        ['thread-critic', 'turn-critic'],
+      ] as const) {
+        const thread = tracking.sessions?.[sessionId]?.threads?.[threadId];
+        assert.equal(thread?.completed_at, completedAt);
+        assert.equal(thread?.last_completed_turn_id, completedTurnId);
+        assert.equal(thread?.completion_source, 'native-subagent-result');
+        assert.equal(thread?.status, 'closed');
+      }
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

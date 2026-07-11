@@ -116,8 +116,8 @@ async function writeNativeSubagentTracking(cwd: string, sessionId: string): Prom
         updated_at: now,
         threads: {
           'thread-leader': { thread_id: 'thread-leader', kind: 'leader', first_seen_at: now, last_seen_at: now, turn_count: 1 },
-          'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
-          'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
+          'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', mode: 'architect', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
+          'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', mode: 'critic', first_seen_at: now, last_seen_at: now, completed_at: now, turn_count: 1 },
         },
       },
     },
@@ -149,6 +149,48 @@ describe('RALPLAN Stage', () => {
     assert.equal((result.artifacts as Record<string, unknown>).stage, 'ralplan');
     assert.ok((result.artifacts as Record<string, unknown>).instruction);
     assert.equal(result.error, 'ralplan_planning_artifacts_missing');
+  });
+
+  it('fails strict ralplan with parseable non-clean recovery when native support is unsupported', async () => {
+    const sessionId = 'sess-pipeline-native-unsupported';
+    const sessionDir = join(tempDir, '.owx', 'state', 'sessions', sessionId);
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, 'native-subagent-support.json'), JSON.stringify({
+      schema_version: 1,
+      status: 'unsupported',
+      reason: 'native_subagents_unsupported',
+      source: 'persisted_support_blocker',
+      cwd: tempDir,
+      session_id: sessionId,
+    }, null, 2));
+    const stage = createRalplanStage({ requireNativeSubagents: true });
+
+    const result = await stage.run(makeCtx({ sessionId }));
+    const artifacts = result.artifacts as Record<string, unknown>;
+
+    assert.equal(result.status, 'failed');
+    assert.equal(result.error, 'ralplan_native_subagent_support_unsupported');
+    assert.deepEqual(artifacts.nativeSubagentRecovery, {
+      schema_version: 1,
+      support: 'unsupported_native',
+      outcome: 'blocked',
+      clean: false,
+      reason: 'native support is unavailable and recovery is terminal non-clean',
+    });
+    assert.equal(stage.canSkip?.(makeCtx({ sessionId })), false);
+  });
+
+  it('fails closed when persisted native support evidence is malformed', async () => {
+    const sessionId = 'sess-pipeline-native-malformed';
+    const sessionDir = join(tempDir, '.owx', 'state', 'sessions', sessionId);
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(join(sessionDir, 'native-subagent-support.json'), '{malformed');
+    const stage = createRalplanStage({ requireNativeSubagents: true });
+
+    const result = await stage.run(makeCtx({ sessionId }));
+    assert.equal(result.status, 'failed');
+    assert.match(result.error ?? '', /JSON/);
+    assert.throws(() => stage.canSkip?.(makeCtx({ sessionId })), /JSON/);
   });
 
   it('canSkip returns false when no plans directory exists', () => {
@@ -488,7 +530,7 @@ describe('RALPLAN Stage', () => {
     })), false);
   });
 
-  it('canSkip ignores ambient OWX_ROOT consensus state for local PRD/test-spec-only artifacts', async () => {
+  it('canSkip honors consensus state from the configured OWX_ROOT', async () => {
     const ambientRoot = await mkdtemp(join(tmpdir(), 'owx-ralplan-ambient-'));
     const previousOmxRoot = process.env.OWX_ROOT;
     try {
@@ -511,7 +553,7 @@ describe('RALPLAN Stage', () => {
       process.env.OWX_ROOT = ambientRoot;
 
       const stage = createRalplanStage();
-      assert.equal(stage.canSkip!(makeCtx()), false);
+      assert.equal(stage.canSkip!(makeCtx()), true);
     } finally {
       if (previousOmxRoot === undefined) delete process.env.OWX_ROOT;
       else process.env.OWX_ROOT = previousOmxRoot;

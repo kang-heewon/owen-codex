@@ -321,6 +321,14 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     try {
       const initResult = spawnSync("git", ["init", "-q"], { cwd: wd });
       assert.equal(initResult.status, 0);
+      const excludesFile = join(wd, "empty-global-ignore");
+      await writeFile(excludesFile, "");
+      const configResult = spawnSync(
+        "git",
+        ["config", "core.excludesfile", excludesFile],
+        { cwd: wd },
+      );
+      assert.equal(configResult.status, 0);
 
       await runSetupInTempDir(wd, { scope: "project" });
       await mkdir(join(wd, ".codex", "skills", ".system"), { recursive: true });

@@ -102,6 +102,7 @@ const TMUX_PANE_STABILITY_POLL_MS = 60;
 const TMUX_PANE_STABILITY_POLLS_REQUIRED = 2;
 const TMUX_PANE_STABILITY_TIMEOUT_MS = 750;
 const OWX_TEAM_STATE_ROOT_ENV = 'OWX_TEAM_STATE_ROOT';
+const STALE_WORKTREE_GIT_ENV_KEYS = ['PWD', 'GIT_DIR', 'GIT_WORK_TREE'] as const;
 
 export type TeamWorkerCli = 'codex' | 'claude' | 'gemini';
 type TeamWorkerCliMode = 'auto' | TeamWorkerCli;
@@ -953,6 +954,12 @@ export function scrubTeamWorkerHudOwnershipEnv<T extends Record<string, string |
   return scrubbed;
 }
 
+export function scrubTeamWorkerGitContextEnv<T extends Record<string, string | undefined>>(env: T): T {
+  const scrubbed = { ...env };
+  for (const key of STALE_WORKTREE_GIT_ENV_KEYS) delete scrubbed[key];
+  return scrubbed;
+}
+
 function hasConfigOverride(args: readonly string[], key: string): boolean {
   const prefix = `${key}=`;
   for (let index = 0; index < args.length; index += 1) {
@@ -1037,10 +1044,12 @@ export function buildWorkerStartupCommand(
     initialPrompt,
     workerRole,
   );
-  const startupEnv = scrubTeamWorkerHudOwnershipEnv({
-    ...readTmuxWorkerAmbientEnv(process.env),
-    ...processSpec.env,
-  });
+  const startupEnv = scrubTeamWorkerGitContextEnv(
+    scrubTeamWorkerHudOwnershipEnv({
+      ...readTmuxWorkerAmbientEnv(process.env),
+      ...processSpec.env,
+    }),
+  );
   const startupArgs = [...processSpec.args];
   if (processSpec.workerCli === 'codex') {
     appendTeamWorkerMcpDisableOverrides(startupArgs, { ...process.env, ...extraEnv });
@@ -1054,7 +1063,11 @@ export function buildWorkerStartupCommand(
     const pathBootstrap = leaderNodeDir
       ? `$env:PATH = ${quotePowerShellArg(`${leaderNodeDir};`)} + $env:PATH`
       : '';
-    const hudEnvUnset = [OWX_TMUX_HUD_OWNER_ENV, OWX_TMUX_HUD_LEADER_PANE_ENV]
+    const hudEnvUnset = [
+      OWX_TMUX_HUD_OWNER_ENV,
+      OWX_TMUX_HUD_LEADER_PANE_ENV,
+      ...STALE_WORKTREE_GIT_ENV_KEYS,
+    ]
       .map((key) => `Remove-Item Env:${key} -ErrorAction SilentlyContinue`)
       .join('; ');
     const envAssignments = Object.entries(startupEnv)
@@ -1089,7 +1102,8 @@ export function buildWorkerStartupCommand(
     : '';
   const inner = `${rcPrefix}${pathPrefix}${cliInvocation}`;
   const envParts = Object.entries(startupEnv).map(([key, value]) => `${key}=${value}`);
-  const unsetParts = ['-u', OWX_TMUX_HUD_OWNER_ENV, '-u', OWX_TMUX_HUD_LEADER_PANE_ENV];
+  const unsetParts = [OWX_TMUX_HUD_OWNER_ENV, OWX_TMUX_HUD_LEADER_PANE_ENV, ...STALE_WORKTREE_GIT_ENV_KEYS]
+    .flatMap((key) => ['-u', key]);
 
   return `env ${[...unsetParts, ...envParts].map(shellQuoteSingle).join(' ')} ${shellQuoteSingle(launchSpec.shell)} -c ${shellQuoteSingle(inner)}`;
 }
@@ -1129,7 +1143,7 @@ function buildWorkerStartupScriptContent(
   return [
     '#!/bin/sh',
     'set -eu',
-    `unset ${OWX_TMUX_HUD_OWNER_ENV} ${OWX_TMUX_HUD_LEADER_PANE_ENV}`,
+    `unset ${OWX_TMUX_HUD_OWNER_ENV} ${OWX_TMUX_HUD_LEADER_PANE_ENV} ${STALE_WORKTREE_GIT_ENV_KEYS.join(' ')}`,
     `cd ${shellQuoteSingle(cwd)}`,
     envExports,
     `exec ${shellQuoteSingle(launchSpec.shell)} -c ${shellQuoteSingle(`${rcPrefix}${pathPrefix}${cliInvocation}`)}`,
@@ -1161,10 +1175,10 @@ export function writeWorkerStartupScriptCommand(
     initialPrompt,
     workerRole,
   );
-  const startupEnv = {
+  const startupEnv = scrubTeamWorkerGitContextEnv({
     ...readTmuxWorkerAmbientEnv(process.env),
     ...processSpec.env,
-  };
+  });
   const startupArgs = [...processSpec.args];
   if (processSpec.workerCli === 'codex') {
     appendTeamWorkerMcpDisableOverrides(startupArgs, { ...process.env, ...extraEnv });
@@ -1250,7 +1264,7 @@ export function buildWorkerProcessLaunchSpec(
     workerCli,
     command: platformSpec.command,
     args: platformSpec.args,
-    env: scrubTeamWorkerHudOwnershipEnv(workerEnv),
+    env: scrubTeamWorkerGitContextEnv(scrubTeamWorkerHudOwnershipEnv(workerEnv)),
   };
 }
 

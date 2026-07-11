@@ -85,7 +85,7 @@ describe('autopilot ralplan gate', () => {
     }
   });
 
-  it('accepts fresh native review evidence when tracker leader id aliases a subagent lane', async () => {
+  it('rejects native review evidence when tracker leader id aliases a subagent lane', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-fresh-subagent-alias-'));
     const sessionId = 'sess-autopilot-fresh-subagent-alias';
     const trackingPath = subagentTrackingPath(cwd);
@@ -151,10 +151,121 @@ describe('autopilot ralplan gate', () => {
       };
 
       const decision = canAdvanceAutopilotRalplanToUltragoal({ cwd, sessionId, currentState: state });
-      assert.equal(decision.allowed, true);
-      assert.equal(decision.evidence?.blockedReason, null);
+      assert.equal(decision.allowed, false);
+      assert.match(buildAutopilotRalplanUltragoalGateError(decision), /architect tracker thread thread-architect is the session leader/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects self-declared review roles that do not match tracker lane modes', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-role-binding-'));
+    const sessionId = 'sess-autopilot-role-binding';
+    const trackingPath = subagentTrackingPath(cwd);
+    try {
+      await mkdir(join(trackingPath, '..'), { recursive: true });
+      await writeFile(trackingPath, JSON.stringify({
+        schemaVersion: 1,
+        sessions: {
+          [sessionId]: {
+            session_id: sessionId,
+            leader_thread_id: 'thread-leader',
+            threads: {
+              'thread-leader': { thread_id: 'thread-leader', kind: 'leader' },
+              'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', mode: 'critic' },
+              'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', mode: 'architect' },
+            },
+          },
+        },
+      }));
+      const state = {
+        current_phase: 'ralplan',
+        handoff_artifacts: {
+          ralplan_consensus_gate: {
+            complete: true,
+            sequence: ['architect-review', 'critic-review'],
+            ralplan_architect_review: {
+              agent_role: 'architect', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
+              thread_id: 'thread-architect', artifact_path: '.owx/artifacts/architect.md', tracker_path: '.owx/state/subagent-tracking.json',
+              completed_at: '2026-05-28T18:34:51.000Z',
+            },
+            ralplan_critic_review: {
+              agent_role: 'critic', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
+              thread_id: 'thread-critic', artifact_path: '.owx/artifacts/critic.md', tracker_path: '.owx/state/subagent-tracking.json',
+              completed_at: '2026-05-28T18:35:10.000Z',
+            },
+          },
+        },
+      };
+
+      const decision = canAdvanceAutopilotRalplanToUltragoal({ cwd, sessionId, currentState: state });
+      assert.equal(decision.allowed, false);
+      assert.match(buildAutopilotRalplanUltragoalGateError(decision), /architect tracker thread thread-architect has mode=critic/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('reads the current native leader from the canonical overridden state root', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-canonical-leader-'));
+    const boxedRoot = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-canonical-state-'));
+    const sessionId = 'sess-autopilot-canonical-leader';
+    const originalRoots = {
+      OWX_ROOT: process.env.OWX_ROOT,
+      OWX_STATE_ROOT: process.env.OWX_STATE_ROOT,
+      OWX_TEAM_STATE_ROOT: process.env.OWX_TEAM_STATE_ROOT,
+    };
+    try {
+      process.env.OWX_ROOT = boxedRoot;
+      delete process.env.OWX_STATE_ROOT;
+      delete process.env.OWX_TEAM_STATE_ROOT;
+      const trackingPath = subagentTrackingPath(cwd);
+      await mkdir(join(trackingPath, '..'), { recursive: true });
+      await writeFile(join(trackingPath, '..', 'session.json'), JSON.stringify({ session_id: sessionId, native_session_id: 'thread-architect', cwd }));
+      await writeFile(trackingPath, JSON.stringify({
+        schemaVersion: 1,
+        sessions: {
+          [sessionId]: {
+            session_id: sessionId,
+            leader_thread_id: 'thread-leader',
+            threads: {
+              'thread-leader': { thread_id: 'thread-leader', kind: 'leader' },
+              'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', mode: 'architect' },
+              'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', mode: 'critic' },
+            },
+          },
+        },
+      }));
+      const state = {
+        current_phase: 'ralplan',
+        handoff_artifacts: {
+          ralplan_consensus_gate: {
+            complete: true,
+            sequence: ['architect-review', 'critic-review'],
+            ralplan_architect_review: {
+              agent_role: 'architect', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
+              thread_id: 'thread-architect', artifact_path: '.owx/artifacts/architect.md', tracker_path: '.owx/state/subagent-tracking.json',
+              completed_at: '2026-05-28T18:34:51.000Z',
+            },
+            ralplan_critic_review: {
+              agent_role: 'critic', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
+              thread_id: 'thread-critic', artifact_path: '.owx/artifacts/critic.md', tracker_path: '.owx/state/subagent-tracking.json',
+              completed_at: '2026-05-28T18:35:10.000Z',
+            },
+          },
+        },
+      };
+
+      const decision = canAdvanceAutopilotRalplanToUltragoal({ cwd, sessionId, currentState: state });
+      assert.equal(decision.allowed, false);
+      assert.match(buildAutopilotRalplanUltragoalGateError(decision), /architect tracker thread thread-architect is the session leader/);
+    } finally {
+      for (const [key, value] of Object.entries(originalRoots)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      await rm(cwd, { recursive: true, force: true });
+      await rm(boxedRoot, { recursive: true, force: true });
     }
   });
 
@@ -228,6 +339,88 @@ describe('autopilot ralplan gate', () => {
       const decision = canAdvanceAutopilotRalplanToUltragoal({ cwd, sessionId, currentState: state });
       assert.equal(decision.allowed, false);
       assert.match(buildAutopilotRalplanUltragoalGateError(decision), /architect tracker thread thread-leader is the session leader/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('denies clean ultragoal handoff when session-scoped native support is unsupported', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-unsupported-native-'));
+    const sessionId = 'sess-autopilot-ralplan-unsupported-native';
+    try {
+      const sessionDir = join(cwd, '.owx', 'state', 'sessions', sessionId);
+      await mkdir(sessionDir, { recursive: true });
+      await writeFile(join(sessionDir, 'native-subagent-support.json'), JSON.stringify({
+        schema_version: 1,
+        status: 'unsupported',
+        reason: 'native_subagents_unsupported',
+        source: 'persisted_support_blocker',
+        cwd,
+        session_id: sessionId,
+      }, null, 2));
+
+      const decision = canAdvanceAutopilotRalplanToUltragoal({
+        cwd,
+        sessionId,
+        currentState: { current_phase: 'ralplan' },
+      });
+
+      assert.equal(decision.allowed, false);
+      assert.deepEqual(decision.nativeSubagentRecovery, {
+        schema_version: 1,
+        support: 'unsupported_native',
+        outcome: 'blocked',
+        clean: false,
+        reason: 'native support is unavailable and recovery is terminal non-clean',
+      });
+      assert.match(buildAutopilotRalplanUltragoalGateError(decision), /native_subagent_recovery=/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when persisted native support evidence is malformed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-malformed-native-'));
+    const sessionId = 'sess-autopilot-ralplan-malformed-native';
+    try {
+      const sessionDir = join(cwd, '.owx', 'state', 'sessions', sessionId);
+      await mkdir(sessionDir, { recursive: true });
+      await writeFile(join(sessionDir, 'native-subagent-support.json'), '{malformed');
+
+      assert.throws(() => canAdvanceAutopilotRalplanToUltragoal({
+        cwd,
+        sessionId,
+        currentState: { current_phase: 'ralplan' },
+      }), /JSON/);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a cross-session unsupported blocker as recovery authority', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-cross-session-native-'));
+    const sessionId = 'sess-autopilot-ralplan-cross-session-native';
+    try {
+      const sessionDir = join(cwd, '.owx', 'state', 'sessions', sessionId);
+      await mkdir(sessionDir, { recursive: true });
+      await writeFile(join(sessionDir, 'native-subagent-support.json'), JSON.stringify({
+        schema_version: 1,
+        status: 'unsupported',
+        reason: 'native_subagents_unsupported',
+        source: 'persisted_support_blocker',
+        cwd,
+        session_id: 'different-session',
+      }, null, 2));
+
+      const decision = canAdvanceAutopilotRalplanToUltragoal({
+        cwd,
+        sessionId,
+        currentState: { current_phase: 'ralplan' },
+      });
+
+      assert.equal(decision.allowed, false);
+      assert.equal(decision.nativeSubagentRecovery, undefined);
+      assert.doesNotMatch(decision.reason, /support is unavailable/i);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

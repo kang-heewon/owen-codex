@@ -27,6 +27,10 @@ const DENIED_BASH_PATTERNS: RegExp[] = [
   /\bgit\s+push\b/,
   /\bgh\s+pr\s+create\b/,
   /\bgh\s+pr\s+merge\b/,
+  /(?:^|[;&|()\n]\s*)owx\s+state\s+clear\b/,
+  /(?:^|[;&|()\n]\s*)owx\s+state\s+write\b[^\n]*(?:"active"\s*:\s*false|"current_phase"\s*:\s*"(?:complete|completed|cancelled|failed|blocked)")/,
+  /(?:^|[;&|()\n]\s*)(?:(?:source|\.)\s+|(?:bash|sh|zsh|python3?|node|perl|ruby)\s+(?:-[^\s]+\s+)*)(?:['"])?(?:\.\/)?\.owx\/(?:context|plans|specs|state|drafts)\//,
+  /\bpython3?\b[\s\S]*(?:write_text|write_bytes|open\([^\n)]*,\s*['"](?:w|a|x))[\s\S]*\b(?:subprocess\.|os\.system\s*\(|runpy\.|exec\s*\()/,
 ];
 
 export const PLANNING_GATE_BYPASS_TTL_MS = 10 * 60 * 1000;

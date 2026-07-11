@@ -202,6 +202,31 @@ function buildRalplanConsensusGate(
   };
 }
 
+function hasNativeOrThreadEvidence(review: RalplanReviewResult): boolean {
+  return review.provenance_kind === 'native_subagent'
+    || Boolean(review.thread_id?.trim())
+    || Boolean(review.native_session_id?.trim())
+    || Boolean(review.tracker_path?.trim());
+}
+
+function normalizeReviewForLane<Role extends 'architect' | 'critic'>(
+  review: RalplanReviewResult,
+  laneRole: Role,
+  options: { requireNativeSubagents?: boolean },
+): RalplanReviewResult & { agent_role: Role } {
+  if (review.agent_role !== undefined && review.agent_role !== laneRole) {
+    throw new Error(
+      `ralplan_${laneRole}_review_role_mismatch: expected agent_role=${laneRole}, received ${String(review.agent_role)}`,
+    );
+  }
+  if (review.agent_role === undefined && (options.requireNativeSubagents || hasNativeOrThreadEvidence(review))) {
+    throw new Error(
+      `ralplan_${laneRole}_review_role_missing: native or thread-backed ${laneRole} review must declare agent_role=${laneRole}`,
+    );
+  }
+  return { ...review, agent_role: laneRole };
+}
+
 async function updateRalplanState(
   cwd: string,
   updates: RalplanModeUpdates,
@@ -265,10 +290,10 @@ export async function runRalplanConsensus(
         ralplan_consensus_gate: buildRalplanConsensusGate(architectReviews, criticReviews, gateOptions),
         review_history: buildReviewHistory(drafts, architectReviews, criticReviews),
       });
-      const architectReview = await executor.architectReview({
+      const architectReview = normalizeReviewForLane(await executor.architectReview({
         ...iterationContext,
         draft,
-      });
+      }), 'architect', gateOptions);
       architectReviews.push(architectReview);
       if (architectReview.artifacts) Object.assign(aggregatedArtifacts, architectReview.artifacts);
 
@@ -327,11 +352,11 @@ export async function runRalplanConsensus(
         ralplan_consensus_gate: buildRalplanConsensusGate(architectReviews, criticReviews, gateOptions),
         review_history: buildReviewHistory(drafts, architectReviews, criticReviews),
       });
-      const criticReview = await executor.criticReview({
+      const criticReview = normalizeReviewForLane(await executor.criticReview({
         ...iterationContext,
         draft,
         architectReview,
-      });
+      }), 'critic', gateOptions);
       criticReviews.push(criticReview);
       if (criticReview.artifacts) Object.assign(aggregatedArtifacts, criticReview.artifacts);
 

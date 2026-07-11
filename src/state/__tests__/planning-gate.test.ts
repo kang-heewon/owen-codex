@@ -34,6 +34,16 @@ describe('planning gate: tool classification', () => {
     assert.equal(isImplementationToolCall({ tool_name: 'Bash', tool_input: 'gh pr merge 42' }), true);
   });
 
+  it('classifies planning-state deactivation and planning-artifact execution as implementation', () => {
+    assert.equal(isImplementationToolCall({ tool_name: 'Bash', tool_input: 'owx state clear --input \'{"mode":"ralplan"}\' --json' }), true);
+    assert.equal(isImplementationToolCall({ tool_name: 'Bash', tool_input: 'owx state write --input \'{"mode":"ralplan","active":false}\' --json' }), true);
+    assert.equal(isImplementationToolCall({ tool_name: 'Bash', tool_input: 'bash .owx/plans/generated.sh' }), true);
+    assert.equal(isImplementationToolCall({
+      tool_name: 'Bash',
+      tool_input: "python3 -c \"from pathlib import Path; import os; Path('.owx/plans/generated.py').write_text('x'); os.system('python3 .owx/plans/generated.py')\"",
+    }), true);
+  });
+
   it('does not classify Read, Glob, Grep, or safe Bash as implementation tools', () => {
     assert.equal(isImplementationToolCall({ tool_name: 'Read' }), false);
     assert.equal(isImplementationToolCall({ tool_name: 'Glob' }), false);

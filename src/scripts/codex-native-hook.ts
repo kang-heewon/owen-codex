@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
-import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "fs";
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from "fs";
 import { appendFile, mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
-import { extname, join, relative, resolve } from "path";
+import { extname, isAbsolute, join, relative, resolve } from "path";
 import { pathToFileURL } from "url";
 import { readModeStateForActiveDecision, readModeStateForSession, updateModeState } from "../modes/base.js";
 import { redactAuthSecrets } from "../auth/redact.js";
@@ -15,10 +15,13 @@ import {
   type SkillActiveStateLike,
 } from "../state/skill-active.js";
 import {
+  NATIVE_SUBAGENT_CAPACITY_BLOCKER_FILE,
+  NATIVE_SUBAGENT_SUPPORT_BLOCKER_FILE,
   isTrustedSubagentThread,
   readSubagentSessionSummary,
   readSubagentTrackingState,
   recordSubagentTurnForSession,
+  resolveNativeSubagentSupportStatus,
 } from "../subagents/tracker.js";
 import { resolveCanonicalTeamStateRoot, resolveWorkerNotifyTeamStateRootPath } from "../team/state-root.js";
 import {
@@ -83,6 +86,7 @@ import {
   onSessionStart as buildWikiSessionStartContext,
 } from "../wiki/lifecycle.js";
 import { readAutoresearchCompletionStatus, readAutoresearchModeStateForActiveDecision } from "../autoresearch/skill-validation.js";
+import { AGENT_DEFINITIONS } from "../agents/definitions.js";
 import { normalizeAutopilotPhase } from "../autopilot/fsm.js";
 import { readRunState } from "../runtime/run-state.js";
 import { evaluateRalphCompletionAuditEvidence, isRalphCompletePhase } from "../ralph/completion-audit.js";
@@ -167,6 +171,7 @@ const SHORT_FOLLOWUP_PRIORITY_PATTERNS = [
   /\b(?:follow up|latest request|this turn|current turn|newest request)\b/i,
 ] as const;
 const MAX_SESSION_META_LINE_BYTES = 256 * 1024;
+const NATIVE_SUBAGENT_CAPACITY_BLOCKER_TTL_MS = 5 * 60_000;
 
 function safeString(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -2535,8 +2540,152 @@ function readPayloadThreadId(payload: CodexHookPayload): string {
   return safeString(payload.owner_codex_thread_id ?? payload.thread_id ?? payload.threadId).trim();
 }
 
+function readPayloadAgentRole(payload: CodexHookPayload): string {
+  const directRole = safeString(
+    payload.agent_role ?? payload.agentRole ?? payload.agent_type ?? payload.agentType,
+  ).trim().toLowerCase();
+  if (directRole) return directRole;
+  const source = safeObject(payload.source);
+  const subagent = safeObject(source.subagent);
+  const threadSpawn = safeObject(subagent.thread_spawn);
+  return safeString(
+    threadSpawn.agent_role
+      ?? threadSpawn.agentRole
+      ?? threadSpawn.agent_type
+      ?? threadSpawn.agentType,
+  ).trim().toLowerCase();
+}
+
 function readPayloadTurnId(payload: CodexHookPayload): string {
   return safeString(payload.turn_id ?? payload.turnId).trim();
+}
+
+function nativeSubagentEvidencePath(stateDir: string, sessionId: string, fileName: string): string {
+  return join(stateDir, "sessions", sessionId, fileName);
+}
+
+function stringifyUnknown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === undefined || value === null) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function payloadNativeSubagentEvidenceText(payload: CodexHookPayload): string {
+  return [
+    safeString(payload.tool_name),
+    stringifyUnknown(payload.tool_response),
+    stringifyUnknown(payload.response),
+    stringifyUnknown(payload.error),
+    stringifyUnknown(payload.message),
+  ].filter(Boolean).join("\n");
+}
+
+function isNativeSubagentToolPayload(payload: CodexHookPayload): boolean {
+  const toolName = safeString(payload.tool_name).trim();
+  return !toolName || /(?:spawn_agent|multi_agent|subagent|collab|agent)/i.test(toolName);
+}
+
+function nativeSubagentUnsupportedReason(
+  payload: CodexHookPayload,
+): "native_subagents_unsupported" | "multi_agent_v1_unavailable" | null {
+  if (!isNativeSubagentToolPayload(payload)) return null;
+  const evidence = payloadNativeSubagentEvidenceText(payload);
+  if (/\bagent thread limit reached\b/i.test(evidence)) return null;
+  if (/\bnative subagents? (?:unsupported|disabled|not enabled|unavailable|not found)\b/i.test(evidence)) {
+    return "native_subagents_unsupported";
+  }
+  if (/\bmulti_agent_v1\b/i.test(evidence) && /\b(?:unavailable|unknown tool|disabled|not enabled|not found|unsupported)\b/i.test(evidence)) {
+    return "multi_agent_v1_unavailable";
+  }
+  return null;
+}
+
+function summarizeNativeSubagentFailure(text: string): string {
+  return (text.replace(/\s+/g, " ").trim() || "native subagent support unavailable").slice(0, 500);
+}
+
+async function recordNativeSubagentSupportEvidence(
+  cwd: string,
+  stateDir: string,
+  sessionId: string,
+  payload: CodexHookPayload,
+): Promise<void> {
+  if (!sessionId) return;
+  const reason = nativeSubagentUnsupportedReason(payload);
+  if (!reason) return;
+  const path = nativeSubagentEvidencePath(stateDir, sessionId, NATIVE_SUBAGENT_SUPPORT_BLOCKER_FILE);
+  const existing = await readJsonIfExists(path);
+  const current = resolveNativeSubagentSupportStatus({
+    persistedSupportBlocker: existing,
+    cwd,
+    sessionId,
+  });
+  if (current.status === "unsupported") return;
+  await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+  await writeFile(path, `${JSON.stringify({
+    schema_version: 1,
+    status: "unsupported",
+    reason,
+    source: "persisted_support_blocker",
+    session_id: sessionId,
+    ...(readPayloadThreadId(payload) ? { thread_id: readPayloadThreadId(payload) } : {}),
+    ...(readPayloadTurnId(payload) ? { turn_id: readPayloadTurnId(payload) } : {}),
+    ...(safeString(payload.tool_name).trim() ? { tool_name: safeString(payload.tool_name).trim() } : {}),
+    evidence_summary: summarizeNativeSubagentFailure(payloadNativeSubagentEvidenceText(payload)),
+    observed_at: new Date().toISOString(),
+    cwd,
+  }, null, 2)}\n`);
+}
+
+async function recordNativeSubagentCapacityEvidence(
+  cwd: string,
+  stateDir: string,
+  sessionId: string,
+  payload: CodexHookPayload,
+): Promise<void> {
+  if (!sessionId || !isNativeSubagentToolPayload(payload)) return;
+  const evidence = payloadNativeSubagentEvidenceText(payload);
+  if (!/\bagent thread limit reached\b/i.test(evidence)) return;
+  const nowMs = Date.now();
+  const path = nativeSubagentEvidencePath(stateDir, sessionId, NATIVE_SUBAGENT_CAPACITY_BLOCKER_FILE);
+  await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+  await writeFile(path, `${JSON.stringify({
+    schema_version: 1,
+    status: "unknown",
+    reason: "agent_thread_limit_reached",
+    source: "capacity_blocker",
+    session_id: sessionId,
+    ...(readPayloadThreadId(payload) ? { thread_id: readPayloadThreadId(payload) } : {}),
+    ...(readPayloadTurnId(payload) ? { turn_id: readPayloadTurnId(payload) } : {}),
+    ...(safeString(payload.tool_name).trim() ? { tool_name: safeString(payload.tool_name).trim() } : {}),
+    error_summary: summarizeNativeSubagentFailure(evidence),
+    observed_at: new Date(nowMs).toISOString(),
+    expires_at: new Date(nowMs + NATIVE_SUBAGENT_CAPACITY_BLOCKER_TTL_MS).toISOString(),
+    cwd,
+  }, null, 2)}\n`);
+}
+
+async function hasTrustedTypedSubagentProvenanceForPreToolUse(
+  payload: CodexHookPayload,
+  cwd: string,
+  sessionId: string,
+): Promise<boolean> {
+  if (safeString(process.env.OWX_TEAM_INTERNAL_WORKER || process.env.OWX_TEAM_WORKER).trim()) return true;
+  const threadId = readPayloadThreadId(payload);
+  const agentRole = readPayloadAgentRole(payload);
+  if (!sessionId || !threadId || !agentRole) return false;
+  if (!Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, agentRole)) return false;
+  const tracking = await readSubagentTrackingState(cwd).catch(() => null);
+  const session = tracking?.sessions[sessionId];
+  const leaderThreadId = session?.leader_thread_id?.trim();
+  if (!leaderThreadId || leaderThreadId === threadId || session?.threads[leaderThreadId]?.kind !== "leader") return false;
+  if (!isTrustedSubagentThread(session, threadId)) return false;
+  const trackedRole = safeString(session?.threads[threadId]?.mode).trim().toLowerCase();
+  return trackedRole !== "" && trackedRole === agentRole;
 }
 
 async function resolveInternalSessionIdForPayload(
@@ -2664,7 +2813,15 @@ function isAllowedPlanningArtifactPath(
   allowedPrefixes: readonly string[],
 ): boolean {
   const trimmed = rawPath.trim().replace(/^['"]|['"]$/g, "");
-  if (!trimmed || trimmed.includes("\0")) return false;
+  if (
+    !trimmed
+    || trimmed.includes("\0")
+    || /[$`"'*?\[\]{}()]/.test(trimmed)
+    || (process.platform !== "win32" && trimmed.includes("\\"))
+  ) return false;
+  const slashPath = trimmed.replace(/\\/g, "/");
+  if (isAbsolute(trimmed) || /^[A-Za-z]:\//.test(slashPath)) return false;
+  if (slashPath.split("/").includes("..")) return false;
   let relativePath: string;
   try {
     const absolute = resolve(cwd, trimmed);
@@ -2673,6 +2830,18 @@ function isAllowedPlanningArtifactPath(
     return false;
   }
   if (!relativePath || relativePath.startsWith("..") || relativePath.startsWith("/")) return false;
+  if (
+    relativePath === ".owx/state" || relativePath.startsWith(".owx/state/")
+  ) {
+    return false;
+  }
+  let existingPath = cwd;
+  for (const segment of relativePath.split("/")) {
+    existingPath = join(existingPath, segment);
+    const stats = lstatSync(existingPath, { throwIfNoEntry: false });
+    if (!stats) break;
+    if (stats.isSymbolicLink() || (stats.isFile() && stats.nlink > 1)) return false;
+  }
   return allowedPrefixes.some((prefix) => (
     relativePath === prefix || relativePath.startsWith(`${prefix}/`)
   ));
@@ -2683,6 +2852,15 @@ function isAllowedDeepInterviewArtifactPath(cwd: string, rawPath: string): boole
 }
 
 function isAllowedRalplanArtifactPath(cwd: string, rawPath: string): boolean {
+  const trimmed = rawPath.trim().replace(/^['"]|['"]$/g, "");
+  const slashPath = trimmed.replace(/\\/g, "/");
+  if (!isAbsolute(trimmed) && !/^[A-Za-z]:\//.test(slashPath) && !slashPath.split("/").includes("..")) {
+    const relativePath = relative(cwd, resolve(cwd, trimmed)).replace(/\\/g, "/");
+    if (
+      /^\.owx\/drafts\/[^/]+\.md$/.test(relativePath)
+      && isAllowedPlanningArtifactPath(cwd, rawPath, [".owx/drafts"])
+    ) return true;
+  }
   return isAllowedPlanningArtifactPath(cwd, rawPath, RALPLAN_ALLOWED_WRITE_PREFIXES);
 }
 
@@ -2703,42 +2881,670 @@ function readPreToolUsePathCandidates(payload: CodexHookPayload): string[] {
   return candidates.map((candidate) => safeString(candidate).trim()).filter(Boolean);
 }
 
+const APPLY_PATCH_TOOL_NAMES = new Set(["apply_patch", "ApplyPatch"]);
+
+function readApplyPatchText(payload: CodexHookPayload): string {
+  const input = safeObject(payload.tool_input);
+  for (const key of ["input", "patch", "content", "text", "command"]) {
+    const value = safeString(input[key]).trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+function extractApplyPatchTargetPaths(patchText: string): string[] {
+  const targets: string[] = [];
+  for (const match of patchText.matchAll(/^\s*\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$/gm)) {
+    const target = safeString(match[1]).trim();
+    if (target) targets.push(target);
+  }
+  for (const match of patchText.matchAll(/^\s*\*\*\*\s+Move\s+to:\s*(.+?)\s*$/gm)) {
+    const target = safeString(match[1]).trim();
+    if (target) targets.push(target);
+  }
+  return targets;
+}
+
+function collectImplementationToolPathCandidates(
+  payload: CodexHookPayload,
+  toolName: string,
+  structuredCandidates: string[],
+): string[] {
+  if (!APPLY_PATCH_TOOL_NAMES.has(toolName)) return structuredCandidates;
+  return [...structuredCandidates, ...extractApplyPatchTargetPaths(readApplyPatchText(payload))];
+}
+
+function analyzePlanningHeredocs(command: string): {
+  ranges: Array<{ start: number; end: number }>;
+  unsupported: boolean;
+} {
+  const lines = command.split("\n");
+  const offsets: number[] = [];
+  let offset = 0;
+  for (const line of lines) {
+    offsets.push(offset);
+    offset += line.length + 1;
+  }
+
+  const ranges: Array<{ start: number; end: number }> = [];
+  let unsupported = false;
+  let continuedQuote: "'" | '"' | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    let openerIndex = -1;
+    let quote: "'" | '"' | null = continuedQuote;
+    for (let cursor = 0; cursor < line.length; cursor += 1) {
+      const character = line[cursor] ?? "";
+      if (character === "\\" && quote !== "'") {
+        cursor += 1;
+        continue;
+      }
+      if (quote) {
+        if (character === quote) quote = null;
+        continue;
+      }
+      if (character === "'" || character === '"') {
+        quote = character;
+        continue;
+      }
+      if (character === "<" && line[cursor + 1] === "<") {
+        openerIndex = cursor;
+        break;
+      }
+    }
+    continuedQuote = quote;
+    if (openerIndex < 0) continue;
+
+    let cursor = openerIndex + 2;
+    if (line[cursor] === "<") {
+      unsupported = true;
+      continue;
+    }
+    const stripTabs = line[cursor] === "-";
+    if (stripTabs) cursor += 1;
+    while (/\s/.test(line[cursor] ?? "")) cursor += 1;
+    const delimiterQuote = line[cursor];
+    if (delimiterQuote !== "'" && delimiterQuote !== '"') {
+      unsupported = true;
+      continue;
+    }
+    const delimiterStart = cursor + 1;
+    const delimiterEnd = line.indexOf(delimiterQuote, delimiterStart);
+    if (delimiterEnd < delimiterStart) {
+      unsupported = true;
+      continue;
+    }
+    const delimiter = line.slice(delimiterStart, delimiterEnd);
+    const tokenTail = line[delimiterEnd + 1] ?? "";
+    if (!delimiter || (tokenTail && !/[\s;&|()<>]/.test(tokenTail))) {
+      unsupported = true;
+      continue;
+    }
+    const bodyStart = offsets[index + 1] ?? command.length;
+    let closingIndex = index + 1;
+    while (closingIndex < lines.length) {
+      const closingLine = lines[closingIndex] ?? "";
+      const comparable = stripTabs ? closingLine.replace(/^\t+/, "") : closingLine;
+      if (comparable === delimiter) break;
+      closingIndex += 1;
+    }
+    if (closingIndex >= lines.length) {
+      unsupported = true;
+      continue;
+    }
+    ranges.push({
+      start: bodyStart,
+      end: (offsets[closingIndex] ?? command.length) + (lines[closingIndex]?.length ?? 0),
+    });
+    index = closingIndex;
+    continuedQuote = null;
+  }
+  return { ranges, unsupported };
+}
+
+function stripHeredocBodiesForPlanningScan(command: string): string {
+  const characters = command.split("");
+  for (const range of analyzePlanningHeredocs(command).ranges) {
+    for (let index = range.start; index < range.end; index += 1) {
+      if (characters[index] !== "\n") characters[index] = " ";
+    }
+  }
+  return characters.join("");
+}
+
+function heredocBodyRanges(command: string): Array<{ start: number; end: number }> {
+  return analyzePlanningHeredocs(command).ranges;
+}
+
+const PLANNING_COMMAND_POSITION_PATTERN = String.raw`(?:^\s*|[;&|(){}\n]\s*)(?:(?:if|then|elif|else|while|until|do)\s+)?`;
+const PLANNING_COMMAND_PREFIX_ATOM_PATTERN = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s;&|]+)|\d*(?:>\||>>?|<<?|<>|>&|<&)\s*(?:"[^"]*"|'[^']*'|[^\s;&|]+))`;
+const PLANNING_COMMAND_DECORATOR_PATTERN = String.raw`(?:!\s+)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*(?:(?:command(?:\s+-p)?|exec|nohup|time|coproc|sudo(?:\s+-[^\s]+)*|nice(?:\s+-n\s+\d+)?)\s+|env\s+(?:(?:-[^\s]+|[A-Za-z_][A-Za-z0-9_]*=[^\s]+)\s+)*)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*`;
+
+function planningExecutablePattern(names: string): string {
+  return String.raw`["']?(?:[^\s;&|(){}"']+\/)*(?:${names})["']?`;
+}
+
+function commandInvokesPlanningExecutable(command: string, names: string): boolean {
+  const executable = planningExecutablePattern(names);
+  return new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${executable}(?:\\s|<|$)`,
+    "m",
+  ).test(stripHeredocBodiesForPlanningScan(command));
+}
+
+function extractLiteralShellCommandPayloads(command: string): string[] {
+  const payloads: string[] = [];
+  const inertBodyRanges = heredocBodyRanges(command);
+  const shellExecutable = planningExecutablePattern("bash|sh|zsh");
+  const wrapperPattern = new RegExp(
+    `(${PLANNING_COMMAND_POSITION_PATTERN})${PLANNING_COMMAND_DECORATOR_PATTERN}${shellExecutable}\\b[^\\n;&|]*?-[A-Za-z]*c[A-Za-z]*\\s+`,
+    "gm",
+  );
+  for (const match of command.matchAll(wrapperPattern)) {
+    const matchStart = match.index ?? 0;
+    const executableStart = matchStart + safeString(match[1]).length;
+    if (inertBodyRanges.some((range) => executableStart >= range.start && executableStart < range.end)) continue;
+    const start = matchStart + match[0].length;
+    const quote = command[start];
+    if (quote !== "'" && quote !== '"') continue;
+    let payload = "";
+    for (let index = start + 1; index < command.length; index += 1) {
+      const character = command[index] ?? "";
+      if (quote === '"' && character === "\\" && index + 1 < command.length) {
+        payload += command[index + 1] ?? "";
+        index += 1;
+        continue;
+      }
+      if (character === quote) break;
+      payload += character;
+    }
+    if (payload.trim()) payloads.push(payload);
+  }
+  return payloads;
+}
+
+function extractPlanningCommandSubstitutions(command: string): string[] {
+  const payloads: string[] = [];
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index] ?? "";
+    if (quote === "'") {
+      if (character === "'") quote = null;
+      continue;
+    }
+    if (!quote && character === "'") {
+      quote = "'";
+      continue;
+    }
+    if (character === "\\") {
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      quote = quote === '"' ? null : '"';
+      continue;
+    }
+    if (character === "`") {
+      let payload = "";
+      for (index += 1; index < command.length; index += 1) {
+        const nestedCharacter = command[index] ?? "";
+        if (nestedCharacter === "\\" && index + 1 < command.length) {
+          payload += command[index + 1] ?? "";
+          index += 1;
+          continue;
+        }
+        if (nestedCharacter === "`") break;
+        payload += nestedCharacter;
+      }
+      if (payload.trim()) payloads.push(payload);
+      continue;
+    }
+    if (character !== "$" || command[index + 1] !== "(" || command[index + 2] === "(") continue;
+    let depth = 1;
+    let payload = "";
+    let nestedQuote: "'" | '"' | null = null;
+    index += 2;
+    for (; index < command.length; index += 1) {
+      const nestedCharacter = command[index] ?? "";
+      if (nestedCharacter === "\\" && nestedQuote !== "'") {
+        payload += nestedCharacter + (command[index + 1] ?? "");
+        index += 1;
+        continue;
+      }
+      if (nestedQuote) {
+        if (nestedCharacter === nestedQuote) nestedQuote = null;
+        payload += nestedCharacter;
+        continue;
+      }
+      if (nestedCharacter === "'" || nestedCharacter === '"') {
+        nestedQuote = nestedCharacter;
+        payload += nestedCharacter;
+        continue;
+      }
+      if (nestedCharacter === "(") depth += 1;
+      if (nestedCharacter === ")") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+      payload += nestedCharacter;
+    }
+    if (payload.trim()) payloads.push(payload);
+  }
+  return payloads;
+}
+
+function commandInvokesApplyPatch(command: string): boolean {
+  return commandInvokesPlanningExecutable(command, "apply_patch");
+}
+
+function extractInvokedApplyPatchTargets(command: string): string[] {
+  if (!commandInvokesApplyPatch(command)) return [];
+  const lines = command.split("\n");
+  const bodies: string[] = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!commandInvokesApplyPatch(line)) continue;
+    const opener = line.match(/<<-?\s*(?:"([^"]+)"|'([^']+)'|([^\s"'<>|;&]+))/);
+    const delimiter = safeString(opener?.[1] ?? opener?.[2] ?? opener?.[3]).trim();
+    if (!delimiter) continue;
+    const body: string[] = [];
+    index += 1;
+    while (index < lines.length && (lines[index] ?? "").trim() !== delimiter) {
+      body.push(lines[index] ?? "");
+      index += 1;
+    }
+    bodies.push(body.join("\n"));
+  }
+  return bodies.flatMap(extractApplyPatchTargetPaths);
+}
+
+interface PythonPlanningWriteAnalysis {
+  hasWrite: boolean;
+  unresolved: boolean;
+  targets: string[];
+  executesGeneratedCode: boolean;
+}
+
+function analyzePythonPlanningWrites(command: string): PythonPlanningWriteAnalysis {
+  if (!commandInvokesPlanningExecutable(command, "python3?")) {
+    return { hasWrite: false, unresolved: false, targets: [], executesGeneratedCode: false };
+  }
+  const codeParts: string[] = [];
+  for (const match of command.matchAll(/python3?\s+-c\s+(?:'([^']*)'|"([^"$`]*)")/g)) {
+    codeParts.push(safeString(match[1] ?? match[2]));
+  }
+  const lines = command.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (!commandInvokesPlanningExecutable(line, "python3?")) continue;
+    const opener = line.match(/<<-?\s*(?:"([^"]+)"|'([^']+)'|([^\s"'<>|;&]+))/);
+    const delimiter = safeString(opener?.[1] ?? opener?.[2] ?? opener?.[3]).trim();
+    if (!delimiter) continue;
+    const body: string[] = [];
+    index += 1;
+    while (index < lines.length && (lines[index] ?? "").trim() !== delimiter) {
+      body.push(lines[index] ?? "");
+      index += 1;
+    }
+    codeParts.push(body.join("\n"));
+  }
+  const code = codeParts.join("\n");
+  const targets: string[] = [];
+  let recognizedWrites = 0;
+  for (const match of code.matchAll(/Path\(\s*['"]([^'"]+)['"]\s*\)\s*\.\s*(?:write_text|write_bytes|touch)\s*\(/g)) {
+    targets.push(safeString(match[1]));
+    recognizedWrites += 1;
+  }
+  for (const match of code.matchAll(/open\(\s*['"]([^'"]+)['"]\s*,\s*['"](?:w|a|x|w\+|a\+|x\+)b?t?['"]/g)) {
+    targets.push(safeString(match[1]));
+    recognizedWrites += 1;
+  }
+  const writeCount = (command.match(/\.\s*(?:write_text|write_bytes|touch)\s*\(/g) ?? []).length
+    + (command.match(/open\([^\n)]*,\s*['"](?:w|a|x|w\+|a\+|x\+)b?t?['"]/g) ?? []).length;
+  const hasOnlyLiteralPlanningWriteSyntax = code.split("\n").every((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === "from pathlib import Path") return true;
+    if (/^Path\(\s*['"][^'"]+['"]\s*\)\s*\.\s*touch\(\s*\)\s*$/.test(trimmed)) return true;
+    if (/^Path\(\s*['"][^'"]+['"]\s*\)\s*\.\s*(?:write_text|write_bytes)\(\s*b?['"][^'"]*['"]\s*\)\s*$/.test(trimmed)) return true;
+    return /^open\(\s*['"][^'"]+['"]\s*,\s*['"](?:w|a|x|w\+|a\+|x\+)b?t?['"]\s*\)\s*\.\s*write\(\s*b?['"][^'"]*['"]\s*\)\s*$/.test(trimmed);
+  });
+  return {
+    hasWrite: writeCount > 0,
+    unresolved: writeCount > recognizedWrites || !hasOnlyLiteralPlanningWriteSyntax,
+    targets,
+    executesGeneratedCode: writeCount > 0 && /\b(?:subprocess\.|os\.system\s*\(|runpy\.|exec\s*\()/m.test(command),
+  };
+}
+
+function commandExecutesPlanningArtifact(command: string): boolean {
+  const scan = stripHeredocBodiesForPlanningScan(command);
+  const artifact = String.raw`(?:\.owx\/(?:context|plans|specs|state)\/[^\s;&|]+|\.owx\/drafts\/[^\s;&|]+\.md)`;
+  const interpreter = new RegExp(`(?:^|[;&|()\\n]\\s*)(?:(?:source|\\.)\\s+|(?:bash|sh|zsh|python3?|node|perl|ruby)\\s+(?:-[^\\s]+\\s+)*)(?:['\"])?${artifact}(?:['\"])?`, "m");
+  const direct = new RegExp(`(?:^|[;&|()\\n]\\s*)(?:['\"])?(?:\\./)?${artifact}(?:['\"])?(?:\\s|$)`, "m");
+  return interpreter.test(scan) || direct.test(scan) || (/\|\s*(?:bash|sh|zsh|python3?|node|perl|ruby)\b/.test(scan) && /\.owx\/(?:context|plans|specs|state|drafts)\//.test(scan));
+}
+
+function classifyPlanningStateMutation(command: string): "none" | "allow" | "block" {
+  const scan = stripHeredocBodiesForPlanningScan(command);
+  if (/(?:^|[;&|()\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=(?:'owx state'|"owx state")\s*[;&]\s*\$\1\s+(?:clear|write)\b/m.test(scan)) {
+    return "block";
+  }
+  if (/(?:^|[;&|(){}\n]\s*)([A-Za-z_][A-Za-z0-9_]*)=(?:["']?)(?:[^\s;&|"']+\/)*owx(?:["']?)\s*[;&]\s*["']?\$\1["']?\s+state\b/m.test(scan)) {
+    return "block";
+  }
+  let classification: "none" | "allow" = "none";
+  for (const nestedCommand of extractLiteralShellCommandPayloads(command)) {
+    const nested = nestedCommand.trim();
+    if (!nested) continue;
+    const nestedClassification = classifyPlanningStateMutation(nested);
+    if (nestedClassification === "block") return "block";
+    if (nestedClassification === "allow") classification = "allow";
+  }
+  const owxExecutable = String.raw`(?:${planningExecutablePattern("owx")}|${planningExecutablePattern("node|bun|tsx")}\s+${planningExecutablePattern("(?:dist\/cli\/owx\\.js|node_modules\/\\.bin\/owx)")}|${planningExecutablePattern("(?:dist\/cli\/owx\\.js|node_modules\/\\.bin\/owx)")})`;
+  const anyStateCommandPattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${owxExecutable}\\s+state(?:\\s+([^\\s;&|(){}\\n]+))?`,
+    "gm",
+  );
+  for (const stateCommand of scan.matchAll(anyStateCommandPattern)) {
+    const subcommand = safeString(stateCommand[1]).replace(/^['"]|['"]$/g, "").trim();
+    if (subcommand !== "read" && subcommand !== "write" && subcommand !== "clear") return "block";
+  }
+  const stateCommandPattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${owxExecutable}\\s+state\\s+(clear|write)\\b([^;&|()\\n]*)`,
+    "gm",
+  );
+  for (const actualStateCommand of scan.matchAll(stateCommandPattern)) {
+    if (actualStateCommand[1] === "clear") return "block";
+    const commandTail = safeString(actualStateCommand[2]);
+    const input = commandTail.match(/--input\s+(?:'([^']*)'|"([^"$`]*)")/);
+    const jsonText = safeString(input?.[1] ?? input?.[2]).trim();
+    if (!jsonText) return "block";
+    try {
+      const value = safeObject(JSON.parse(jsonText));
+      if (!value || value.active === false) return "block";
+      const phase = safeString(value.current_phase ?? value.currentPhase).trim().toLowerCase();
+      if (TERMINAL_MODE_PHASES.has(phase) || phase === "completing") return "block";
+      classification = "allow";
+    } catch {
+      return "block";
+    }
+  }
+  return classification;
+}
+
+function hasDynamicInterpreterPlanningWrite(command: string): boolean {
+  const scan = command.replace(/\\(["'])/g, "$1");
+  if (commandInvokesPlanningExecutable(command, "node")) {
+    const loadsFileSystemCapability = /\b(?:require|import|getBuiltinModule)\s*\(/.test(scan)
+      || /\bfrom\s+["'](?:node:)?fs(?:\/promises)?["']/.test(scan)
+      || /\bprocess\s*\.\s*binding\s*\(/.test(scan);
+    if (loadsFileSystemCapability) return true;
+  }
+  if (commandInvokesPlanningExecutable(command, "ruby")) {
+    return /\b(?:File|IO)\s*\.\s*(?:write|binwrite|open)\s*\(/.test(scan);
+  }
+  if (commandInvokesPlanningExecutable(command, "perl")) {
+    return /\bopen\s+(?:my\s+)?(?:\$[A-Za-z_]\w*|[A-Za-z_]\w*)\s*,\s*["']?[+>]/.test(scan)
+      || /\b(?:write_file|append_file|spew)\b/.test(scan);
+  }
+  return false;
+}
+
+const PLANNING_READ_ONLY_EXECUTABLES = new Set([
+  "[", "[[", "awk", "basename", "cat", "cd", "cmp", "comm", "cut", "date", "df", "diff", "dirname",
+  "du", "echo", "egrep", "false", "fgrep", "file", "find", "git", "grep", "head", "id", "jq", "less",
+  "ls", "more", "pgrep", "printf", "ps", "pwd", "readlink", "realpath", "rg", "sed", "sleep", "sort", "stat",
+  "tail", "test", "tr", "true", "type", "uname", "wc", "whereis", "which", "whoami", "yq",
+]);
+
+const PLANNING_MANAGED_EXECUTABLES = new Set([
+  "apply_patch", "bash", "bun", "node", "owx", "perl", "python", "python2", "python3", "ruby", "sh", "tee", "tsx", "zsh",
+]);
+
+const PLANNING_READ_ONLY_GIT_SUBCOMMANDS = new Set([
+  "blame", "describe", "diff", "grep", "help", "log", "ls-files", "ls-tree", "merge-base", "name-rev", "rev-list",
+  "rev-parse", "show", "show-ref", "status", "version",
+]);
+
+function maskPlanningShellQuotedLiterals(command: string): string {
+  let quote: "'" | '"' | null = null;
+  let masked = "";
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index] ?? "";
+    if (!quote && (character === "'" || character === '"')) {
+      quote = character;
+      masked += " ";
+      continue;
+    }
+    if (quote) {
+      if (quote === '"' && character === "\\" && index + 1 < command.length) {
+        masked += "  ";
+        index += 1;
+        continue;
+      }
+      if (character === quote) quote = null;
+      masked += character === "\n" ? "\n" : " ";
+      continue;
+    }
+    masked += character;
+  }
+  return masked;
+}
+
+function planningCommandExecutables(command: string): string[] {
+  const scan = maskPlanningShellQuotedLiterals(stripHeredocBodiesForPlanningScan(command));
+  const pattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}([^\\s;&|(){}]+)`,
+    "gm",
+  );
+  const executables = [...scan.matchAll(pattern)].map((match) => {
+    const rawToken = safeString(match[1]);
+    if (/^\d*[<>]/.test(rawToken)) return "";
+    const token = rawToken.replace(/^["']|["']$/g, "");
+    return token.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  }).filter(Boolean);
+  const rawScan = stripHeredocBodiesForPlanningScan(command);
+  const quotedExecutablePattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}(["'])([^"']+)\\1(?:\\s|<|$)`,
+    "gm",
+  );
+  for (const match of rawScan.matchAll(quotedExecutablePattern)) {
+    const token = safeString(match[2]);
+    if (!token || /[$`]/.test(token)) {
+      executables.push("__dynamic_quoted_executable__");
+      continue;
+    }
+    executables.push(token.split(/[\\/]/).pop()?.toLowerCase() ?? "__quoted_executable__");
+  }
+  return executables;
+}
+
+function commandUsesOnlyClassifiedPlanningExecutables(command: string): boolean {
+  if (analyzePlanningHeredocs(command).unsupported) return false;
+  const executables = planningCommandExecutables(command);
+  if (executables.some((executable) => !PLANNING_READ_ONLY_EXECUTABLES.has(executable) && !PLANNING_MANAGED_EXECUTABLES.has(executable))) {
+    return false;
+  }
+  const scan = stripHeredocBodiesForPlanningScan(command);
+  if (commandInvokesPlanningExecutable(command, "find") && /\bfind\b[^\n;&|]*(?:-delete|-exec(?:dir)?|-ok(?:dir)?|-fprint(?:f)?|-fls)\b/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "sed") && /\bsed\b[^\n;&|]*(?:\s-[A-Za-z]*(?:i|f)[^\s;&|]*|--(?:in-place|file)(?:\b|=)|["'][^"']*(?:\b[ew]\s+|[0-9,$]+[ew]\s+)[^"']*["'])/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "awk") && /\bawk\b[^\n;&|]*(?:\s-[A-Za-z]*f[^\s;&|]*|--file(?:\s|=)|["'][^"']*(?:\bsystem\s*\(|\bgetline\b|\|\s*&?\s*["']|>)[^"']*["'])/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "sort") && /\bsort\b[^\n;&|]*(?:\s-o(?:\S+|\s+\S+)|--output(?:=|\s))/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "yq") && /\byq\b[^\n;&|]*(?:\s-i(?:\s|$)|--in-?place\b)/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "git") && /\bgit\b[^\n;&|]*--output(?:=|\s)/.test(scan)) return false;
+  if (commandInvokesPlanningExecutable(command, "bash|sh|zsh")) {
+    if (extractLiteralShellCommandPayloads(command).length === 0) return false;
+  }
+  if (commandInvokesPlanningExecutable(command, "python3?|python2")) {
+    const python = analyzePythonPlanningWrites(command);
+    if (!python.hasWrite && !/\bpython(?:2|3)?\s+--version\b/.test(scan)) return false;
+  }
+  if (commandInvokesPlanningExecutable(command, "ruby|perl")) return false;
+  if (commandInvokesPlanningExecutable(command, "node")) {
+    const invokesOwxCli = /\bnode\s+(?:[^\s;&|]+\/)*(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan);
+    const safeDiagnostic = /\bnode\s+-e\s+(?:'console\.(?:log|error)\(\s*"(?:[^"\\]|\\.)*"\s*\)'|"console\.(?:log|error)\(\s*'(?:[^'\\]|\\.)*'\s*\)")\s*$/m.test(scan);
+    if (!invokesOwxCli && !safeDiagnostic) return false;
+  }
+  if (commandInvokesPlanningExecutable(command, "bun|tsx")) {
+    if (!/(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)) return false;
+  }
+  if (commandInvokesPlanningExecutable(command, "owx") || /(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)) {
+    if (!/\b(?:owx|owx\.js)\s+(?:question\b|hud\b|team\s+status\b|state\s+read\b)/.test(scan)) return false;
+  }
+  const gitPattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${planningExecutablePattern("git")}(?:\\s+-[^\\s;&|]+)*\\s+([^\\s;&|(){}]+)`,
+    "gm",
+  );
+  for (const match of scan.matchAll(gitPattern)) {
+    const subcommand = safeString(match[1]).replace(/^["']|["']$/g, "").toLowerCase();
+    if (!PLANNING_READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return false;
+  }
+  return true;
+}
+
 function isNullDeviceRedirectTarget(target: string): boolean {
   const normalized = target.trim().replace(/^['"]|['"]$/g, "").toLowerCase();
   return normalized === "/dev/null" || normalized === "nul";
 }
 
-function extractDeepInterviewCommandRedirectTargets(command: string): string[] {
+function analyzePlanningRedirectTargets(command: string): { targets: string[]; unresolved: boolean } {
   const targets: string[] = [];
-  for (const match of command.matchAll(/(?:^|[^>])>{1,2}\s*(["']?)([^\s&|;<>]+)\1/g)) {
-    const candidate = safeString(match[2]).trim();
+  const scan = stripHeredocBodiesForPlanningScan(command);
+  let unresolved = false;
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < scan.length; index += 1) {
+    const character = scan[index] ?? "";
+    if (quote) {
+      if (character === "\\" && quote === '"') index += 1;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "\\") {
+      index += 1;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+    let operator = "";
+    if (character === "&" && scan[index + 1] === ">") operator = "&>";
+    else if (character === ">") {
+      if (scan[index + 1] === ">") operator = ">>";
+      else if (scan[index + 1] === "|") operator = ">|";
+      else if (scan[index + 1] === "&") operator = ">&";
+      else operator = ">";
+    }
+    if (!operator) continue;
+    let cursor = index + operator.length;
+    while (/\s/.test(scan[cursor] ?? "")) cursor += 1;
+    let candidate = "";
+    const targetQuote = scan[cursor];
+    if (targetQuote === "'" || targetQuote === '"') {
+      cursor += 1;
+      while (cursor < scan.length && scan[cursor] !== targetQuote) {
+        if (scan[cursor] === "\\" && targetQuote === '"' && cursor + 1 < scan.length) cursor += 1;
+        candidate += scan[cursor] ?? "";
+        cursor += 1;
+      }
+      if (scan[cursor] !== targetQuote) unresolved = true;
+      else cursor += 1;
+    } else {
+      while (cursor < scan.length && !/[\s;&|<>]/.test(scan[cursor] ?? "")) {
+        candidate += scan[cursor] ?? "";
+        cursor += 1;
+      }
+    }
+    candidate = candidate.trim();
+    if (!candidate || /[$`]/.test(candidate)) unresolved = true;
+    if ((operator === ">&" || operator === "&>") && /^\d+$/.test(candidate)) continue;
     if (candidate && !isNullDeviceRedirectTarget(candidate)) targets.push(candidate);
+    index = Math.max(index, cursor - 1);
   }
-  return targets;
+  return { targets, unresolved };
+}
+
+function extractDeepInterviewCommandRedirectTargets(command: string): string[] {
+  return analyzePlanningRedirectTargets(command).targets;
+}
+
+function analyzePlanningTeeTargets(command: string): {
+  invoked: boolean;
+  targets: string[];
+  unresolved: boolean;
+} {
+  const scan = stripHeredocBodiesForPlanningScan(command);
+  const targets: string[] = [];
+  let invoked = false;
+  let unresolved = false;
+  const teePattern = new RegExp(
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${planningExecutablePattern("tee")}([^\\n;&|]*)`,
+    "gm",
+  );
+  for (const match of scan.matchAll(teePattern)) {
+    invoked = true;
+    const tokens = safeString(match[1]).match(/'(?:[^']*)'|"(?:[^"\\]|\\.)*"|[^\s]+/g) ?? [];
+    let optionsEnded = false;
+    for (const rawToken of tokens) {
+      if (!optionsEnded && rawToken === "--") {
+        optionsEnded = true;
+        continue;
+      }
+      if (!optionsEnded && /^(?:-[ai]+|--append|--ignore-interrupts)$/.test(rawToken)) continue;
+      if (!optionsEnded && /^(?:--help|--version)$/.test(rawToken)) break;
+      if (!optionsEnded && rawToken.startsWith("-")) {
+        unresolved = true;
+        continue;
+      }
+      optionsEnded = true;
+      const token = rawToken.replace(/^['"]|['"]$/g, "");
+      if (!token || /[$`]/.test(token)) {
+        unresolved = true;
+        continue;
+      }
+      targets.push(token);
+    }
+  }
+  return { invoked, targets, unresolved };
 }
 
 function commandHasDeepInterviewWriteIntent(command: string): boolean {
-  return /\bapply_patch\b/.test(command)
+  const python = analyzePythonPlanningWrites(command);
+  const tee = analyzePlanningTeeTargets(command);
+  return commandInvokesApplyPatch(command)
     || extractDeepInterviewCommandRedirectTargets(command).length > 0
-    || /\btee\s+(?:-a\s+)?[^\s&|;]+/.test(command)
-    || /\bsed\s+(?:[^\n;&|]*\s)?-i(?:\b|['"])/.test(command)
-    || /\b(?:python3?|node|perl|ruby)\b[\s\S]{0,260}\b(?:writeFileSync|writeFile|write_text|open\([^)]*["']w|File\.write|Path\()/.test(command)
-    || /\b(?:git\s+(?:checkout|switch|restore|reset|apply|am|merge|rebase)|npm\s+(?:install|i|ci)|pnpm\s+(?:install|i)|yarn\s+(?:install|add))\b/.test(command);
+    || tee.targets.length > 0
+    || python.hasWrite
+    || hasDynamicInterpreterPlanningWrite(command)
+    || classifyPlanningStateMutation(command) !== "none";
 }
 
 function extractDeepInterviewCommandWriteTargets(command: string): string[] {
+  const scan = stripHeredocBodiesForPlanningScan(command);
   const targets = extractDeepInterviewCommandRedirectTargets(command);
-  for (const match of command.matchAll(/\btee\s+(?:-a\s+)?(["']?)([^\s&|;<>]+)\1/g)) {
-    const candidate = safeString(match[2]).trim();
-    if (candidate) targets.push(candidate);
-  }
+  targets.push(...extractInvokedApplyPatchTargets(command));
+  targets.push(...analyzePythonPlanningWrites(command).targets);
+  targets.push(...analyzePlanningTeeTargets(scan).targets);
   return targets;
 }
 
 function isAllowedDeepInterviewBashWrite(cwd: string, command: string): boolean {
+  for (const nested of extractLiteralShellCommandPayloads(command)) {
+    if (!isAllowedDeepInterviewBashWrite(cwd, nested)) return false;
+  }
+  for (const nested of extractPlanningCommandSubstitutions(stripHeredocBodiesForPlanningScan(command))) {
+    if (!isAllowedDeepInterviewBashWrite(cwd, nested)) return false;
+  }
+  if (!commandUsesOnlyClassifiedPlanningExecutables(command)) return false;
+  if (analyzePlanningTeeTargets(command).unresolved) return false;
+  if (analyzePlanningRedirectTargets(command).unresolved) return false;
   if (!commandHasDeepInterviewWriteIntent(command)) return true;
-  if (/\bowx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
+  const stateMutation = classifyPlanningStateMutation(command);
+  if (stateMutation === "block") return false;
+  const python = analyzePythonPlanningWrites(command);
+  if (python.unresolved || python.executesGeneratedCode || commandExecutesPlanningArtifact(command)) return false;
   const targets = extractDeepInterviewCommandWriteTargets(command);
+  if (stateMutation === "allow" && targets.length === 0) return true;
   return targets.length > 0 && targets.every((target) => isAllowedDeepInterviewArtifactPath(cwd, target));
 }
 
@@ -2814,9 +3620,22 @@ async function readActiveRalplanStateForPreToolUse(
 }
 
 function isAllowedRalplanBashWrite(cwd: string, command: string): boolean {
+  for (const nested of extractLiteralShellCommandPayloads(command)) {
+    if (!isAllowedRalplanBashWrite(cwd, nested)) return false;
+  }
+  for (const nested of extractPlanningCommandSubstitutions(stripHeredocBodiesForPlanningScan(command))) {
+    if (!isAllowedRalplanBashWrite(cwd, nested)) return false;
+  }
+  if (!commandUsesOnlyClassifiedPlanningExecutables(command)) return false;
+  if (analyzePlanningTeeTargets(command).unresolved) return false;
+  if (analyzePlanningRedirectTargets(command).unresolved) return false;
   if (!commandHasDeepInterviewWriteIntent(command)) return true;
-  if (/\bowx\s+(?:state\s+(?:write|read|clear)|question)\b/.test(command)) return true;
+  const stateMutation = classifyPlanningStateMutation(command);
+  if (stateMutation === "block") return false;
+  const python = analyzePythonPlanningWrites(command);
+  if (python.unresolved || python.executesGeneratedCode || commandExecutesPlanningArtifact(command)) return false;
   const targets = extractDeepInterviewCommandWriteTargets(command);
+  if (stateMutation === "allow" && targets.length === 0) return true;
   return targets.length > 0 && targets.every((target) => isAllowedRalplanArtifactPath(cwd, target));
 }
 
@@ -2827,6 +3646,7 @@ async function buildRalplanPreToolUseBoundaryOutput(
   resolvedSessionId?: string,
 ): Promise<Record<string, unknown> | null> {
   const sessionId = safeString(resolvedSessionId ?? readPayloadSessionId(payload)).trim();
+  if (await hasTrustedTypedSubagentProvenanceForPreToolUse(payload, cwd, sessionId)) return null;
   const threadId = readPayloadThreadId(payload);
   const activeState = await readActiveRalplanStateForPreToolUse(cwd, stateDir, sessionId, threadId);
   if (!activeState) return null;
@@ -2839,8 +3659,9 @@ async function buildRalplanPreToolUseBoundaryOutput(
   if (toolName === "Bash") {
     blocked = !isAllowedRalplanBashWrite(cwd, command);
   } else if (PLANNING_MODE_IMPLEMENTATION_TOOL_NAMES.has(toolName)) {
-    blocked = pathCandidates.length === 0
-      || !pathCandidates.every((candidate) => isAllowedRalplanArtifactPath(cwd, candidate));
+    const candidates = collectImplementationToolPathCandidates(payload, toolName, pathCandidates);
+    blocked = candidates.length === 0
+      || !candidates.every((candidate) => isAllowedRalplanArtifactPath(cwd, candidate));
   }
 
   if (!blocked) return null;
@@ -2858,7 +3679,7 @@ async function buildRalplanPreToolUseBoundaryOutput(
       hookEventName: "PreToolUse",
       additionalContext:
         `${planningModeDescription}. `
-        + "Write only planning artifacts under `.owx/context/`, `.owx/plans/`, `.owx/specs/`, or required `.owx/state/` files. "
+        + "Write only planning artifacts under `.owx/context/`, `.owx/plans/`, `.owx/specs/`, required `.owx/state/` files, or direct Markdown drafts under `.owx/drafts/*.md`. "
         + "Do not edit implementation files or run implementation-focused writes from planning phases. "
         + `To execute, first process an explicit handoff such as ${formatExecutionHandoffList(cwd)}, which must emit terminal planning state before implementation begins.`,
     },
@@ -2872,6 +3693,7 @@ async function buildDeepInterviewPreToolUseBoundaryOutput(
   resolvedSessionId?: string,
 ): Promise<Record<string, unknown> | null> {
   const sessionId = safeString(resolvedSessionId ?? readPayloadSessionId(payload)).trim();
+  if (await hasTrustedTypedSubagentProvenanceForPreToolUse(payload, cwd, sessionId)) return null;
   const threadId = readPayloadThreadId(payload);
   const activeState = await readActiveDeepInterviewStateForPreToolUse(cwd, stateDir, sessionId, threadId);
   if (!activeState) return null;
@@ -2884,8 +3706,9 @@ async function buildDeepInterviewPreToolUseBoundaryOutput(
   if (toolName === "Bash") {
     blocked = !isAllowedDeepInterviewBashWrite(cwd, command);
   } else if (DEEP_INTERVIEW_IMPLEMENTATION_TOOL_NAMES.has(toolName)) {
-    blocked = pathCandidates.length === 0
-      || !pathCandidates.every((candidate) => isAllowedDeepInterviewArtifactPath(cwd, candidate));
+    const candidates = collectImplementationToolPathCandidates(payload, toolName, pathCandidates);
+    blocked = candidates.length === 0
+      || !candidates.every((candidate) => isAllowedDeepInterviewArtifactPath(cwd, candidate));
   }
 
   if (!blocked) return null;
@@ -4382,6 +5205,8 @@ export async function dispatchCodexNativeHook(
       ?? await buildRalplanPreToolUseBoundaryOutput(payload, cwd, stateDir, preToolUseSessionId)
       ?? buildNativePreToolUseOutput(payload);
   } else if (hookEventName === "PostToolUse") {
+    await recordNativeSubagentSupportEvidence(cwd, stateDir, sessionIdForState, payload);
+    await recordNativeSubagentCapacityEvidence(cwd, stateDir, sessionIdForState, payload);
     if (detectMcpTransportFailure(payload)) {
       await markTeamTransportFailure(cwd, payload);
     }

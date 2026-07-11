@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getBaseStateDir } from '../mcp/state-paths.js';
 import { subagentTrackingPath } from '../subagents/tracker.js';
 
 export interface RalplanConsensusGateEvidence {
@@ -107,12 +108,13 @@ export function readLocalRalplanConsensusStateCandidates(
   cwd: string,
   sessionId?: string,
 ): RalplanConsensusSource[] {
+  const stateRoot = getBaseStateDir(cwd);
   const explicitSession = sessionId !== undefined;
-  const sessionIdList = explicitSession ? validateLocalSessionId(sessionId) : readLocalCurrentSessionIds(cwd);
+  const sessionIdList = explicitSession ? validateLocalSessionId(sessionId) : readLocalCurrentSessionIds(cwd, stateRoot);
   if (explicitSession && sessionIdList.length === 0) return [];
   const stateRoots = sessionIdList.length > 0
-    ? sessionIdList.map((id) => join(cwd, '.owx', 'state', 'sessions', id))
-    : [join(cwd, '.owx', 'state')];
+    ? sessionIdList.map((id) => join(stateRoot, 'sessions', id))
+    : [stateRoot];
 
   const paths = stateRoots.flatMap((dir) => [
     join(dir, 'ralplan-state.json'),
@@ -313,17 +315,19 @@ function trackerBackedNativeReviewProblem(
   if (!thread) return `${agentRole} tracker thread ${threadId} is missing in ${expectedTrackerPath}; external/collab subagent reviews are not tracker-backed native lanes`;
   const leaderThreadId = typeof session.leader_thread_id === 'string' ? session.leader_thread_id.trim() : '';
   const currentLeaderThreadId = currentSessionNativeLeaderThreadId(options.cwd);
-  if (
-    (currentLeaderThreadId && currentLeaderThreadId === threadId)
-    || (leaderThreadId && leaderThreadId === threadId && thread.kind !== 'subagent')
-  ) return `${agentRole} tracker thread ${threadId} is the session leader`;
+  if ((currentLeaderThreadId && currentLeaderThreadId === threadId) || leaderThreadId === threadId) {
+    return `${agentRole} tracker thread ${threadId} is the session leader`;
+  }
+  const leaderThread = asRecord(asRecord(session.threads)?.[leaderThreadId]);
+  if (!leaderThreadId || leaderThread?.kind !== 'leader') return `${agentRole} tracker session ${sessionId} has no established leader thread`;
   if (thread.kind !== 'subagent') return `${agentRole} tracker thread ${threadId} has kind=${String(thread.kind || 'missing')}`;
+  if (thread.mode !== agentRole) return `${agentRole} tracker thread ${threadId} has mode=${String(thread.mode || 'missing')}`;
   return null;
 }
 
 function currentSessionNativeLeaderThreadId(cwd: string | undefined): string {
   if (!cwd) return '';
-  const sessionState = readJsonState(join(cwd, '.owx', 'state', 'session.json'));
+  const sessionState = readJsonState(join(getBaseStateDir(cwd), 'session.json'));
   return typeof sessionState?.native_session_id === 'string' ? sessionState.native_session_id.trim() : '';
 }
 
@@ -359,8 +363,8 @@ function hasBlockingReviewSignal(value: Record<string, unknown>): boolean {
   return false;
 }
 
-function readLocalCurrentSessionIds(cwd: string): string[] {
-  const state = readJsonState(join(cwd, '.owx', 'state', 'session.json'));
+function readLocalCurrentSessionIds(cwd: string, stateRoot = getBaseStateDir(cwd)): string[] {
+  const state = readJsonState(join(stateRoot, 'session.json'));
   if (typeof state?.cwd === 'string' && state.cwd !== cwd) return [];
   const sessionId = typeof state?.session_id === 'string' ? state.session_id : undefined;
   return sessionId ? validateLocalSessionId(sessionId) : [];

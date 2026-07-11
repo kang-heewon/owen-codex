@@ -8,6 +8,7 @@ import {
   getAllScopedStateDirs,
   getAllScopedStatePaths,
   getBaseStateDir,
+  getBaseStateDirWithSource,
   getAllSessionScopedStateDirs,
   getAllSessionScopedStatePaths,
   getReadScopedStateFilePaths,
@@ -104,6 +105,10 @@ describe('state paths', () => {
       assert.equal(getBaseStateDir('/tmp/source'), '/tmp/explicit-team-state');
       assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1');
       assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1/ralph-state.json');
+      assert.deepEqual(getBaseStateDirWithSource('/tmp/source'), {
+        baseStateDir: '/tmp/explicit-team-state',
+        rootSource: 'team-env',
+      });
     } finally {
       if (typeof prevRoot === 'string') process.env.OWX_ROOT = prevRoot;
       else delete process.env.OWX_ROOT;
@@ -125,6 +130,10 @@ describe('state paths', () => {
       assert.equal(getBaseStateDir('/tmp/source'), '/tmp/owx-box/.owx/state');
       assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/owx-box/.owx/state/sessions/sess1');
       assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/owx-box/.owx/state/sessions/sess1/ralph-state.json');
+      assert.deepEqual(getBaseStateDirWithSource('/tmp/source'), {
+        baseStateDir: '/tmp/owx-box/.owx/state',
+        rootSource: 'owx-root-env',
+      });
     } finally {
       if (typeof prevRoot === 'string') process.env.OWX_ROOT = prevRoot;
       else delete process.env.OWX_ROOT;
@@ -132,6 +141,39 @@ describe('state paths', () => {
       else delete process.env.OWX_STATE_ROOT;
       if (typeof prevTeamRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamRoot;
       else delete process.env.OWX_TEAM_STATE_ROOT;
+    }
+  });
+
+  it('resolves OWX_STATE_ROOT before cwd and reports the selected source', () => {
+    process.env.OWX_STATE_ROOT = '/tmp/owx-state-box';
+    assert.deepEqual(getBaseStateDirWithSource('/tmp/source'), {
+      baseStateDir: '/tmp/owx-state-box/.owx/state',
+      rootSource: 'owx-state-root-env',
+    });
+
+    delete process.env.OWX_STATE_ROOT;
+    assert.deepEqual(getBaseStateDirWithSource('/tmp/source'), {
+      baseStateDir: '/tmp/source/.owx/state',
+      rootSource: 'cwd-default',
+    });
+  });
+
+  it('fails closed when any explicit state root is outside the allowlist', async () => {
+    const allowedRoot = await mkRealTemp('owx-state-root-allowed-');
+    const disallowedRoot = await mkRealTemp('owx-state-root-disallowed-');
+    process.env.OWX_MCP_WORKDIR_ROOTS = allowedRoot;
+    try {
+      for (const key of ['OWX_TEAM_STATE_ROOT', 'OWX_ROOT', 'OWX_STATE_ROOT'] as const) {
+        process.env[key] = disallowedRoot;
+        assert.throws(
+          () => getBaseStateDirWithSource(join(allowedRoot, 'workspace')),
+          /outside allowed roots \(OWX_MCP_WORKDIR_ROOTS\)/,
+        );
+        delete process.env[key];
+      }
+    } finally {
+      await rm(allowedRoot, { recursive: true, force: true });
+      await rm(disallowedRoot, { recursive: true, force: true });
     }
   });
 

@@ -286,13 +286,27 @@ export async function queueDirectMailboxMessage(params: QueueDirectMessageParams
   );
 
   if (queued.deduped) {
-    return {
-      ok: false,
-      transport: 'none',
-      reason: 'duplicate_pending_dispatch_request',
+    const outcome = {
+      ok: true,
+      transport: fallbackTransportForPreference(params.transportPreference),
+      reason: 'existing_message_dispatch_pending',
       request_id: queued.request.request_id,
       message_id: message.message_id,
-    };
+      to_worker: params.toWorker,
+    } satisfies DispatchOutcome;
+    await logDispatchOutcome({
+      cwd: params.cwd,
+      teamName: params.teamName,
+      source: 'team.mcp-comm',
+      requestId: queued.request.request_id,
+      messageId: message.message_id,
+      toWorker: params.toWorker,
+      dispatchKind: 'mailbox',
+      outcome,
+      intent: params.intent,
+      transportPreference: params.transportPreference,
+    });
+    return outcome;
   }
 
   const notifyOutcome = await Promise.resolve(params.notify(

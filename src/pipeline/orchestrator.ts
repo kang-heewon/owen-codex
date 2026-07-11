@@ -350,6 +350,10 @@ function normalizeHandoffArtifactKeys(artifacts: Record<string, unknown>): Recor
       if (gate) {
         normalized.ralplan_consensus_gate = gate;
       }
+      const recovery = ralplanArtifacts.nativeSubagentRecovery ?? ralplanArtifacts.native_subagent_recovery;
+      if (recovery) {
+        normalized.native_subagent_recovery = recovery;
+      }
     }
   }
   return normalized;

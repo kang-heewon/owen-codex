@@ -10,6 +10,7 @@ import {
   hasCurrentTmuxClientContext,
   createTeamSession,
   buildWorkerProcessLaunchSpec,
+  scrubTeamWorkerGitContextEnv,
   scrubTeamWorkerHudOwnershipEnv,
   resolveTeamWorkerCli,
   type TeamWorkerCli,
@@ -165,7 +166,10 @@ import {
   planWorktreeTarget,
   removeWorktreeForce,
   rollbackProvisionedWorktrees,
+  resolveWorktreeToolContext,
+  worktreeToolContextEnv,
   type EnsureWorktreeResult,
+  type WorktreeToolContext,
   type WorktreeMode,
 } from './worktree.js';
 import {
@@ -2237,7 +2241,9 @@ function spawnPromptWorker(
     initialPrompt,
     workerRole,
   );
-  const childEnv = scrubTeamWorkerHudOwnershipEnv({ ...process.env, ...processSpec.env });
+  const childEnv = scrubTeamWorkerGitContextEnv(
+    scrubTeamWorkerHudOwnershipEnv({ ...process.env, ...processSpec.env }),
+  );
   // Prompt workers are external CLI processes, not in-process runtime code.
   // Keeping c8's NODE_V8_COVERAGE in their environment makes coverage runs
   // track long-lived fake worker descendants and can keep node --test alive
@@ -2668,6 +2674,7 @@ export async function startTeam(
       initialPrompt?: string;
       workerLaunchArgs: string[];
       workerCli: TeamWorkerCli;
+      toolContext?: WorktreeToolContext;
     }>;
 
     for (let i = 1; i <= workerCount; i++) {
@@ -2696,6 +2703,13 @@ export async function startTeam(
         ? composeRoleInstructionsForRole(runtimeRole, rawRolePromptContent, resolvedWorkerModel)
         : null;
       const workerWorktreePath = workerWorkspace.worktreePath ?? undefined;
+      const toolContext = workerWorktreePath
+        ? resolveWorktreeToolContext({
+          cwd: workerWorkspace.cwd,
+          scope: 'team',
+          env: launchEnv,
+        })
+        : undefined;
       const fallbackInstructionsPath = workerInstructionsPath ?? join(leaderCwd, 'AGENTS.md');
       const instructionsFilePath = workerWorktreePath
         ? await writeWorkerWorktreeRootAgentsFile({
@@ -2706,6 +2720,7 @@ export async function startTeam(
           teamStateRoot,
           leaderCwd,
           worktreePath: workerWorktreePath,
+          toolContext,
         })
         : rolePromptContent
           ? await writeWorkerRoleInstructionsFile(sanitized, workerName, leaderCwd, fallbackInstructionsPath, runtimeRole, rolePromptContent)
@@ -2746,6 +2761,7 @@ export async function startTeam(
         initialPrompt,
         workerLaunchArgs,
         workerCli: workerCliPlan[i - 1],
+        toolContext,
       });
     }
 
@@ -2756,6 +2772,7 @@ export async function startTeam(
         [MODEL_INSTRUCTIONS_FILE_ENV]: plan.instructionsFilePath,
         OWX_TEAM_DISPLAY_NAME: displayName,
         ...(codexHomeOverride ? { CODEX_HOME: codexHomeOverride } : {}),
+        ...(plan.toolContext ? worktreeToolContextEnv(plan.toolContext) : {}),
       };
       if (plan.workerWorkspace.worktreePath) {
         env.OWX_TEAM_WORKTREE_PATH = plan.workerWorkspace.worktreePath;
@@ -5036,7 +5053,10 @@ function resolveLeaderMailboxTransportPreference(
 }
 
 function isExistingMailboxNotificationOutcome(outcome: DispatchOutcome): boolean {
-  return outcome.ok && outcome.reason === 'existing_message_already_notified';
+  return outcome.ok && (
+    outcome.reason === 'existing_message_already_notified'
+    || outcome.reason === 'existing_message_dispatch_pending'
+  );
 }
 
 async function dispatchPendingMailboxMessage(params: {

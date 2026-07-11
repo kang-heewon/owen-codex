@@ -343,6 +343,29 @@ describe('Pipeline Orchestrator', () => {
       );
     });
 
+    it('propagates the authoritative ralplan native recovery record into handoff state', async () => {
+      const recovery = {
+        schema_version: 1,
+        support: 'supported_native',
+        outcome: 'completed',
+        clean: true,
+        reason: 'tracker-backed native delegation completed cleanly',
+      };
+      const result = await runPipeline({
+        name: 'native-recovery-handoff',
+        task: 'propagate native recovery',
+        stages: [
+          makeStage('ralplan', { artifacts: { nativeSubagentRecovery: recovery } }),
+          makeStage('after'),
+        ],
+        cwd: tempDir,
+      });
+
+      assert.equal(result.status, 'completed');
+      const state = await readPipelineState(tempDir);
+      assert.deepEqual(state?.handoff_artifacts?.native_subagent_recovery, recovery);
+    });
+
     it('stops pipeline on stage failure and reports failed stage', async () => {
       const stages: PipelineStage[] = [
         makeStage('ok-stage'),

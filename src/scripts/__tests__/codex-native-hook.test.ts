@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -1806,6 +1806,9 @@ describe("codex native hook dispatch", () => {
     try {
       await writeFile(join(cwd, ".gitignore"), "node_modules/\n");
       execFileSync("git", ["init"], { cwd, stdio: "pipe" });
+      const emptyGlobalIgnore = join(cwd, "empty-global-ignore");
+      await writeFile(emptyGlobalIgnore, "");
+      execFileSync("git", ["config", "core.excludesfile", emptyGlobalIgnore], { cwd, stdio: "pipe" });
 
       const result = await dispatchCodexNativeHook(
         {
@@ -10550,7 +10553,6 @@ exit 0
         current_phase: "planning",
         session_id: sessionId,
       });
-
       const result = await dispatchCodexNativeHook(
         {
           hook_event_name: "Stop",
@@ -10605,7 +10607,6 @@ exit 0
         current_phase: "planning",
         session_id: sessionId,
       });
-
       const result = await dispatchCodexNativeHook(
         {
           hook_event_name: "Stop",
@@ -14642,6 +14643,200 @@ exit 0
     }
   });
 
+  it("enforces the cumulative ralplan planning-write boundary", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-ralplan-write-boundary-"));
+    try {
+      const stateDir = join(cwd, ".owx", "state");
+      const sessionId = "sess-ralplan-write-boundary";
+      await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+      await writeJson(join(stateDir, "session.json"), { session_id: sessionId });
+      await writeJson(join(stateDir, "sessions", sessionId, "skill-active-state.json"), {
+        active: true,
+        skill: "ralplan",
+        phase: "planning",
+        session_id: sessionId,
+        active_skills: [{ skill: "ralplan", phase: "planning", active: true, session_id: sessionId }],
+      });
+      await writeJson(join(stateDir, "sessions", sessionId, "ralplan-state.json"), {
+        active: true,
+        mode: "ralplan",
+        current_phase: "planning",
+        session_id: sessionId,
+      });
+      await mkdir(join(cwd, ".owx", "plans"), { recursive: true });
+      await mkdir(join(cwd, "src"), { recursive: true });
+      await symlink(join("..", "..", "src"), join(cwd, ".owx", "plans", "source-link"), "dir");
+      await writeFile(join(cwd, "src", "runtime.ts"), "source\n");
+      await link(join(cwd, "src", "runtime.ts"), join(cwd, ".owx", "plans", "source-alias.md"));
+
+      const preToolUse = async (tool_name: string, tool_input: Record<string, unknown>) => dispatchCodexNativeHook(
+        {
+          hook_event_name: "PreToolUse",
+          cwd,
+          session_id: sessionId,
+          thread_id: "thread-ralplan-write-boundary",
+          tool_name,
+          tool_input,
+        },
+        { cwd },
+      );
+
+      const allowedPatches = [
+        "*** Begin Patch\n*** Add File: .owx/context/new.md\n+new\n*** End Patch",
+        "*** Begin Patch\n*** Update File: .owx/plans/plan.md\n@@\n-old\n+new\n*** End Patch",
+        "*** Begin Patch\n*** Delete File: .owx/specs/old.md\n*** End Patch",
+        "*** Begin Patch\n*** Update File: .owx/context/old.md\n*** Move to: .owx/context/new.md\n@@\n-old\n+new\n*** End Patch",
+      ];
+      for (const input of allowedPatches) {
+        assert.equal((await preToolUse("apply_patch", { input })).outputJson, null);
+      }
+
+      const blockedPatches = [
+        "*** Begin Patch\n*** Add File: .owx/context/ok.md\n+ok\n*** Update File: src/runtime.ts\n@@\n-old\n+new\n*** End Patch",
+        `*** Begin Patch\n*** Add File: ${join(cwd, ".owx", "context", "absolute.md")}\n+x\n*** End Patch`,
+        "*** Begin Patch\n*** Add File: .owx/context/../plans/traversal.md\n+x\n*** End Patch",
+        "*** Begin Patch\n*** Add File: .owx/tmp/generated.sh\n+x\n*** End Patch",
+        "not a patch header",
+      ];
+      for (const input of blockedPatches) {
+        assert.equal((await preToolUse("apply_patch", { input })).outputJson?.decision, "block");
+      }
+
+      assert.equal((await preToolUse("Write", { file_path: ".owx/drafts/direct.md" })).outputJson, null);
+      assert.equal((await preToolUse("Write", { file_path: ".owx/drafts/nested/draft.md" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/drafts/direct.txt" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/state/ralplan-state.json" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/state/subagent-tracking.json" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/state/native-stop-state.json" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/state/sessions/session/native-subagent-support.json" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/plans/source-link/pwn.ts" })).outputJson?.decision, "block");
+      assert.equal((await preToolUse("Write", { file_path: ".owx/plans/source-alias.md" })).outputJson?.decision, "block");
+
+      const allowedCommands = [
+        "cat <<'EOF' > .owx/plans/notes.md\napply_patch <<'PATCH'\n*** Update File: src/runtime.ts\nPATCH\nEOF",
+        "cat <<'EOF' > .owx/plans/command-notes.md\ntee src/runtime.ts\nowx state clear --input '{\"mode\":\"ralplan\"}' --json\nEOF",
+        "cat <<'EOF' > .owx/plans/wrapped-command-notes.md\nbash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'\nEOF",
+        "cat <<'EOF' > .owx/plans/substitution-notes.md\necho \"$(cp .owx/plans/notes.md src/pwn.ts)\"\nEOF",
+        "echo \"bash -lc 'apply_patch src/pwn.ts'\"",
+        "echo \"bash -lc 'node -e writeFileSync(src/pwn.ts)'\"",
+        "grep -F \"bash -lc 'apply_patch'\" .owx/plans/notes.md",
+        "grep -F \"bash -lc 'node -e writeFileSync(src/pwn.ts)'\" .owx/plans/notes.md",
+        "printf '%s\\n' \"bash -lc 'node -e writeFileSync(src/pwn.ts)'\" > .owx/plans/wrapped-literal.md",
+        "node -e \"console.log('writeFileSync')\"",
+        "echo \"sed -i s/a/b/ src/runtime.ts\"",
+        "echo \"tee src/runtime.ts\"",
+        "echo \"printf x > src/runtime.ts\"",
+        "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: .owx/context/bash.md\n+ok\n*** End Patch\nPATCH",
+        "owx state read --input '{\"mode\":\"ralplan\"}' --json",
+        "python3 <<'PY'\nfrom pathlib import Path\nPath('.owx/plans/python.md').write_text('plan')\nPY",
+      ];
+      for (const command of allowedCommands) {
+        assert.equal((await preToolUse("Bash", { command })).outputJson, null, command);
+      }
+
+      const blockedCommands = [
+        "owx state clear --input '{\"mode\":\"ralplan\"}' --json",
+        "owx state write --input '{\"mode\":\"ralplan\",\"active\":true,\"current_phase\":\"planning\"}' --json; owx state clear --input '{\"mode\":\"ralplan\"}' --json",
+        "node dist/cli/owx.js state clear --json",
+        "bash -lc 'owx state clear --input \"{\\\"mode\\\":\\\"ralplan\\\"}\" --json'",
+        "CMD='owx state'; $CMD clear --input '{\"mode\":\"ralplan\"}' --json",
+        "action=clear; owx state \"$action\" --input '{\"mode\":\"ralplan\"}' --json",
+        "/usr/local/bin/owx state clear --input '{\"mode\":\"ralplan\"}' --json",
+        "OWX=owx; $OWX state clear --input '{\"mode\":\"ralplan\"}' --json",
+        "owx state write --input '{\"mode\":\"ralplan\",\"active\":false,\"current_phase\":\"complete\"}' --json",
+        "node -e \"require('fs').writeFileSync('src/pwn.ts','x')\"",
+        "node -e \"const fs=require('fs'); const w=fs.writeFileSync; w('src/pwn.ts','x')\"",
+        "node -e \"require('fs')['writeFileSync']('src/pwn.ts','x')\"",
+        "node -e \"const fs=require('fs'); fs['write'+'FileSync']('src/pwn.ts','x')\"",
+        "node -e \"const fs=require('fs'); fs[['write','FileSync'].join('')]('src/pwn.ts','x')\"",
+        "node -e \"const fs=require('fs'); fs[`write${'FileSync'}`]('src/pwn.ts','x')\"",
+        "perl -e 'open my $fh, \">\", \"src/pwn.ts\"'",
+        "ruby -e \"File.write('src/pwn.ts', 'x')\"",
+        "bash -lc 'node -e \"require(\\\"fs\\\").writeFileSync(\\\"src/pwn.ts\\\",\\\"x\\\")\"'",
+        "bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "/usr/bin/apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH",
+        "/bin/bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "FOO=bar bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "! bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "if bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'; then true; fi",
+        "command -p bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "time bash -lc 'apply_patch <<\"PATCH\"\n*** Begin Patch\n*** Add File: src/pwn.ts\n+x\n*** End Patch\nPATCH'",
+        "/usr/bin/python3 -c 'from pathlib import Path; Path(\"src/pwn.ts\").write_text(\"x\")'",
+        "FOO=bar python3 -c 'from pathlib import Path; Path(\"src/pwn.ts\").write_text(\"x\")'",
+        "if python3 -c 'from pathlib import Path; Path(\"src/pwn.ts\").write_text(\"x\")'; then true; fi",
+        "cp .owx/plans/notes.md src/pwn.ts",
+        "mv .owx/plans/notes.md src/pwn.ts",
+        "\"cp\" .owx/plans/notes.md src/pwn.ts",
+        "'mkdir' src/generated",
+        "CMD=cp; \"$CMD\" .owx/plans/notes.md src/pwn.ts",
+        "mkdir -p src/generated",
+        "touch src/pwn.ts",
+        "truncate -s 0 src/runtime.ts",
+        ">/dev/null cp .owx/plans/notes.md src/pwn.ts",
+        "2>/dev/null /bin/cp .owx/plans/notes.md src/pwn.ts",
+        "FOO=1 >/dev/null cp .owx/plans/notes.md src/pwn.ts",
+        ">/dev/null node -e \"require('fs').writeFileSync('src/pwn.ts','x')\"",
+        "echo \"$(cp .owx/plans/notes.md src/pwn.ts)\"",
+        "echo `cp .owx/plans/notes.md src/pwn.ts`",
+        "node -e \"process.getBuiltinModule('fs').writeFileSync('src/pwn.ts','x')\"",
+        "node -e \"require('f'+'s').writeFileSync('src/pwn.ts','x')\"",
+        "node -e \"console.log(Reflect.apply(require,null,['fs']).writeFileSync('src/pwn.ts','x'))\"",
+        "find src -type f -delete",
+        "find . -maxdepth 0 -exec cp .owx/plans/notes.md src/pwn.ts ;",
+        "sed -n 'w src/pwn.ts' .owx/plans/notes.md",
+        "sed --in-place 's/a/b/' src/runtime.ts",
+        "sed -ni 's/a/b/' src/runtime.ts",
+        "sed -in 's/a/b/' src/runtime.ts",
+        "sed -f ./scripts/mutate.sed src/runtime.ts",
+        "sed -f./scripts/mutate.sed src/runtime.ts",
+        "awk 'BEGIN { system(\"cp .owx/plans/notes.md src/pwn.ts\") }'",
+        "awk -f ./scripts/mutate.awk .owx/plans/notes.md",
+        "awk -f./scripts/mutate.awk .owx/plans/notes.md",
+        "awk --file=./scripts/mutate.awk .owx/plans/notes.md",
+        "sort -osrc/printf .owx/plans/notes.md",
+        "printf x >| src/printf",
+        "printf x>.owx/state/native-stop-state.json",
+        "printf x>>.owx/state/native-stop-state.json",
+        "TARGET=../../src/pwn.ts; printf x > .owx/plans/$TARGET",
+        "printf x > .owx/plans/$(printf ../../src/pwn.ts)",
+        "printf x > .owx/plans/'../..'/src/pwn.ts",
+        "printf x | tee .owx/plans/'../..'/src/pwn.ts",
+        "printf x > .owx\\\\plans\\\\pwn.ts",
+        String.raw`printf x > .owx/plans/\.\./\.\./src/pwn.ts`,
+        "printf x > .owx/plans/*",
+        "printf x | tee .owx/plans/{safe,alias}",
+        "printf x | tee -- .owx/state/native-stop-state.json",
+        "printf x | tee --append .owx/state/native-stop-state.json",
+        "printf x | tee -i .owx/state/native-stop-state.json",
+        "yq --inplace '.active = false' .owx/state/native-stop-state.json",
+        "uniq .owx/plans/notes.md .owx/state/native-stop-state.json",
+        ">& .owx/state/native-stop-state.json printf x",
+        "printf x > .owx/plans/source-link/pwn.ts",
+        "printf x > .owx/plans/source-alias.md",
+        "cat <<EOF > .owx/plans/expanded.md\n$(cp .owx/plans/notes.md src/pwn.ts)\nEOF",
+        "cat <<\\EOF > .owx/plans/escaped.md\nplan\nEOF\ncp .owx/plans/notes.md src/pwn.ts",
+        "cat <<'E'OF > .owx/plans/concatenated.md\nplan\nEOF\ncp .owx/plans/notes.md src/pwn.ts",
+        "echo '<<EOF'\ncp .owx/plans/notes.md src/pwn.ts",
+        "printf '😀😀' >/dev/null; cat <<'EOF' > .owx/plans/unicode.md\nplan\nEOF\ncp .owx/plans/notes.md src/pwn.ts",
+        "bash ./scripts/mutate.sh",
+        "node ./scripts/mutate.js",
+        "python3 ./scripts/mutate.py",
+        "python3 <<'PY'\nfrom pathlib import Path\nimport shutil\nPath('.owx/plans/python.md').write_text('plan')\nshutil.copy('.owx/plans/python.md', 'src/pwn.ts')\nPY",
+        "ruby ./scripts/mutate.rb",
+        "perl ./scripts/mutate.pl",
+        "bash -lc 'python3 -c \"from pathlib import Path; Path(\\\"src/pwn.ts\\\").write_text(\\\"x\\\")\"'",
+        "cat <<'EOF' > .owx/plans/run.sh\necho planning\nEOF\nbash .owx/plans/run.sh",
+        "python3 <<'PY'\nfrom pathlib import Path\ntarget = '.owx/plans/dynamic.md'\nPath(target).write_text('plan')\nPY",
+        "python3 <<'PY'\nfrom pathlib import Path\nimport subprocess\nPath('.owx/plans/generated.py').write_text('print(1)')\nsubprocess.run(['python3', '.owx/plans/generated.py'])\nPY",
+      ];
+      for (const command of blockedCommands) {
+        assert.equal((await preToolUse("Bash", { command })).outputJson?.decision, "block", command);
+      }
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("blocks bash implementation writes while ralplan is active without execution handoff", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-ralplan-pretool-bash-block-"));
     try {
@@ -16621,6 +16816,226 @@ describe('native Stop autopilot deep-interview wait', () => {
       }, { cwd });
 
       assert.equal(result.outputJson, null);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('native typed subagent provenance and recovery evidence', () => {
+  async function writeActiveRalplanBoundary(
+    cwd: string,
+    sessionId: string,
+    trackerSessions: Record<string, unknown>,
+  ): Promise<void> {
+    const stateDir = join(cwd, '.owx', 'state');
+    await writeJson(join(stateDir, 'session.json'), { session_id: sessionId, cwd });
+    await writeSessionSkillActiveState(stateDir, sessionId, 'ralplan', 'planning');
+    await writeJson(join(stateDir, 'sessions', sessionId, 'ralplan-state.json'), {
+      active: true,
+      mode: 'ralplan',
+      current_phase: 'planning',
+      session_id: sessionId,
+      cwd,
+    });
+    await writeJson(join(stateDir, 'subagent-tracking.json'), {
+      schemaVersion: 1,
+      sessions: trackerSessions,
+    });
+  }
+
+  it('allows a same-session tracker-backed typed child without source metadata', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-typed-child-no-source-'));
+    try {
+      const sessionId = 'sess-typed-child';
+      const now = '2026-07-12T00:00:00.000Z';
+      await writeActiveRalplanBoundary(cwd, sessionId, {
+        [sessionId]: {
+          session_id: sessionId,
+          leader_thread_id: 'thread-leader',
+          updated_at: now,
+          threads: {
+            'thread-leader': { thread_id: 'thread-leader', kind: 'leader', first_seen_at: now, last_seen_at: now, turn_count: 1 },
+            'thread-executor': { thread_id: 'thread-executor', kind: 'subagent', mode: 'executor', first_seen_at: now, last_seen_at: now, turn_count: 1 },
+          },
+        },
+      });
+
+      const result = await dispatchCodexNativeHook({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-executor',
+        agent_role: 'executor',
+        tool_name: 'apply_patch',
+        tool_input: { file_path: 'src/implementation.ts' },
+      }, { cwd });
+
+      assert.equal(result.outputJson, null);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('denies leader, role mismatch, cross-session, and corrupt tracker claims', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-typed-child-forgery-'));
+    try {
+      const sessionId = 'sess-typed-forgery';
+      const now = '2026-07-12T00:00:00.000Z';
+      await writeActiveRalplanBoundary(cwd, sessionId, {
+        [sessionId]: {
+          session_id: sessionId,
+          leader_thread_id: 'thread-leader',
+          updated_at: now,
+          threads: {
+            'thread-leader': { thread_id: 'thread-leader', kind: 'subagent', mode: 'executor', first_seen_at: now, last_seen_at: now, turn_count: 1 },
+            'thread-child': { thread_id: 'thread-child', kind: 'subagent', mode: 'critic', first_seen_at: now, last_seen_at: now, turn_count: 1 },
+          },
+        },
+        'other-session': {
+          session_id: 'other-session',
+          updated_at: now,
+          threads: {
+            'thread-cross-session': { thread_id: 'thread-cross-session', kind: 'subagent', mode: 'executor', first_seen_at: now, last_seen_at: now, turn_count: 1 },
+          },
+        },
+      });
+
+      for (const [threadId, agentRole] of [
+        ['thread-leader', 'executor'],
+        ['thread-child', 'executor'],
+        ['thread-cross-session', 'executor'],
+      ] as const) {
+        const result = await dispatchCodexNativeHook({
+          hook_event_name: 'PreToolUse',
+          session_id: sessionId,
+          thread_id: threadId,
+          agent_role: agentRole,
+          tool_name: 'apply_patch',
+          tool_input: { file_path: 'src/implementation.ts' },
+        }, { cwd });
+        assert.equal(result.outputJson?.decision, 'block', `${threadId} must not bypass planning authority`);
+      }
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('denies typed-child exemptions without an established leader boundary or explicit thread kind', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-typed-child-incomplete-tracker-'));
+    try {
+      const sessionId = 'sess-typed-incomplete-tracker';
+      const now = '2026-07-12T00:00:00.000Z';
+      for (const thread of [
+        { thread_id: 'thread-no-leader', kind: 'subagent', mode: 'executor' },
+        { thread_id: 'thread-no-kind', mode: 'executor' },
+      ]) {
+        await writeActiveRalplanBoundary(cwd, sessionId, {
+          [sessionId]: {
+            session_id: sessionId,
+            updated_at: now,
+            threads: {
+              [thread.thread_id]: { ...thread, first_seen_at: now, last_seen_at: now, turn_count: 1 },
+            },
+          },
+        });
+        const result = await dispatchCodexNativeHook({
+          hook_event_name: 'PreToolUse',
+          session_id: sessionId,
+          thread_id: thread.thread_id,
+          agent_role: 'executor',
+          tool_name: 'apply_patch',
+          tool_input: { file_path: 'src/implementation.ts' },
+        }, { cwd });
+        assert.equal(result.outputJson?.decision, 'block');
+      }
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('retains the explicit Team worker carveout', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-team-worker-carveout-'));
+    const previousTeamWorker = process.env.OWX_TEAM_WORKER;
+    try {
+      const sessionId = 'sess-team-worker-carveout';
+      await writeActiveRalplanBoundary(cwd, sessionId, {});
+      process.env.OWX_TEAM_WORKER = 'team-alpha/worker-1';
+      const result = await dispatchCodexNativeHook({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-worker',
+        tool_name: 'apply_patch',
+        tool_input: { file_path: 'src/implementation.ts' },
+      }, { cwd });
+      assert.equal(result.outputJson, null);
+    } finally {
+      if (previousTeamWorker === undefined) delete process.env.OWX_TEAM_WORKER;
+      else process.env.OWX_TEAM_WORKER = previousTeamWorker;
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('persists unsupported evidence monotonically and keeps capacity separate', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-native-support-evidence-'));
+    try {
+      const sessionId = 'sess-native-support-evidence';
+      const supportPath = join(cwd, '.owx', 'state', 'sessions', sessionId, 'native-subagent-support.json');
+      const capacityPath = join(cwd, '.owx', 'state', 'sessions', sessionId, 'native-subagent-capacity.json');
+      await dispatchCodexNativeHook({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        turn_id: 'turn-unsupported',
+        tool_name: 'spawn_agent',
+        error: 'native subagents unsupported in this runtime',
+      }, { cwd });
+      const first = JSON.parse(await readFile(supportPath, 'utf-8')) as Record<string, unknown>;
+
+      await dispatchCodexNativeHook({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        turn_id: 'turn-supported',
+        tool_name: 'spawn_agent',
+        response: { capabilities: { native_subagents: true }, status: 'ok' },
+      }, { cwd });
+      const afterSupportedPayload = JSON.parse(await readFile(supportPath, 'utf-8')) as Record<string, unknown>;
+      assert.deepEqual(afterSupportedPayload, first);
+
+      await dispatchCodexNativeHook({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        turn_id: 'turn-capacity',
+        tool_name: 'spawn_agent',
+        error: 'agent thread limit reached',
+      }, { cwd });
+      const capacity = JSON.parse(await readFile(capacityPath, 'utf-8')) as Record<string, unknown>;
+      assert.equal(capacity.status, 'unknown');
+      assert.equal(capacity.reason, 'agent_thread_limit_reached');
+      assert.equal((JSON.parse(await readFile(supportPath, 'utf-8')) as Record<string, unknown>).reason, 'native_subagents_unsupported');
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when unsupported native evidence cannot be persisted', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-native-hook-native-support-write-failure-'));
+    try {
+      await mkdir(join(cwd, '.owx', 'state'), { recursive: true });
+      await writeFile(join(cwd, '.owx', 'state', 'sessions'), 'not-a-directory');
+
+      await assert.rejects(
+        dispatchCodexNativeHook({
+          hook_event_name: 'PostToolUse',
+          session_id: 'sess-native-support-write-failure',
+          thread_id: 'thread-leader',
+          turn_id: 'turn-unsupported',
+          tool_name: 'spawn_agent',
+          error: 'native subagents unsupported in this runtime',
+        }, { cwd }),
+        /not a directory|EEXIST/i,
+      );
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

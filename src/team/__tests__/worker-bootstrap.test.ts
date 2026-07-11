@@ -1199,12 +1199,26 @@ describe("worker bootstrap", () => {
       teamStateRoot: "/tmp/state",
       leaderCwd: "/repo",
       worktreePath: "/repo/.owx/team/root-team/worktrees/worker-3",
+      toolContext: {
+        repoRoot: "/repo",
+        worktreeRoot: "/repo/.owx/team/root-team/worktrees/worker-3",
+        gitCommonDir: "/repo/.git",
+        worktreeScope: "team",
+        codeGraphMode: "shared",
+        codeGraphProjectPath: "/repo",
+        codeGraphDbPath: "/repo/.codegraph/codegraph.db",
+        codeGraphSource: "leader-shared",
+        requestedCodeGraphMode: "auto",
+      },
     });
 
     assert.match(content, /Worker: worker-3/);
     assert.match(content, /Inbox path: \/tmp\/state\/team\/root-team\/workers\/worker-3\/inbox\.md/);
     assert.match(content, /mailbox\/worker-3\.json/);
     assert.match(content, /<identity>You are Writer\.<\/identity>/);
+    assert.match(content, /## CodeGraph/);
+    assert.match(content, /shared leader index/);
+    assert.match(content, /not branch-accurate/);
     assert.doesNotMatch(content, /# Project Instructions/);
     assert.doesNotMatch(content, /# User Instructions/);
   });

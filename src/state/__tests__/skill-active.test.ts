@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -16,6 +17,25 @@ async function withTempRepo(prefix: string, run: (cwd: string) => Promise<void>)
     await run(cwd);
   } finally {
     await rm(cwd, { recursive: true, force: true });
+  }
+}
+
+async function withTeamStateRoot<T>(root: string, run: () => Promise<T>): Promise<T> {
+  const previousOmxRoot = process.env.OWX_ROOT;
+  const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
+  const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+  delete process.env.OWX_ROOT;
+  delete process.env.OWX_STATE_ROOT;
+  process.env.OWX_TEAM_STATE_ROOT = root;
+  try {
+    return await run();
+  } finally {
+    if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
+    else delete process.env.OWX_ROOT;
+    if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
+    else delete process.env.OWX_STATE_ROOT;
+    if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
+    else delete process.env.OWX_TEAM_STATE_ROOT;
   }
 }
 
@@ -46,6 +66,35 @@ describe('skill-active state helpers', () => {
       assert.equal(entry.phase, 'running');
       assert.equal(entry.active, true);
       assert.equal(entry.session_id, 'sess-1');
+    });
+  });
+
+  it('uses OWX_TEAM_STATE_ROOT for default canonical sync without creating cwd .owx', async () => {
+    await withTempRepo('owx-skill-active-team-root-', async (root) => {
+      const cwd = join(root, 'workspace');
+      const teamStateRoot = join(root, 'team-state');
+      await mkdir(cwd, { recursive: true });
+
+      await withTeamStateRoot(teamStateRoot, async () => {
+        await syncCanonicalSkillStateForMode({
+          cwd,
+          mode: 'ralph',
+          active: true,
+          currentPhase: 'executing',
+          sessionId: 'sess-team',
+          nowIso: '2026-07-05T00:00:00.000Z',
+        });
+      });
+
+      const sessionState = JSON.parse(
+        await readFile(join(teamStateRoot, 'sessions', 'sess-team', 'skill-active-state.json'), 'utf-8'),
+      ) as { active?: boolean; skill?: string; active_skills?: Array<{ skill: string; session_id?: string }> };
+      assert.equal(sessionState.active, true);
+      assert.equal(sessionState.skill, 'ralph');
+      assert.deepEqual(sessionState.active_skills?.map(({ skill, session_id }) => ({ skill, session_id })), [
+        { skill: 'ralph', session_id: 'sess-team' },
+      ]);
+      assert.equal(existsSync(join(cwd, '.owx')), false);
     });
   });
 

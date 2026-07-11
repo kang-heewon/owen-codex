@@ -226,32 +226,26 @@ function enforceWorkingDirectoryPolicy(resolvedWorkingDirectory: string): string
   return canonicalWorkingDirectory;
 }
 
-function resolveBaseStateDirWithSource(workingDirectory?: string): { baseStateDir: string; rootSource: StateRootSource } {
+export function getBaseStateDirWithSource(workingDirectory?: string): { baseStateDir: string; rootSource: StateRootSource } {
   const teamStateRootOverride = process.env[OWX_TEAM_STATE_ROOT_ENV]?.trim();
   if (typeof teamStateRootOverride === 'string' && teamStateRootOverride !== '') {
-    try {
-      return { baseStateDir: resolveWorkingDirectoryForState(teamStateRootOverride), rootSource: 'team-env' };
-    } catch {}
+    return { baseStateDir: resolveWorkingDirectoryForState(teamStateRootOverride), rootSource: 'team-env' };
   }
 
   const owxRootOverride = process.env[OWX_ROOT_ENV]?.trim();
   if (typeof owxRootOverride === 'string' && owxRootOverride !== '') {
-    try {
-      return { baseStateDir: join(resolveWorkingDirectoryForState(owxRootOverride), '.owx', 'state'), rootSource: 'owx-root-env' };
-    } catch {}
+    return { baseStateDir: join(resolveWorkingDirectoryForState(owxRootOverride), '.owx', 'state'), rootSource: 'owx-root-env' };
   }
 
   const owxStateRootOverride = process.env[OWX_STATE_ROOT_ENV]?.trim();
   if (typeof owxStateRootOverride === 'string' && owxStateRootOverride !== '') {
-    try {
-      return { baseStateDir: join(resolveWorkingDirectoryForState(owxStateRootOverride), '.owx', 'state'), rootSource: 'owx-state-root-env' };
-    } catch {}
+    return { baseStateDir: join(resolveWorkingDirectoryForState(owxStateRootOverride), '.owx', 'state'), rootSource: 'owx-state-root-env' };
   }
 
   return { baseStateDir: join(resolveWorkingDirectoryForState(workingDirectory), '.owx', 'state'), rootSource: 'cwd-default' };
 }
 export function getBaseStateDir(workingDirectory?: string): string {
-  return resolveBaseStateDirWithSource(workingDirectory).baseStateDir;
+  return getBaseStateDirWithSource(workingDirectory).baseStateDir;
 }
 
 export function getStateDir(workingDirectory?: string, sessionId?: string): string {
@@ -396,7 +390,7 @@ export async function resolveRuntimeStateScope(
   explicitSessionId?: string,
 ): Promise<ResolvedRuntimeStateScope> {
   const cwd = resolveWorkingDirectoryForState(workingDirectory);
-  const { baseStateDir, rootSource } = resolveBaseStateDirWithSource(cwd);
+  const { baseStateDir, rootSource } = getBaseStateDirWithSource(cwd);
   const metadata = await readSessionMetadataFromBaseStateDir(cwd, baseStateDir);
   const validatedExplicit = validateSessionId(explicitSessionId);
   const envSessionId = readSessionIdFromEnvironment();

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -9,7 +9,10 @@ import {
   parseWorktreeMode,
   planWorktreeTarget,
   ensureWorktree,
+  renderCodeGraphInstructions,
+  resolveWorktreeToolContext,
   rollbackProvisionedWorktrees,
+  worktreeToolContextEnv,
 } from '../worktree.js';
 
 async function initRepo(): Promise<string> {
@@ -106,6 +109,110 @@ describe('worktree planning', () => {
       assert.equal(planned.branchName, 'autoresearch/demo-mission/20260314t000000z');
       assert.match(planned.worktreePath.replace(/\\/g, '/'), /\.owx\/worktrees\/autoresearch-demo-mission-20260314t000000z$/);
     } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('worktree tool context', () => {
+  it('fails closed outside a Git worktree instead of treating cwd as authoritative', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-worktree-context-non-git-'));
+    try {
+      assert.throws(
+        () => resolveWorktreeToolContext({ cwd, scope: 'team', env: {} }),
+        /worktree_tool_context_git_root_unresolved/,
+      );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it('recomputes linked-worktree identity and ignores inherited parent paths', async () => {
+    const repo = await initRepo();
+    const worktreePath = `${repo}-tool-context`;
+    try {
+      execFileSync('git', ['worktree', 'add', '-b', 'tool-context', worktreePath, 'HEAD'], {
+        cwd: repo,
+        stdio: 'ignore',
+      });
+      await mkdir(join(repo, '.codegraph'), { recursive: true });
+      await writeFile(join(repo, '.codegraph', 'codegraph.db'), 'shared', 'utf-8');
+      const canonicalRepo = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: repo,
+        encoding: 'utf-8',
+      }).trim();
+      const canonicalWorktree = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: worktreePath,
+        encoding: 'utf-8',
+      }).trim();
+
+      const shared = resolveWorktreeToolContext({
+        cwd: worktreePath,
+        scope: 'team',
+        env: {
+          OWX_REPO_ROOT: '/stale/repo',
+          OWX_WORKTREE_ROOT: '/stale/worktree',
+          OWX_GIT_COMMON_DIR: '/stale/.git',
+          OWX_CODEGRAPH_PROJECT_PATH: '/stale/project',
+          OWX_CODEGRAPH_REQUESTED_MODE: 'invalid',
+        },
+      });
+
+      assert.equal(shared.repoRoot, canonicalRepo);
+      assert.equal(shared.worktreeRoot, canonicalWorktree);
+      assert.equal(shared.gitCommonDir, join(canonicalRepo, '.git'));
+      assert.equal(shared.worktreeScope, 'team');
+      assert.equal(shared.requestedCodeGraphMode, 'auto');
+      assert.equal(shared.codeGraphMode, 'shared');
+      assert.equal(shared.codeGraphProjectPath, canonicalRepo);
+      assert.equal(shared.codeGraphDbPath, join(canonicalRepo, '.codegraph', 'codegraph.db'));
+      assert.match(renderCodeGraphInstructions(shared), /shared leader index/);
+
+      const env = worktreeToolContextEnv(shared);
+      assert.equal(env.OWX_REPO_ROOT, canonicalRepo);
+      assert.equal(env.OWX_WORKTREE_ROOT, canonicalWorktree);
+      assert.equal(env.OWX_GIT_COMMON_DIR, join(canonicalRepo, '.git'));
+      assert.equal(env.OWX_CODEGRAPH_PROJECT_PATH, canonicalRepo);
+      assert.equal(env.OWX_CODEGRAPH_REQUESTED_MODE, 'auto');
+    } finally {
+      await rm(worktreePath, { recursive: true, force: true });
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('prefers a local database in auto mode and honors explicit off', async () => {
+    const repo = await initRepo();
+    const worktreePath = `${repo}-local-codegraph`;
+    try {
+      execFileSync('git', ['worktree', 'add', '-b', 'local-codegraph', worktreePath, 'HEAD'], {
+        cwd: repo,
+        stdio: 'ignore',
+      });
+      await mkdir(join(repo, '.codegraph'), { recursive: true });
+      await writeFile(join(repo, '.codegraph', 'codegraph.db'), 'shared', 'utf-8');
+      await mkdir(join(worktreePath, '.codegraph'), { recursive: true });
+      await writeFile(join(worktreePath, '.codegraph', 'codegraph.db'), 'local', 'utf-8');
+      const canonicalWorktree = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: worktreePath,
+        encoding: 'utf-8',
+      }).trim();
+
+      const local = resolveWorktreeToolContext({ cwd: worktreePath, scope: 'autoresearch', env: {} });
+      assert.equal(local.codeGraphMode, 'local');
+      assert.equal(local.codeGraphSource, 'worktree-local');
+      assert.equal(local.codeGraphProjectPath, canonicalWorktree);
+      assert.equal(local.codeGraphDbPath, join(canonicalWorktree, '.codegraph', 'codegraph.db'));
+
+      const off = resolveWorktreeToolContext({
+        cwd: worktreePath,
+        scope: 'autoresearch',
+        env: { OWX_CODEGRAPH_REQUESTED_MODE: 'off' },
+      });
+      assert.equal(off.codeGraphMode, 'off');
+      assert.equal(off.codeGraphProjectPath, '');
+      assert.equal(renderCodeGraphInstructions(off), '');
+    } finally {
+      await rm(worktreePath, { recursive: true, force: true });
       await rm(repo, { recursive: true, force: true });
     }
   });

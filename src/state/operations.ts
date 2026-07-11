@@ -6,7 +6,7 @@ import { withModeRuntimeContext } from './mode-state-context.js';
 import {
   getAllScopedStatePaths,
   getAuthoritativeActiveStateDirs,
-  getBaseStateDir,
+  getBaseStateDirWithSource,
   getReadScopedStateDirs,
   getReadScopedStatePaths,
   getStateDir,
@@ -15,6 +15,7 @@ import {
   resolveWorkingDirectoryForState,
   validateSessionId,
   validateStateModeSegment,
+  type StateRootSource,
 } from '../mcp/state-paths.js';
 import { evaluateRalphCompletionAuditEvidence } from '../ralph/completion-audit.js';
 import { ensureCanonicalRalphArtifacts } from '../ralph/persistence.js';
@@ -49,6 +50,13 @@ import {
   buildAutopilotRalplanUltragoalGateError,
   canAdvanceAutopilotRalplanToUltragoal,
 } from '../autopilot/ralplan-gate.js';
+import {
+  evaluateNativeSubagentRecovery,
+  isUnsupportedNativeSubagentEvidenceForScope,
+  nativeSubagentSupportPath,
+  resolveNativeSubagentSupportStatus,
+  type NativeSubagentSupportEvidence,
+} from '../subagents/tracker.js';
 
 
 const AUTOPILOT_CHILD_PHASE_ORDER: AutopilotChildPhase[] = [
@@ -85,6 +93,51 @@ function isNextAutopilotPhase(
 
 function isAutopilotCompletePhase(state: Record<string, unknown>): boolean {
   return normalizeAutopilotPhase(state.current_phase) === 'complete';
+}
+
+async function readPersistedNativeSubagentSupport(
+  cwd: string,
+  sessionId: string | undefined,
+): Promise<NativeSubagentSupportEvidence | null> {
+  if (!sessionId) return null;
+  const path = nativeSubagentSupportPath(cwd, sessionId);
+  if (!existsSync(path)) return null;
+  const blocker = JSON.parse(await readFile(path, 'utf-8')) as Record<string, unknown>;
+  const evidence = resolveNativeSubagentSupportStatus({
+    persistedSupportBlocker: blocker,
+    cwd,
+    sessionId,
+  });
+  return isUnsupportedNativeSubagentEvidenceForScope(evidence, { cwd, sessionId })
+    ? evidence
+    : null;
+}
+
+function isCleanWorkflowCompletion(state: Record<string, unknown>): boolean {
+  if (state.active !== false) return false;
+  const phase = String(state.current_phase ?? '').trim().toLowerCase();
+  const runOutcome = String(state.run_outcome ?? '').trim().toLowerCase();
+  const lifecycleOutcome = String(state.lifecycle_outcome ?? '').trim().toLowerCase();
+  return phase === 'complete'
+    || phase === 'completed'
+    || runOutcome === 'finish'
+    || lifecycleOutcome === 'finished';
+}
+
+function nativeUnsupportedNonCleanOutcome(
+  state: Record<string, unknown>,
+): 'blocked' | 'explicit_recovery_nonclean' | null {
+  if (state.active !== false) return null;
+  const values = [
+    state.current_phase,
+    state.run_outcome,
+    state.lifecycle_outcome,
+    state.terminal_outcome,
+  ].map((value) => String(value ?? '').trim().toLowerCase());
+  if (values.some((value) => value === 'blocked' || value === 'blocked_on_user')) return 'blocked';
+  return values.some((value) => ['failed', 'cancelled', 'canceled', 'userinterlude'].includes(value))
+    ? 'explicit_recovery_nonclean'
+    : null;
 }
 
 export const SUPPORTED_STATE_READ_MODES = [
@@ -174,11 +227,16 @@ function validateStrictReadableMode(mode: unknown): string {
   return normalized;
 }
 
-async function initializeStateEnvironment(cwd: string, effectiveSessionId?: string): Promise<void> {
+async function initializeStateEnvironment(
+  cwd: string,
+  effectiveSessionId?: string,
+  rootSource?: StateRootSource,
+): Promise<void> {
   await mkdir(getStateDir(cwd), { recursive: true });
   if (effectiveSessionId) {
     await mkdir(getStateDir(cwd, effectiveSessionId), { recursive: true });
   }
+  if (rootSource === 'team-env') return;
   const { ensureTmuxHookInitialized } = await import('../cli/tmux-hook.js');
   await ensureTmuxHookInitialized(cwd);
 }
@@ -344,10 +402,10 @@ export async function executeStateOperation(
       case 'state_write': {
         const stateScope = await resolveStateScope(cwd, explicitSessionId);
         const effectiveSessionId = stateScope.sessionId;
-        await initializeStateEnvironment(cwd, effectiveSessionId);
+        const { baseStateDir, rootSource } = getBaseStateDirWithSource(cwd);
+        await initializeStateEnvironment(cwd, effectiveSessionId, rootSource);
 
         const mode = validateStateModeSegment(rawArgs.mode);
-        const baseStateDir = getBaseStateDir(cwd);
         const path = getStatePath(mode, cwd, effectiveSessionId);
         const {
           mode: _mode,
@@ -383,6 +441,13 @@ export async function executeStateOperation(
           }
           if (!hasExplicitStateField(fields, customState, 'terminal_outcome')) {
             delete mergedRaw.terminal_outcome;
+          }
+
+          const persistedNativeSupport = await readPersistedNativeSubagentSupport(cwd, effectiveSessionId);
+          if (persistedNativeSupport) {
+            mergedRaw.native_subagent_support = persistedNativeSupport;
+          } else {
+            delete mergedRaw.native_subagent_support;
           }
 
           if (
@@ -428,6 +493,24 @@ export async function executeStateOperation(
               return;
             }
             Object.assign(mergedRaw, runOutcomeValidation.state);
+          }
+
+          const hasPersistedUnsupportedNativeSupport = persistedNativeSupport !== null;
+          const recoveryMode = mode === 'ralplan' || mode === 'autopilot';
+          if (hasPersistedUnsupportedNativeSupport && recoveryMode && isCleanWorkflowCompletion(mergedRaw)) {
+            validationError = 'Native subagent support is unavailable for this session; unsupported native evidence can never clean-complete. Terminalize as blocked, failed, or cancelled.';
+            return;
+          }
+          const unsupportedNonCleanOutcome = hasPersistedUnsupportedNativeSupport && recoveryMode
+            ? nativeUnsupportedNonCleanOutcome(mergedRaw)
+            : null;
+          if (unsupportedNonCleanOutcome) {
+            const recovery = evaluateNativeSubagentRecovery('unsupported_native', unsupportedNonCleanOutcome);
+            if (!recovery.allowed) {
+              validationError = recovery.reason;
+              return;
+            }
+            mergedRaw.native_subagent_recovery = recovery.record;
           }
 
           const currentAutopilotChildPhase = mode === 'autopilot'
@@ -508,6 +591,9 @@ export async function executeStateOperation(
               validationError = buildAutopilotRalplanUltragoalGateError(gate);
               return;
             }
+            if (gate.nativeSubagentRecovery) {
+              mergedRaw.native_subagent_recovery = gate.nativeSubagentRecovery;
+            }
           }
 
           if (isTrackedWorkflowMode(mode) && mergedRaw.active === true) {
@@ -584,10 +670,10 @@ export async function executeStateOperation(
       case 'state_clear': {
         const stateScope = await resolveStateScope(cwd, explicitSessionId);
         const effectiveSessionId = stateScope.sessionId;
-        await initializeStateEnvironment(cwd, effectiveSessionId);
+        const { baseStateDir, rootSource } = getBaseStateDirWithSource(cwd);
+        await initializeStateEnvironment(cwd, effectiveSessionId, rootSource);
 
         const mode = validateStateModeSegment(rawArgs.mode);
-        const baseStateDir = getBaseStateDir(cwd);
         const allSessions = rawArgs.all_sessions === true;
 
         if (!allSessions) {

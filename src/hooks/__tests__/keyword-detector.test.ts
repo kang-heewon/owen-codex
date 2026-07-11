@@ -3952,7 +3952,7 @@ describe('applyRalplanGate', () => {
     }
   });
 
-  it('ignores ambient OWX_ROOT consensus state for local PRD/test-spec-only follow-up gating', async () => {
+  it('honors consensus state from the configured OWX_ROOT during follow-up gating', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-keyword-gate-local-'));
     const ambientRoot = await mkdtemp(join(tmpdir(), 'owx-keyword-gate-ambient-'));
     const previousOmxRoot = process.env.OWX_ROOT;
@@ -3976,8 +3976,8 @@ describe('applyRalplanGate', () => {
       process.env.OWX_ROOT = ambientRoot;
 
       const result = applyRalplanGate(['team'], 'team', { cwd });
-      assert.equal(result.gateApplied, true);
-      assert.deepEqual(result.keywords, ['ralplan']);
+      assert.equal(result.gateApplied, false);
+      assert.deepEqual(result.keywords, ['team']);
     } finally {
       if (previousOmxRoot === undefined) delete process.env.OWX_ROOT;
       else process.env.OWX_ROOT = previousOmxRoot;
