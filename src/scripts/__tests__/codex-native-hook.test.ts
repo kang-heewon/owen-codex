@@ -8416,6 +8416,8 @@ exit 0
         {
           ...payload,
           stop_hook_active: true,
+          turn_id: "turn-stop-autopilot-planning-replay-2",
+          last_assistant_message: "Fresh diagnostics still show Autopilot planning is active.",
         },
         { cwd },
       );
@@ -13875,6 +13877,73 @@ exit 0
     }
   });
 
+  it("allows implementation writes after Autopilot records a supervised execution handoff", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-autopilot-supervised-ultragoal-handoff-"));
+    try {
+      const stateDir = join(cwd, ".owx", "state");
+      const sessionId = "sess-autopilot-supervised-ultragoal-handoff";
+      const threadId = "thread-autopilot-supervised-ultragoal-handoff";
+      await mkdir(join(stateDir, "sessions", sessionId), { recursive: true });
+      await writeJson(join(stateDir, "session.json"), { session_id: sessionId });
+      await writeJson(join(stateDir, "sessions", sessionId, "skill-active-state.json"), {
+        active: true,
+        skill: "autopilot",
+        phase: "ralplan",
+        session_id: sessionId,
+        thread_id: threadId,
+        active_skills: [{ skill: "autopilot", phase: "ralplan", active: true, session_id: sessionId, thread_id: threadId }],
+        supervised_child_skill: "ultraqa",
+      });
+      await writeJson(join(stateDir, "sessions", sessionId, "autopilot-state.json"), {
+        active: true,
+        mode: "autopilot",
+        current_phase: "ralplan",
+        session_id: sessionId,
+      });
+
+      const prematureResult = await dispatchCodexNativeHook(
+        {
+          hook_event_name: "PreToolUse",
+          cwd,
+          session_id: sessionId,
+          thread_id: threadId,
+          tool_name: "Edit",
+          tool_input: { file_path: "src/runtime.ts" },
+        },
+        { cwd },
+      );
+
+      assert.equal(prematureResult.outputJson?.decision, "block");
+
+      await writeJson(join(stateDir, "sessions", sessionId, "skill-active-state.json"), {
+        active: true,
+        skill: "autopilot",
+        phase: "ralplan",
+        session_id: sessionId,
+        thread_id: threadId,
+        active_skills: [{ skill: "autopilot", phase: "ralplan", active: true, session_id: sessionId, thread_id: threadId }],
+        supervised_child_skill: "ultragoal",
+      });
+
+      const result = await dispatchCodexNativeHook(
+        {
+          hook_event_name: "PreToolUse",
+          cwd,
+          session_id: sessionId,
+          thread_id: threadId,
+          tool_name: "Edit",
+          tool_input: { file_path: "src/runtime.ts" },
+        },
+        { cwd },
+      );
+
+      assert.equal(result.owxEventName, "pre-tool-use");
+      assert.equal(result.outputJson, null);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("blocks implementation writes when Autopilot ralplan is visible only in skill-active phase", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-autopilot-skill-ralplan-pretool-block-"));
     try {
@@ -14728,6 +14797,7 @@ exit 0
         "echo \"printf x > src/runtime.ts\"",
         "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: .owx/context/bash.md\n+ok\n*** End Patch\nPATCH",
         "owx state read --input '{\"mode\":\"ralplan\"}' --json",
+        "owx state write --input '{\"mode\":\"ralplan\",\"active\":true,\"current_phase\":\"planning\"}' --json",
         "python3 <<'PY'\nfrom pathlib import Path\nPath('.owx/plans/python.md').write_text('plan')\nPY",
       ];
       for (const command of allowedCommands) {

@@ -2801,10 +2801,16 @@ function hasExplicitExecutionHandoffSkill(
   sessionId: string,
   threadId: string,
 ): boolean {
-  return listActiveSkills(state ?? {}).some((entry) => (
+  const hasActiveExecutionSkill = listActiveSkills(state ?? {}).some((entry) => (
     RALPLAN_EXECUTION_HANDOFF_SKILLS.has(entry.skill)
     && matchesSkillStopContext(entry, state ?? {}, sessionId, threadId)
   ));
+  if (hasActiveExecutionSkill) return true;
+
+  const supervisedChildSkill = safeString(state?.supervised_child_skill).trim();
+  return state?.active === true
+    && supervisedChildSkill === "ultragoal"
+    && matchesSkillStopContext(state ?? {}, state ?? {}, sessionId, threadId);
 }
 
 function isAllowedPlanningArtifactPath(
@@ -3389,7 +3395,7 @@ function commandUsesOnlyClassifiedPlanningExecutables(command: string): boolean 
     if (!/(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)) return false;
   }
   if (commandInvokesPlanningExecutable(command, "owx") || /(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)) {
-    if (!/\b(?:owx|owx\.js)\s+(?:question\b|hud\b|team\s+status\b|state\s+read\b)/.test(scan)) return false;
+    if (!/\b(?:owx|owx\.js)\s+(?:question\b|hud\b|team\s+status\b|state\s+(?:read|write)\b)/.test(scan)) return false;
   }
   const gitPattern = new RegExp(
     `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${planningExecutablePattern("git")}(?:\\s+-[^\\s;&|]+)*\\s+([^\\s;&|(){}]+)`,
@@ -3603,6 +3609,7 @@ async function readActiveRalplanStateForPreToolUse(
   const terminalAutopilotRunState = await readCanonicalTerminalRunStateForStop(cwd, sessionId, "autopilot");
   if (terminalAutopilotRunState) return null;
   if (!canonicalState) return null;
+  if (hasExplicitExecutionHandoffSkill(canonicalState, sessionId, threadId)) return null;
   const hasActiveAutopilotSkill = listActiveSkills(canonicalState).some((entry) => (
     entry.skill === "autopilot"
     && matchesSkillStopContext(entry, canonicalState, sessionId, threadId)
@@ -4131,7 +4138,7 @@ function resolveRepeatableStopSessionId(
 }
 
 function isStateLevelStopSignatureKind(kind: string): boolean {
-  return kind === "team-worker-stop" || kind === "team-stop";
+  return kind === "autopilot-stop" || kind === "team-worker-stop" || kind === "team-stop";
 }
 
 function buildRepeatableStopSignature(
