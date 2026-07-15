@@ -363,7 +363,7 @@ describe("codex native hook config", () => {
       matcher?: string;
       hooks?: Array<Record<string, unknown>>;
     };
-    assert.equal(sessionStart.matcher, "startup|resume|clear");
+    assert.equal(sessionStart.matcher, "startup|resume|clear|subagent");
     assert.equal(sessionStart.hooks?.[0]?.statusMessage, undefined);
 
     const preToolUse = config.hooks.PreToolUse[0] as {
@@ -1151,13 +1151,16 @@ describe("codex native hook dispatch", () => {
                 thread_spawn: {
                   parent_thread_id: leaderNativeSessionId,
                   depth: 1,
+                  agent_path: "/root/critic",
                   agent_nickname: "Hegel",
-                  agent_role: "critic",
+                  agent_role: null,
                 },
               },
             },
+            thread_source: "subagent",
+            agent_path: "/root/critic",
             agent_nickname: "Hegel",
-            agent_role: "critic",
+            agent_role: null,
           },
         })}\n`,
       );

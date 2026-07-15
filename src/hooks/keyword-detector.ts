@@ -44,6 +44,7 @@ import {
   type DeepInterviewRuntimeConfig,
 } from '../config/deep-interview.js';
 import { inferTerminalLifecycleOutcome } from '../runtime/run-outcome.js';
+import { updateModeState } from '../modes/base.js';
 
 export interface KeywordMatch {
   keyword: string;
@@ -1240,6 +1241,51 @@ export async function recordSkillActivation(input: RecordSkillActivationInput): 
       console.warn('[owx] warning: failed to persist keyword activation state', error);
     }
 
+    return state;
+  }
+
+  if (hasCancelIntent && previous?.active === true) {
+    const activeWorkflowModes = [...new Set(
+      listActiveSkills(previous)
+        .map((entry) => entry.skill)
+        .filter(isTrackedWorkflowMode),
+    )];
+    const cancellationErrors: string[] = [];
+    for (const mode of activeWorkflowModes) {
+      try {
+        await updateModeState(mode, {
+          active: false,
+          current_phase: 'cancelled',
+          run_outcome: 'cancelled',
+          completed_at: nowIso,
+        }, sourceCwd, input.sessionId ?? previous.session_id);
+      } catch (error) {
+        cancellationErrors.push(`${mode}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    const state: SkillActiveState = {
+      ...previous,
+      version: 1,
+      active: false,
+      phase: 'cancelled',
+      updated_at: nowIso,
+      source: 'keyword-detector',
+      session_id: input.sessionId ?? previous.session_id,
+      thread_id: input.threadId ?? previous.thread_id,
+      turn_id: input.turnId ?? previous.turn_id,
+      active_skills: [],
+      cancel_requested_at: nowIso,
+      ...(cancellationErrors.length > 0 ? { transition_error: cancellationErrors.join('; ') } : {}),
+    };
+
+    const refreshedRoot = await readExistingSkillState(rootStatePath);
+    await writeSkillActiveStateCopiesForStateDir(
+      input.stateDir,
+      state,
+      input.sessionId,
+      refreshedRoot ?? selectRootSkillStateCopy(previousRoot, state, input.sessionId),
+    );
     return state;
   }
 

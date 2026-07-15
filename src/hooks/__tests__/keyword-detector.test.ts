@@ -2694,6 +2694,50 @@ deepMaxRounds = 21
     }
   });
 
+  it('cancels active Autopilot state directly from an explicit cancel prompt', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-keyword-state-autopilot-cancel-'));
+    const stateDir = join(cwd, '.owx', 'state');
+    const sessionId = 'sess-autopilot-cancel';
+    try {
+      await writeActiveAutopilotSkillState(stateDir, sessionId);
+      await writeFile(join(stateDir, 'sessions', sessionId, 'autopilot-state.json'), JSON.stringify({
+        active: true,
+        mode: 'autopilot',
+        current_phase: 'ralplan',
+        iteration: 1,
+        max_iterations: 10,
+        started_at: AUTOPILOT_TEST_STARTED_AT,
+        updated_at: AUTOPILOT_TEST_UPDATED_AT,
+        session_id: sessionId,
+      }, null, 2));
+
+      const result = await recordSkillActivation({
+        stateDir,
+        sourceCwd: cwd,
+        sessionId,
+        text: '$cancel',
+        nowIso: '2026-07-15T12:48:00.000Z',
+      });
+
+      assert.ok(result);
+      assert.equal(result.skill, 'autopilot');
+      assert.equal(result.active, false);
+      assert.equal(result.phase, 'cancelled');
+      assert.deepEqual(result.active_skills, []);
+      assert.equal(result.transition_error, undefined);
+
+      const modeState = JSON.parse(
+        await readFile(join(stateDir, 'sessions', sessionId, 'autopilot-state.json'), 'utf-8'),
+      ) as { active?: boolean; current_phase?: string; run_outcome?: string; completed_at?: string };
+      assert.equal(modeState.active, false);
+      assert.equal(modeState.current_phase, 'cancelled');
+      assert.equal(modeState.run_outcome, 'cancelled');
+      assert.equal(modeState.completed_at, '2026-07-15T12:48:00.000Z');
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it('does not write state when no keyword is present', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-keyword-state-none-'));
     const stateDir = join(cwd, '.owx', 'state');

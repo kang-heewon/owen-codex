@@ -271,6 +271,17 @@ interface NativeSubagentSessionStartMetadata {
   parentThreadId: string;
   agentNickname?: string;
   agentRole?: string;
+  agentPath?: string;
+}
+
+function inferRegisteredAgentRoleFromPath(agentPath: string): string {
+  const pathSegment = agentPath.split("/").filter(Boolean).at(-1)?.trim().toLowerCase() ?? "";
+  if (!pathSegment) return "";
+  if (Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, pathSegment)) return pathSegment;
+  return pathSegment
+    .split(/[_-]+/)
+    .reverse()
+    .find((candidate) => Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, candidate)) ?? "";
 }
 
 function readBoundedFirstLineSync(path: string): string {
@@ -319,11 +330,14 @@ function readNativeSubagentSessionStartMetadata(transcriptPath: string): NativeS
     if (!parentThreadId) return null;
 
     const agentNickname = safeString(threadSpawn.agent_nickname ?? payload.agent_nickname).trim();
-    const agentRole = safeString(threadSpawn.agent_role ?? payload.agent_role).trim();
+    const agentPath = safeString(threadSpawn.agent_path ?? payload.agent_path).trim();
+    const explicitAgentRole = safeString(threadSpawn.agent_role ?? payload.agent_role).trim().toLowerCase();
+    const agentRole = explicitAgentRole || inferRegisteredAgentRoleFromPath(agentPath);
     return {
       parentThreadId,
       ...(agentNickname ? { agentNickname } : {}),
       ...(agentRole ? { agentRole } : {}),
+      ...(agentPath ? { agentPath } : {}),
     };
   } catch {
     return null;
@@ -367,6 +381,7 @@ async function recordNativeSubagentSessionStart(
     parent_thread_id: metadata.parentThreadId,
     ...(metadata.agentNickname ? { agent_nickname: metadata.agentNickname } : {}),
     ...(metadata.agentRole ? { agent_role: metadata.agentRole } : {}),
+    ...(metadata.agentPath ? { agent_path: metadata.agentPath } : {}),
     ...(transcriptPath ? { transcript_path: transcriptPath } : {}),
     timestamp: new Date().toISOString(),
   }).catch(() => {});
