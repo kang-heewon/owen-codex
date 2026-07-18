@@ -65,12 +65,13 @@ describe("generateOverlay", () => {
     assert.ok(overlay.includes("preflight-context.json"));
   });
 
-  it("injects mandatory native subagent agent_type routing guidance", async () => {
+  it("injects surface-aware native subagent role routing guidance", async () => {
     const overlay = await generateOverlay(tempDir, "native-subagent-routing");
     assert.match(overlay, /\*\*Native Subagent Routing:\*\*/);
-    assert.match(overlay, /always set `agent_type` to an installed OWX role/i);
-    assert.match(overlay, /Never omit `agent_type`/i);
-    assert.match(overlay, /default subagents/i);
+    assert.match(overlay, /surface exposes `agent_type`, set it to an installed OWX role/i);
+    assert.match(overlay, /Codex App surfaces without `agent_type`/i);
+    assert.match(overlay, /validated adapted role-intent receipt/i);
+    assert.match(overlay, /exact `task_name`/i);
   });
 
   it("includes the team orchestrator overlay only when orchestration mode is team", async () => {

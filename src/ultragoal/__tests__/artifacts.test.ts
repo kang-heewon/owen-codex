@@ -529,6 +529,53 @@ describe('ultragoal artifacts', () => {
     });
   });
 
+  it('checkpoints an intermediate aggregate story while Codex pauses the goal for usage limits', async () => {
+    await withTempRepo(async (cwd) => {
+      await createUltragoalPlan(cwd, {
+        brief: 'brief',
+        goals: [
+          { title: 'First', objective: 'Complete first milestone.' },
+          { title: 'Second', objective: 'Complete second milestone.' },
+        ],
+      });
+
+      const first = await startNextUltragoal(cwd);
+      const aggregateObjective = first.plan.codexObjective!;
+      await checkpointUltragoal(cwd, {
+        goalId: first.goal!.id,
+        status: 'complete',
+        evidence: 'first audit passed before the system pause',
+        codexGoal: { goal: { objective: aggregateObjective, status: 'usageLimited' } },
+      });
+
+      const plan = await readUltragoalPlan(cwd);
+      assert.equal(plan.goals[0]?.status, 'complete');
+      assert.equal(plan.goals[1]?.status, 'pending');
+      assert.equal(plan.activeGoalId, undefined);
+    });
+  });
+
+  it('does not accept a usage-limited goal as final aggregate completion proof', async () => {
+    await withTempRepo(async (cwd) => {
+      await createUltragoalPlan(cwd, {
+        brief: 'brief',
+        goals: [{ title: 'Final', objective: 'Complete final milestone.' }],
+      });
+
+      const final = await startNextUltragoal(cwd);
+      await assert.rejects(
+        () => checkpointUltragoal(cwd, {
+          goalId: final.goal!.id,
+          status: 'complete',
+          evidence: 'implementation is ready but the Codex goal is paused',
+          codexGoal: { goal: { objective: final.plan.codexObjective!, status: 'usageLimited' } },
+          qualityGate: cleanQualityGate(),
+        }),
+        /expected complete, got paused/,
+      );
+    });
+  });
+
   it('treats existing v1 plans without mode metadata as legacy per-story plans', async () => {
     await withTempRepo(async (cwd) => {
       const created = await createUltragoalPlan(cwd, {

@@ -32,11 +32,11 @@ describe("codex hooks helpers", () => {
     );
   });
 
-  it("registers SessionStart for leader and subagent sources", () => {
+  it("registers the currently supported SessionStart sources", () => {
     const config = buildManagedCodexHooksConfig("/repo");
     const sessionStart = config.hooks.SessionStart[0];
 
-    assert.equal(sessionStart?.matcher, "startup|resume|clear|subagent");
+    assert.equal(sessionStart?.matcher, "startup|resume|clear");
     assert.match(
       sessionStart?.matcher ?? "",
       /(?:^|\|)clear(?:\||$)/,
@@ -46,11 +46,6 @@ describe("codex hooks helpers", () => {
       sessionStart?.matcher ?? "",
       /(?:^|\|)startup(?:\||$)/,
       "fresh /new thread starts remain covered by Codex's startup SessionStart source",
-    );
-    assert.match(
-      sessionStart?.matcher ?? "",
-      /(?:^|\|)subagent(?:\||$)/,
-      "native child threads must reach OWX subagent provenance tracking",
     );
   });
 

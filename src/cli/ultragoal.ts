@@ -367,7 +367,7 @@ export async function ultragoalCommand(args: string[]): Promise<void> {
         ? reconcileCodexGoalSnapshot(snapshot, {
           expectedObjective: expectedObjective ?? plan.codexObjective ?? '',
           acceptedObjectives: plan.codexGoalMode === 'aggregate' ? plan.codexObjectiveAliases : undefined,
-          allowedStatuses: activeGoal && plan.codexGoalMode === 'aggregate' ? ['active'] : ['active', 'complete'],
+          allowedStatuses: activeGoal && plan.codexGoalMode === 'aggregate' ? ['active', 'paused'] : ['active', 'paused', 'complete'],
           requireSnapshot: false,
         })
         : null;

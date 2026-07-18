@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { AGENT_DEFINITIONS } from '../agents/definitions.js';
+import { canonicalizeOriginCwd, ROLE_INTENT_CORRELATION_TOKEN_PATTERN } from '../leader/contract.js';
 import { getBaseStateDir } from '../state/paths.js';
 
 export const SUBAGENT_TRACKING_SCHEMA_VERSION = 1;
 export const DEFAULT_SUBAGENT_ACTIVE_WINDOW_MS = 120_000;
+export const OMX_ADAPTED_PROVENANCE = 'omx_adapted';
 export const NATIVE_SUBAGENT_SUPPORT_BLOCKER_FILE = 'native-subagent-support.json';
 export const NATIVE_SUBAGENT_CAPACITY_BLOCKER_FILE = 'native-subagent-capacity.json';
 
@@ -65,6 +69,8 @@ export interface TrackedSubagentThread {
   last_completed_turn_id?: string;
   turn_count: number;
   mode?: string;
+  role?: string;
+  provenance_kind?: string;
   completion_source?: string;
   status?: SubagentAvailabilityStatus;
 }
@@ -72,6 +78,8 @@ export interface TrackedSubagentThread {
 export interface TrackedSubagentSession {
   session_id: string;
   leader_thread_id?: string;
+  leader_attested_at?: string;
+  leader_attest_source?: string;
   updated_at: string;
   threads: Record<string, TrackedSubagentThread>;
 }
@@ -79,6 +87,17 @@ export interface TrackedSubagentSession {
 export interface SubagentTrackingState {
   schemaVersion: 1;
   sessions: Record<string, TrackedSubagentSession>;
+  pending_role_intents: PendingRoleIntent[];
+}
+
+export interface PendingRoleIntent {
+  role: string;
+  session_id: string;
+  parent_thread_id: string;
+  correlation_token: string;
+  origin_cwd: string;
+  created_at: string;
+  expires_at: string;
 }
 
 export interface RecordSubagentTurnInput {
@@ -87,6 +106,8 @@ export interface RecordSubagentTurnInput {
   turnId?: string;
   timestamp?: string;
   mode?: string;
+  role?: string;
+  provenanceKind?: string;
   kind?: 'leader' | 'subagent';
   leaderThreadId?: string;
   completed?: boolean;
@@ -224,8 +245,7 @@ export function resolveNativeSubagentSupportStatus(
   if (tools) {
     const supported = tools.some((name) => /(?:^|\.)spawn_agent$/.test(name) || /multi_agent_v1\.spawn_agent/.test(name));
     return {
-      status: supported ? 'supported' : 'unsupported',
-      ...(supported ? {} : { reason: 'multi_agent_v1_unavailable' as const }),
+      status: supported ? 'supported' : 'unknown',
       source: 'hook_payload_available_tools',
       evidence_summary: tools.join(', '),
     };
@@ -278,6 +298,7 @@ export function createSubagentTrackingState(): SubagentTrackingState {
   return {
     schemaVersion: SUBAGENT_TRACKING_SCHEMA_VERSION,
     sessions: {},
+    pending_role_intents: [],
   };
 }
 
@@ -343,6 +364,10 @@ export function normalizeSubagentTrackingState(input: unknown): SubagentTracking
           ? candidate.turn_count
           : 1,
         ...(typeof candidate.mode === 'string' && candidate.mode.trim().length > 0 ? { mode: candidate.mode } : {}),
+        ...(typeof candidate.role === 'string' && candidate.role.trim().length > 0 ? { role: candidate.role.trim() } : {}),
+        ...(typeof candidate.provenance_kind === 'string' && candidate.provenance_kind.trim().length > 0
+          ? { provenance_kind: candidate.provenance_kind.trim() }
+          : {}),
         ...(typeof candidate.completion_source === 'string' && candidate.completion_source.trim().length > 0 ? { completion_source: candidate.completion_source } : {}),
         ...(normalizeSubagentStatus(candidate.status) ? { status: normalizeSubagentStatus(candidate.status) } : {}),
       };
@@ -359,6 +384,12 @@ export function normalizeSubagentTrackingState(input: unknown): SubagentTracking
     sessions[sessionId] = {
       session_id: sessionId,
       leader_thread_id: leaderThreadId,
+      ...(typeof sessionCandidate.leader_attested_at === 'string' && sessionCandidate.leader_attested_at.trim()
+        ? { leader_attested_at: sessionCandidate.leader_attested_at.trim() }
+        : {}),
+      ...(typeof sessionCandidate.leader_attest_source === 'string' && sessionCandidate.leader_attest_source.trim()
+        ? { leader_attest_source: sessionCandidate.leader_attest_source.trim() }
+        : {}),
       updated_at: updatedAt,
       threads,
     };
@@ -367,6 +398,30 @@ export function normalizeSubagentTrackingState(input: unknown): SubagentTracking
   return {
     schemaVersion: SUBAGENT_TRACKING_SCHEMA_VERSION,
     sessions,
+    pending_role_intents: Array.isArray(parsed.pending_role_intents)
+      ? parsed.pending_role_intents.flatMap((value) => {
+          if (!value || typeof value !== 'object') return [];
+          const candidate = value as Partial<PendingRoleIntent>;
+          const role = resolveInstalledRoleName(candidate.role);
+          const sessionId = candidate.session_id?.trim();
+          const parentThreadId = candidate.parent_thread_id?.trim();
+          const correlationToken = candidate.correlation_token?.trim();
+          const originCwd = candidate.origin_cwd?.trim();
+          if (!role || !sessionId || !parentThreadId || !correlationToken || !originCwd
+            || !ROLE_INTENT_CORRELATION_TOKEN_PATTERN.test(correlationToken)
+            || !candidate.created_at || !candidate.expires_at
+            || !Number.isFinite(Date.parse(candidate.created_at)) || !Number.isFinite(Date.parse(candidate.expires_at))) return [];
+          return [{
+            role,
+            session_id: sessionId,
+            parent_thread_id: parentThreadId,
+            correlation_token: correlationToken,
+            origin_cwd: originCwd,
+            created_at: candidate.created_at,
+            expires_at: candidate.expires_at,
+          }];
+        })
+      : [],
   };
 }
 
@@ -384,8 +439,36 @@ export async function writeSubagentTrackingState(cwd: string, state: SubagentTra
   const normalized = normalizeSubagentTrackingState(state);
   const path = subagentTrackingPath(cwd);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(normalized, null, 2)}\n`);
+  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(temporaryPath, `${JSON.stringify(normalized, null, 2)}\n`);
+  await rename(temporaryPath, path);
   return path;
+}
+
+async function withTrackingLock<T>(cwd: string, operation: () => Promise<T>): Promise<T> {
+  const lockPath = `${subagentTrackingPath(cwd)}.lock`;
+  await mkdir(dirname(lockPath), { recursive: true });
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    try {
+      const handle = await open(lockPath, 'wx');
+      try {
+        await handle.writeFile(`${process.pid}\n`);
+        return await operation();
+      } finally {
+        await handle.close().catch(() => {});
+        await unlink(lockPath).catch(() => {});
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const ageMs = await stat(lockPath).then((entry) => Date.now() - entry.mtimeMs).catch(() => 0);
+      if (ageMs > 60_000) {
+        await unlink(lockPath).catch(() => {});
+        continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  throw new Error(`Timed out acquiring subagent tracker lock: ${lockPath}`);
 }
 
 export function recordSubagentTurn(
@@ -469,6 +552,10 @@ export function recordSubagentTurn(
         }
       : preservedCompletionEvidence),
     ...(input.mode?.trim() ? { mode: input.mode.trim() } : existingThread?.mode ? { mode: existingThread.mode } : {}),
+    ...(input.role?.trim() ? { role: input.role.trim() } : existingThread?.role ? { role: existingThread.role } : {}),
+    ...(input.provenanceKind?.trim()
+      ? { provenance_kind: input.provenanceKind.trim() }
+      : existingThread?.provenance_kind ? { provenance_kind: existingThread.provenance_kind } : {}),
     ...(status ? { status } : {}),
   };
 
@@ -492,11 +579,159 @@ export function recordSubagentTurn(
   return normalized;
 }
 
+export function resolveInstalledRoleName(value: unknown): string | null {
+  const role = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return role && Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, role) ? role : null;
+}
+
+export async function attestLeaderThread(
+  cwd: string,
+  input: { sessionId: string; leaderThreadId: string; source: string; timestamp?: string },
+): Promise<boolean> {
+  const sessionId = input.sessionId.trim();
+  const leaderThreadId = input.leaderThreadId.trim();
+  if (!sessionId || !leaderThreadId) return false;
+  return withTrackingLock(cwd, async () => {
+    const current = await readSubagentTrackingState(cwd);
+    if (Object.values(current.sessions).some((session) => session.threads[leaderThreadId]?.kind === 'subagent')) return false;
+    const timestamp = input.timestamp ?? new Date().toISOString();
+    const next = recordSubagentTurn(current, { sessionId, threadId: leaderThreadId, kind: 'leader', timestamp });
+    const session = next.sessions[sessionId];
+    if (session.leader_thread_id && session.leader_thread_id !== leaderThreadId) return false;
+    session.leader_thread_id = leaderThreadId;
+    session.leader_attested_at = timestamp;
+    session.leader_attest_source = input.source;
+    await writeSubagentTrackingState(cwd, next);
+    return true;
+  });
+}
+
+export async function recordPendingRoleIntent(
+  cwd: string,
+  input: { role: string; sessionId: string; parentThreadId: string; correlationToken: string; ttlMs?: number; nowMs?: number },
+): Promise<{ ok: true; intent: PendingRoleIntent } | { ok: false; reason: string }> {
+  const role = resolveInstalledRoleName(input.role);
+  const sessionId = input.sessionId.trim();
+  const parentThreadId = input.parentThreadId.trim();
+  const correlationToken = input.correlationToken.trim();
+  const originCwd = canonicalizeOriginCwd(cwd);
+  if (!role) return { ok: false, reason: 'unknown_role' };
+  if (!originCwd || !sessionId || !parentThreadId || !ROLE_INTENT_CORRELATION_TOKEN_PATTERN.test(correlationToken)) {
+    return { ok: false, reason: 'invalid_correlation_token' };
+  }
+  return withTrackingLock(cwd, async () => {
+    const state = await readSubagentTrackingState(cwd);
+    const session = state.sessions[sessionId];
+    if (!session?.leader_attested_at || session.leader_thread_id !== parentThreadId) {
+      return { ok: false, reason: session ? 'native_anchor_mismatch' : 'native_anchor_unavailable' };
+    }
+    if (Object.values(state.sessions).some((candidate) => candidate.threads[parentThreadId]?.kind === 'subagent')) {
+      return { ok: false, reason: 'native_anchor_mismatch' };
+    }
+    const nowMs = input.nowMs ?? Date.now();
+    const live = state.pending_role_intents.find((intent) => intent.origin_cwd === originCwd
+      && intent.session_id === sessionId && intent.parent_thread_id === parentThreadId
+      && Date.parse(intent.expires_at) > nowMs);
+    if (live) return live.role === role
+      ? { ok: true, intent: live }
+      : { ok: false, reason: 'single_flight_conflict' };
+    const intent: PendingRoleIntent = {
+      role,
+      session_id: sessionId,
+      parent_thread_id: parentThreadId,
+      correlation_token: correlationToken,
+      origin_cwd: originCwd,
+      created_at: new Date(nowMs).toISOString(),
+      expires_at: new Date(nowMs + (input.ttlMs ?? 10 * 60_000)).toISOString(),
+    };
+    state.pending_role_intents = [...state.pending_role_intents.filter((candidate) => Date.parse(candidate.expires_at) > nowMs), intent];
+    await writeSubagentTrackingState(cwd, state);
+    return { ok: true, intent };
+  });
+}
+
+export async function consumePendingRoleIntent(
+  cwd: string,
+  input: { sessionId: string; parentThreadId: string; correlationToken?: string; nowMs?: number },
+): Promise<{ role: string; provenanceKind: typeof OMX_ADAPTED_PROVENANCE } | null> {
+  const token = input.correlationToken?.trim();
+  const originCwd = canonicalizeOriginCwd(cwd);
+  if (!originCwd || !token || !ROLE_INTENT_CORRELATION_TOKEN_PATTERN.test(token)) return null;
+  return withTrackingLock(cwd, async () => {
+    const state = await readSubagentTrackingState(cwd);
+    const nowMs = input.nowMs ?? Date.now();
+    const index = state.pending_role_intents.findIndex((intent) => intent.origin_cwd === originCwd
+      && intent.session_id === input.sessionId.trim()
+      && intent.parent_thread_id === input.parentThreadId.trim()
+      && intent.correlation_token === token
+      && Date.parse(intent.expires_at) > nowMs);
+    if (index < 0) return null;
+    const [intent] = state.pending_role_intents.splice(index, 1);
+    await writeSubagentTrackingState(cwd, state);
+    return { role: intent.role, provenanceKind: OMX_ADAPTED_PROVENANCE };
+  });
+}
+
+export async function bindPendingRoleIntentToSubagent(
+  cwd: string,
+  input: {
+    sessionId: string;
+    parentThreadId: string;
+    childThreadId: string;
+    correlationToken?: string;
+    nowMs?: number;
+  },
+): Promise<{ role: string; provenanceKind: typeof OMX_ADAPTED_PROVENANCE } | null> {
+  const token = input.correlationToken?.trim();
+  const sessionId = input.sessionId.trim();
+  const parentThreadId = input.parentThreadId.trim();
+  const childThreadId = input.childThreadId.trim();
+  const originCwd = canonicalizeOriginCwd(cwd);
+  if (!originCwd || !sessionId || !parentThreadId || !childThreadId || !token
+    || !ROLE_INTENT_CORRELATION_TOKEN_PATTERN.test(token)) return null;
+  return withTrackingLock(cwd, async () => {
+    let state = await readSubagentTrackingState(cwd);
+    const nowMs = input.nowMs ?? Date.now();
+    const index = state.pending_role_intents.findIndex((intent) => intent.origin_cwd === originCwd
+      && intent.session_id === sessionId
+      && intent.parent_thread_id === parentThreadId
+      && intent.correlation_token === token
+      && Date.parse(intent.expires_at) > nowMs);
+    if (index < 0) return null;
+    const [intent] = state.pending_role_intents.splice(index, 1);
+    const timestamp = new Date(nowMs).toISOString();
+    for (const trackingSessionId of new Set([sessionId, parentThreadId])) {
+      if (parentThreadId !== childThreadId) {
+        state = recordSubagentTurn(state, {
+          sessionId: trackingSessionId,
+          threadId: parentThreadId,
+          kind: 'leader',
+          timestamp,
+        });
+      }
+      state = recordSubagentTurn(state, {
+        sessionId: trackingSessionId,
+        threadId: childThreadId,
+        kind: 'subagent',
+        leaderThreadId: parentThreadId,
+        mode: intent.role,
+        role: intent.role,
+        provenanceKind: OMX_ADAPTED_PROVENANCE,
+        timestamp,
+      });
+    }
+    await writeSubagentTrackingState(cwd, state);
+    return { role: intent.role, provenanceKind: OMX_ADAPTED_PROVENANCE };
+  });
+}
+
 export async function recordSubagentTurnForSession(cwd: string, input: RecordSubagentTurnInput): Promise<SubagentTrackingState> {
-  const current = await readSubagentTrackingState(cwd);
-  const next = recordSubagentTurn(current, input);
-  await writeSubagentTrackingState(cwd, next);
-  return next;
+  return withTrackingLock(cwd, async () => {
+    const current = await readSubagentTrackingState(cwd);
+    const next = recordSubagentTurn(current, input);
+    await writeSubagentTrackingState(cwd, next);
+    return next;
+  });
 }
 
 export function summarizeSubagentSession(

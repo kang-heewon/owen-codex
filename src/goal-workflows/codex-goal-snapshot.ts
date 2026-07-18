@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-export type CodexGoalSnapshotStatus = 'active' | 'complete' | 'cancelled' | 'failed' | 'unknown';
+export type CodexGoalSnapshotStatus = 'active' | 'paused' | 'complete' | 'cancelled' | 'failed' | 'unknown';
 
 export interface CodexGoalSnapshot {
   available: boolean;
@@ -50,6 +50,7 @@ function normalizeStatus(value: unknown): CodexGoalSnapshotStatus {
   if (status === 'cancelled' || status === 'canceled') return 'cancelled';
   if (status === 'failed' || status === 'failure') return 'failed';
   if (status === 'active' || status === 'in_progress' || status === 'pending' || status === 'running') return 'active';
+  if (status === 'paused' || status === 'usage_limited' || status === 'usagelimited') return 'paused';
   return 'unknown';
 }
 

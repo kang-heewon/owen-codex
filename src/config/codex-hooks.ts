@@ -226,7 +226,7 @@ export function buildManagedCodexHooksConfig(
     hooks: {
       SessionStart: [
         buildCommandHook(command, {
-          matcher: "startup|resume|clear|subagent",
+          matcher: "startup|resume|clear",
         }),
       ],
       PreToolUse: [

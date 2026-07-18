@@ -397,6 +397,21 @@ describe('subagents/tracker', () => {
     assert.equal(expired.source, 'default_unknown');
   });
 
+  it('recognizes App collaboration spawn and does not treat partial tool inventories as unsupported', () => {
+    const app = resolveNativeSubagentSupportStatus({
+      payload: { available_tools: ['collaboration.spawn_agent'] },
+    });
+    const partial = resolveNativeSubagentSupportStatus({
+      payload: { available_tools: ['Read', 'Edit'] },
+    });
+
+    assert.equal(app.status, 'supported');
+    assert.equal(app.source, 'hook_payload_available_tools');
+    assert.equal(partial.status, 'unknown');
+    assert.equal(partial.reason, undefined);
+    assert.equal(partial.source, 'hook_payload_available_tools');
+  });
+
   it('rejects forged or unscoped unsupported evidence', () => {
     assert.equal(isUnsupportedNativeSubagentEvidenceForScope({
       status: 'unsupported',

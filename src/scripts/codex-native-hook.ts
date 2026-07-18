@@ -17,12 +17,16 @@ import {
 import {
   NATIVE_SUBAGENT_CAPACITY_BLOCKER_FILE,
   NATIVE_SUBAGENT_SUPPORT_BLOCKER_FILE,
+  OMX_ADAPTED_PROVENANCE,
+  attestLeaderThread,
+  bindPendingRoleIntentToSubagent,
   isTrustedSubagentThread,
   readSubagentSessionSummary,
   readSubagentTrackingState,
   recordSubagentTurnForSession,
   resolveNativeSubagentSupportStatus,
 } from "../subagents/tracker.js";
+import { parseRoleIntentCorrelationToken } from "../leader/contract.js";
 import { resolveCanonicalTeamStateRoot, resolveWorkerNotifyTeamStateRootPath } from "../team/state-root.js";
 import {
   appendToLog,
@@ -271,17 +275,7 @@ interface NativeSubagentSessionStartMetadata {
   parentThreadId: string;
   agentNickname?: string;
   agentRole?: string;
-  agentPath?: string;
-}
-
-function inferRegisteredAgentRoleFromPath(agentPath: string): string {
-  const pathSegment = agentPath.split("/").filter(Boolean).at(-1)?.trim().toLowerCase() ?? "";
-  if (!pathSegment) return "";
-  if (Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, pathSegment)) return pathSegment;
-  return pathSegment
-    .split(/[_-]+/)
-    .reverse()
-    .find((candidate) => Object.prototype.hasOwnProperty.call(AGENT_DEFINITIONS, candidate)) ?? "";
+  correlationToken?: string;
 }
 
 function readBoundedFirstLineSync(path: string): string {
@@ -312,6 +306,17 @@ function readBoundedFirstLineSync(path: string): string {
   }
 }
 
+function selectAuthoritativeTaskName(
+  threadSpawn: Record<string, unknown>,
+  subagent: Record<string, unknown>,
+  payload: Record<string, unknown>,
+): unknown {
+  for (const carrier of [threadSpawn, subagent, payload]) {
+    if (Object.prototype.hasOwnProperty.call(carrier, "task_name")) return carrier.task_name;
+  }
+  return undefined;
+}
+
 function readNativeSubagentSessionStartMetadata(transcriptPath: string): NativeSubagentSessionStartMetadata | null {
   const normalizedPath = transcriptPath.trim();
   if (!normalizedPath) return null;
@@ -330,14 +335,24 @@ function readNativeSubagentSessionStartMetadata(transcriptPath: string): NativeS
     if (!parentThreadId) return null;
 
     const agentNickname = safeString(threadSpawn.agent_nickname ?? payload.agent_nickname).trim();
-    const agentPath = safeString(threadSpawn.agent_path ?? payload.agent_path).trim();
-    const explicitAgentRole = safeString(threadSpawn.agent_role ?? payload.agent_role).trim().toLowerCase();
-    const agentRole = explicitAgentRole || inferRegisteredAgentRoleFromPath(agentPath);
+    const agentRole = safeString(
+      threadSpawn.agent_role
+        ?? threadSpawn.agentRole
+        ?? threadSpawn.agent_type
+        ?? threadSpawn.agentType
+        ?? payload.agent_role
+        ?? payload.agentRole
+        ?? payload.agent_type
+        ?? payload.agentType,
+    ).trim().toLowerCase();
+    const correlationToken = parseRoleIntentCorrelationToken(
+      selectAuthoritativeTaskName(threadSpawn, subagent, payload),
+    );
     return {
       parentThreadId,
       ...(agentNickname ? { agentNickname } : {}),
       ...(agentRole ? { agentRole } : {}),
-      ...(agentPath ? { agentPath } : {}),
+      ...(correlationToken ? { correlationToken } : {}),
     };
   } catch {
     return null;
@@ -353,6 +368,15 @@ async function recordNativeSubagentSessionStart(
 ): Promise<void> {
   const parentThreadId = metadata.parentThreadId.trim();
   const childThreadId = childSessionId.trim();
+  const adaptedIntent = !metadata.agentRole && metadata.correlationToken
+    ? await bindPendingRoleIntentToSubagent(cwd, {
+        sessionId: canonicalSessionId.trim() || parentThreadId,
+        parentThreadId,
+        childThreadId,
+        correlationToken: metadata.correlationToken,
+      })
+    : null;
+  const role = metadata.agentRole || adaptedIntent?.role;
   const trackingSessionIds = [...new Set([
     canonicalSessionId.trim(),
     parentThreadId,
@@ -370,7 +394,9 @@ async function recordNativeSubagentSessionStart(
       threadId: childThreadId,
       kind: 'subagent',
       ...(parentThreadId && parentThreadId !== childThreadId ? { leaderThreadId: parentThreadId } : {}),
-      mode: metadata.agentRole,
+      mode: role,
+      role,
+      ...(adaptedIntent ? { provenanceKind: OMX_ADAPTED_PROVENANCE } : {}),
     }).catch(() => {});
   }
   await appendToLog(cwd, {
@@ -380,8 +406,9 @@ async function recordNativeSubagentSessionStart(
     native_session_id: childSessionId,
     parent_thread_id: metadata.parentThreadId,
     ...(metadata.agentNickname ? { agent_nickname: metadata.agentNickname } : {}),
-    ...(metadata.agentRole ? { agent_role: metadata.agentRole } : {}),
-    ...(metadata.agentPath ? { agent_path: metadata.agentPath } : {}),
+    ...(role ? { agent_role: role } : {}),
+    ...(adaptedIntent ? { provenance_kind: OMX_ADAPTED_PROVENANCE } : {}),
+    ...(metadata.correlationToken ? { correlation_token: metadata.correlationToken } : {}),
     ...(transcriptPath ? { transcript_path: transcriptPath } : {}),
     timestamp: new Date().toISOString(),
   }).catch(() => {});
@@ -3998,6 +4025,38 @@ async function reconcileStaleRootSkillActiveStateForStop(
   await writeFile(rootPath, JSON.stringify(nextRoot, null, 2));
 }
 
+async function clearTerminalRalplanStopCache(
+  cwd: string,
+  stateDir: string,
+  payload: CodexHookPayload,
+  canonicalSessionId: string,
+): Promise<void> {
+  const ralplanState = await readStopSessionPinnedState(
+    "ralplan-state.json",
+    cwd,
+    canonicalSessionId,
+    stateDir,
+  );
+  if (!ralplanState || !isTerminalOrInactiveModeState(ralplanState)) return;
+  const path = join(stateDir, NATIVE_STOP_STATE_FILE);
+  const state = await readJsonIfExists(path);
+  if (!state) return;
+  const sessions = safeObject(state.sessions);
+  const keys = uniqueNonEmpty([
+    canonicalSessionId,
+    readPayloadSessionId(payload),
+    readPayloadThreadId(payload),
+  ]);
+  let changed = false;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(sessions, key)) {
+      delete sessions[key];
+      changed = true;
+    }
+  }
+  if (changed) await writeFile(path, JSON.stringify({ ...state, sessions }, null, 2));
+}
+
 function buildRalplanContinuationStatus(
   blocker: { phase: string; latestPlanPath?: string; planningComplete?: boolean; runOutcome?: string },
   activeSubagentCount: number,
@@ -4627,7 +4686,7 @@ async function buildStopHookOutput(
   payload: CodexHookPayload,
   cwd: string,
   stateDir: string,
-  options: { skipRalphStopBlock?: boolean } = {},
+  options: { skipAutoNudge?: boolean; skipRalphStopBlock?: boolean } = {},
 ): Promise<Record<string, unknown> | null> {
   if (isStopExempt(payload)) {
     return null;
@@ -4639,6 +4698,7 @@ async function buildStopHookOutput(
   const suppressParentWorkflowStop = shouldSuppressParentWorkflowStopForSideConversation(payload);
   if (canonicalSessionId) {
     await reconcileStaleRootSkillActiveStateForStop(cwd, stateDir, canonicalSessionId);
+    await clearTerminalRalplanStopCache(cwd, stateDir, payload, canonicalSessionId);
   }
   if (suppressParentWorkflowStop) {
     return null;
@@ -4865,7 +4925,8 @@ async function buildStopHookOutput(
     const autoNudgePhase = await readStopAutoNudgePhase(cwd, stateDir, canonicalSessionId, threadId);
 
     if (
-      autoNudgeConfig.enabled
+      options.skipAutoNudge !== true
+      && autoNudgeConfig.enabled
       && detectNativeStopStallPattern(lastAssistantMessage, autoNudgeConfig.patterns, autoNudgePhase)
     ) {
       const effectiveResponse = resolveEffectiveAutoNudgeResponse(autoNudgeConfig.response);
@@ -4958,6 +5019,28 @@ export async function dispatchCodexNativeHook(
   let resolvedNativeSessionId = nativeSessionId;
   let skipCanonicalSessionStartContext = false;
   let isSubagentSessionStart = false;
+
+  if (
+    hookEventName === "PreToolUse"
+    && nativeSessionId
+    && threadId === nativeSessionId
+    && !readPayloadAgentRole(payload)
+  ) {
+    if (!canonicalSessionId) {
+      const sessionState = await reconcileNativeSessionStart(cwd, nativeSessionId, {
+        pid: options.sessionOwnerPid ?? resolveSessionOwnerPid(payload),
+      }).catch(() => null);
+      canonicalSessionId = safeString(sessionState?.session_id).trim();
+      resolvedNativeSessionId = safeString(sessionState?.native_session_id).trim() || nativeSessionId;
+    }
+    if (canonicalSessionId) {
+      await attestLeaderThread(cwd, {
+        sessionId: canonicalSessionId,
+        leaderThreadId: nativeSessionId,
+        source: "native-pretooluse",
+      }).catch(() => false);
+    }
+  }
 
   if (hookEventName === "SessionStart" && nativeSessionId) {
     const transcriptPath = safeString(payload.transcript_path ?? payload.transcriptPath).trim();
@@ -5237,6 +5320,7 @@ export async function dispatchCodexNativeHook(
   } else if (hookEventName === "Stop") {
     outputJson = await buildStopHookOutput(payload, cwd, stateDir, {
       skipRalphStopBlock: isSubagentStop,
+      skipAutoNudge: isSubagentStop,
     });
   }
 

@@ -125,7 +125,9 @@ describe('config generator', () => {
       assert.match(toml, /AGENTS\.md is the orchestration brain and main control surface/);
       assert.match(toml, /Follow AGENTS\.md for skill\/keyword routing, \$name workflow invocation, and role-specialized subagents/);
       assert.match(toml, /Native subagents live in \.codex\/agents/);
-      assert.match(toml, /set `agent_type` to an installed role and never omit it for OWX work/);
+      assert.match(toml, /native surface exposes `agent_type`, set it to an installed role/);
+      assert.match(toml, /Codex App surfaces without role routing/);
+      assert.match(toml, /exact receipt task_name/);
       assert.match(toml, /Treat installed prompts as narrower execution surfaces under AGENTS\.md authority/);
       assert.match(toml, /When shaping product behavior, make the core user loop stronger before adding breadth/);
       assert.match(toml, /define explicit success and failure states/);

@@ -34,6 +34,8 @@ import { createUltragoalPlan, readUltragoalPlan } from "../../ultragoal/artifact
 import { getBaseStateDir } from "../../state/paths.js";
 import { maybeNudgeLeaderForAllowedWorkerStop } from "../notify-hook/team-worker-stop.js";
 import { MAX_NATIVE_STDIN_JSON_BYTES } from "../hook-payload-guard.js";
+import { buildRoleIntentSpawnTaskName } from "../../leader/contract.js";
+import { recordPendingRoleIntent } from "../../subagents/tracker.js";
 
 function nativeHookScriptPath(): string {
   return join(process.cwd(), "dist", "scripts", "codex-native-hook.js");
@@ -363,7 +365,7 @@ describe("codex native hook config", () => {
       matcher?: string;
       hooks?: Array<Record<string, unknown>>;
     };
-    assert.equal(sessionStart.matcher, "startup|resume|clear|subagent");
+    assert.equal(sessionStart.matcher, "startup|resume|clear");
     assert.equal(sessionStart.hooks?.[0]?.statusMessage, undefined);
 
     const preToolUse = config.hooks.PreToolUse[0] as {
@@ -1153,14 +1155,14 @@ describe("codex native hook dispatch", () => {
                   depth: 1,
                   agent_path: "/root/critic",
                   agent_nickname: "Hegel",
-                  agent_role: null,
+                  agent_role: "critic",
                 },
               },
             },
             thread_source: "subagent",
             agent_path: "/root/critic",
             agent_nickname: "Hegel",
-            agent_role: null,
+            agent_role: "critic",
           },
         })}\n`,
       );
@@ -1233,6 +1235,70 @@ describe("codex native hook dispatch", () => {
       } else {
         process.env.CODEX_HOME = originalCodexHome;
       }
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("binds an untyped App child to a validated role intent through task_name", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-app-role-intent-"));
+    try {
+      const canonicalSessionId = "owx-app-role-session";
+      const leaderThreadId = "codex-app-leader";
+      const childThreadId = "codex-app-architect";
+      await writeSessionStart(cwd, canonicalSessionId, { nativeSessionId: leaderThreadId });
+      await dispatchCodexNativeHook({
+        hook_event_name: "PreToolUse",
+        cwd,
+        session_id: leaderThreadId,
+        thread_id: leaderThreadId,
+        tool_name: "Bash",
+        tool_input: { command: "pwd" },
+      }, { cwd, sessionOwnerPid: process.pid });
+
+      const correlationToken = "abcdef123456";
+      const intent = await recordPendingRoleIntent(cwd, {
+        role: "architect",
+        sessionId: canonicalSessionId,
+        parentThreadId: leaderThreadId,
+        correlationToken,
+      });
+      assert.equal(intent.ok, true);
+
+      const transcriptPath = join(cwd, "app-child-rollout.jsonl");
+      await writeFile(transcriptPath, `${JSON.stringify({
+        type: "session_meta",
+        payload: {
+          id: childThreadId,
+          source: {
+            subagent: {
+              thread_spawn: {
+                parent_thread_id: leaderThreadId,
+                depth: 1,
+                task_name: buildRoleIntentSpawnTaskName(correlationToken),
+                agent_role: null,
+              },
+            },
+          },
+        },
+      })}\n`);
+
+      await dispatchCodexNativeHook({
+        hook_event_name: "SessionStart",
+        cwd,
+        session_id: childThreadId,
+        transcript_path: transcriptPath,
+      }, { cwd, sessionOwnerPid: process.pid });
+
+      const tracking = JSON.parse(await readFile(join(cwd, ".owx", "state", "subagent-tracking.json"), "utf-8")) as {
+        sessions?: Record<string, { threads?: Record<string, { mode?: string; role?: string; provenance_kind?: string }> }>;
+        pending_role_intents?: unknown[];
+      };
+      const child = tracking.sessions?.[canonicalSessionId]?.threads?.[childThreadId];
+      assert.equal(child?.mode, "architect");
+      assert.equal(child?.role, "architect");
+      assert.equal(child?.provenance_kind, "omx_adapted");
+      assert.deepEqual(tracking.pending_role_intents, []);
+    } finally {
       await rm(cwd, { recursive: true, force: true });
     }
   });
@@ -12341,7 +12407,7 @@ exit 0
           cwd,
           session_id: childNativeSessionId,
           thread_id: childNativeSessionId,
-          last_assistant_message: "Verdict: APPROVED. Evidence is sufficient.",
+          last_assistant_message: "If you want, I can continue with more verification.",
         },
         { cwd },
       );
@@ -13226,7 +13292,6 @@ exit 0
         skill: "deep-interview",
         phase: "planning",
       });
-
       const result = await dispatchCodexNativeHook(
         {
           hook_event_name: "Stop",
@@ -13362,6 +13427,13 @@ exit 0
           { skill: "ultrawork", phase: "planning", active: true },
         ],
       });
+      await writeJson(join(stateDir, "native-stop-state.json"), {
+        version: 1,
+        sessions: {
+          [sessionId]: { key: "stale-ralplan-stop" },
+          "thread-stop-terminal-ralplan": { key: "stale-thread-stop" },
+        },
+      });
 
       const result = await dispatchCodexNativeHook(
         {
@@ -13384,6 +13456,15 @@ exit 0
       assert.equal(rootSkillState.active, false);
       assert.deepEqual(rootSkillState.active_skills, []);
       assert.equal(rootSkillState.reconciliation_reason, "stop_hook_session_state_terminal");
+      const stopState = JSON.parse(
+        await readFile(join(stateDir, "native-stop-state.json"), "utf-8"),
+      ) as { sessions?: Record<string, unknown> };
+      assert.equal(stopState.sessions?.["thread-stop-terminal-ralplan"], undefined);
+      assert.notEqual(stopState.sessions?.[sessionId], undefined);
+      assert.equal(
+        (stopState.sessions?.[sessionId] as { key?: unknown } | undefined)?.key,
+        undefined,
+      );
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

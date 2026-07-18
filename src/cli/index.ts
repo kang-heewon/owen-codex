@@ -27,6 +27,7 @@ import { hudCommand } from "../hud/index.js";
 import { sidecarCommand } from "../sidecar/index.js";
 import { teamCommand } from "./team.js";
 import { ralphCommand } from "./ralph.js";
+import { ralplanCommand } from "./ralplan.js";
 import { ultragoalCommand } from "./ultragoal.js";
 import { performanceGoalCommand } from "./performance-goal.js";
 import { askCommand } from "./ask.js";
@@ -234,6 +235,7 @@ Usage:
                 Alias for agents-init (lightweight AGENTS bootstrap only)
   owx team      Spawn parallel worker panes in tmux and bootstrap inbox/task state
   owx ralph     Launch Codex with ralph persistence mode active
+  owx ralplan   Record validated App-compatible Ralplan role intents
   owx ultragoal Create, resume, and checkpoint durable multi-goal plans over Codex goal mode
   owx performance-goal
                 Create, hand off, and gate evaluator-backed performance goals
@@ -2076,6 +2078,7 @@ export async function main(args: string[]): Promise<void> {
     "sparkshell",
     "team",
     "ralph",
+    "ralplan",
     "ultragoal",
     "performance-goal",
     "session",
@@ -2215,6 +2218,9 @@ export async function main(args: string[]): Promise<void> {
         break;
       case "ralph":
         await ralphCommand(args.slice(1));
+        break;
+      case "ralplan":
+        await ralplanCommand(args.slice(1));
         break;
       case "ultragoal":
         await ultragoalCommand(args.slice(1));

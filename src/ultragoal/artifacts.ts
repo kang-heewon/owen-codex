@@ -1330,7 +1330,7 @@ export async function checkpointUltragoal(cwd: string, options: CheckpointOption
         expectedObjective,
         acceptedObjectives: aggregateMode ? compatibleCodexObjectives(plan) : undefined,
         allowedStatuses: aggregateMode
-          ? (finalRunCheckpoint && !options.allowActiveFinalCodexGoal ? ['complete'] : ['active'])
+          ? (finalRunCheckpoint && !options.allowActiveFinalCodexGoal ? ['complete'] : ['active', 'paused'])
           : ['complete'],
         requireSnapshot: true,
         requireComplete: !aggregateMode || (finalRunCheckpoint && !options.allowActiveFinalCodexGoal),
@@ -1455,7 +1455,7 @@ export async function recordFinalReviewBlockers(cwd: string, options: RecordFina
     {
       expectedObjective,
       acceptedObjectives: aggregateMode ? compatibleCodexObjectives(plan) : undefined,
-      allowedStatuses: ['active'],
+      allowedStatuses: aggregateMode ? ['active', 'paused'] : ['active'],
       requireSnapshot: true,
       requireComplete: false,
     },

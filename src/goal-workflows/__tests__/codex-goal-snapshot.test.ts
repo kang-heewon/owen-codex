@@ -24,6 +24,16 @@ describe('codex goal snapshot reconciliation', () => {
     assert.equal(snapshot.remainingTokens, 25);
   });
 
+  it('preserves usage-limited goals as paused instead of unknown', () => {
+    const snapshot = parseCodexGoalSnapshot({
+      goal: { objective: 'Ship the feature', status: 'usageLimited' },
+    });
+
+    assert.equal(snapshot.available, true);
+    assert.equal(snapshot.objective, 'Ship the feature');
+    assert.equal(snapshot.status, 'paused');
+  });
+
   it('classifies get_goal SQL schema/context errors as unavailable without weakening normal goal snapshots', () => {
     const unavailable = parseCodexGoalSnapshot({
       error: 'SQL error: no such table: thread_goals',

@@ -282,9 +282,9 @@ async function readProjectMemorySummary(cwd: string): Promise<string> {
 
 function getNativeSubagentRoutingInstructions(): string {
   return [
-    "When spawning Codex native subagents, always set `agent_type` to an installed OWX role.",
+    "When the native surface exposes `agent_type`, set it to an installed OWX role.",
     "Use the most specific role (`architect`, `code-reviewer`, `critic`, `planner`, `debugger`, etc.); use `executor` only for generic implementation work.",
-    "Never omit `agent_type` for OWX work: untyped Task subagents appear as default subagents and lose role-specific prompts/routing.",
+    "On Codex App surfaces without `agent_type`, use the workflow's validated adapted role-intent receipt and exact `task_name`; never infer a role from prompt text or child paths.",
   ].join("\n");
 }
 

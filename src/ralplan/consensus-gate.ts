@@ -290,7 +290,9 @@ function trackerBackedNativeReviewProblem(
 ): string | null {
   if (!review) return `${agentRole} review is missing`;
   if (review.agent_role !== agentRole) return `${agentRole} review has agent_role=${String(review.agent_role || 'missing')}`;
-  if (review.provenance_kind !== 'native_subagent') return `${agentRole} review has provenance_kind=${String(review.provenance_kind || 'missing')}`;
+  if (review.provenance_kind !== 'native_subagent' && review.provenance_kind !== 'omx_adapted') {
+    return `${agentRole} review has provenance_kind=${String(review.provenance_kind || 'missing')}`;
+  }
   const sessionId = typeof options.sessionId === 'string' && options.sessionId.trim()
     ? options.sessionId.trim()
     : typeof review.session_id === 'string'
@@ -322,6 +324,12 @@ function trackerBackedNativeReviewProblem(
   if (!leaderThreadId || leaderThread?.kind !== 'leader') return `${agentRole} tracker session ${sessionId} has no established leader thread`;
   if (thread.kind !== 'subagent') return `${agentRole} tracker thread ${threadId} has kind=${String(thread.kind || 'missing')}`;
   if (thread.mode !== agentRole) return `${agentRole} tracker thread ${threadId} has mode=${String(thread.mode || 'missing')}`;
+  if (review.provenance_kind === 'omx_adapted') {
+    if (thread.role !== agentRole) return `${agentRole} tracker thread ${threadId} has role=${String(thread.role || 'missing')}`;
+    if (thread.provenance_kind !== 'omx_adapted') {
+      return `${agentRole} tracker thread ${threadId} has provenance_kind=${String(thread.provenance_kind || 'missing')}`;
+    }
+  }
   return null;
 }
 
