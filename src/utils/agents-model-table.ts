@@ -14,8 +14,6 @@ import {
 export const OWX_MODELS_START_MARKER = '<!-- OWX:MODELS:START -->';
 export const OWX_MODELS_END_MARKER = '<!-- OWX:MODELS:END -->';
 
-const TEAM_MODEL_RESOLUTION_END = '</team_model_resolution>';
-
 export interface AgentsModelTableContext {
   frontierModel: string;
   sparkModel: string;
@@ -177,14 +175,6 @@ export function upsertAgentsModelTable(
   if (startIndex >= 0 && endIndex > startIndex) {
     const replaceEnd = endIndex + OWX_MODELS_END_MARKER.length;
     return `${content.slice(0, startIndex)}${block}${content.slice(replaceEnd)}`;
-  }
-
-  const insertionAnchor = `${TEAM_MODEL_RESOLUTION_END}\n\n---`;
-  if (content.includes(insertionAnchor)) {
-    return content.replace(
-      insertionAnchor,
-      `${TEAM_MODEL_RESOLUTION_END}\n\n${block}\n\n---`,
-    );
   }
 
   const trailingNewline = content.endsWith('\n') ? '' : '\n';

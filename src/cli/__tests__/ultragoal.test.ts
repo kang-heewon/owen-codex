@@ -52,65 +52,20 @@ async function capture(run: () => Promise<void>): Promise<{ stdout: string[]; st
 }
 
 describe('cli/ultragoal', () => {
-  it('refuses mutating ultragoal commands from Team worker environments', async () => {
-    const mutators: string[][] = [
-      ['create-goals', '--brief', 'worker must not create'],
-      ['create', '--brief', 'worker must not create'],
-      ['add-goal', '--title', 'Worker goal', '--objective', 'Do not add'],
-      ['steer', '--kind', 'add_subgoal', '--title', 'Worker steer', '--objective', 'Do not steer', '--evidence', 'worker evidence', '--rationale', 'worker rationale'],
-      ['record-review-blockers', '--goal-id', 'G001-first', '--title', 'Blocker', '--objective', 'Do not record', '--evidence', 'worker evidence', '--codex-goal-json', JSON.stringify({ goal: { objective: 'x', status: 'active' } })],
-      ['complete-goals'],
-      ['complete'],
-      ['next'],
-      ['start-next'],
-      ['checkpoint', '--goal-id', 'G001-first', '--status', 'complete', '--evidence', 'worker evidence'],
-    ];
-    const envCases: Array<[string, string]> = [
-      ['OWX_TEAM_WORKER', 'display-team/worker-1'],
-      ['OWX_TEAM_INTERNAL_WORKER', 'internal-team/worker-1'],
-    ];
-
-    for (const [envName, envValue] of envCases) {
-      for (const args of mutators) {
-        await withCwd(async (cwd) => {
-          const previousPublic = process.env.OWX_TEAM_WORKER;
-          const previousInternal = process.env.OWX_TEAM_INTERNAL_WORKER;
-          delete process.env.OWX_TEAM_WORKER;
-          delete process.env.OWX_TEAM_INTERNAL_WORKER;
-          process.env[envName] = envValue;
-          try {
-            const result = await capture(() => ultragoalCommand(args));
-            assert.equal(result.exitCode, 1, `${envName} should block ${args[0]}`);
-            assert.match(result.stderr.join('\n'), /leader-owned/i);
-            assert.match(result.stderr.join('\n'), /report checkpoint evidence upward/i);
-            assert.equal(existsSync(join(cwd, '.owx/ultragoal/goals.json')), false);
-            assert.equal(existsSync(join(cwd, '.owx/ultragoal/ledger.jsonl')), false);
-          } finally {
-            if (typeof previousPublic === 'string') process.env.OWX_TEAM_WORKER = previousPublic;
-            else delete process.env.OWX_TEAM_WORKER;
-            if (typeof previousInternal === 'string') process.env.OWX_TEAM_INTERNAL_WORKER = previousInternal;
-            else delete process.env.OWX_TEAM_INTERNAL_WORKER;
-          }
-        });
-      }
-    }
-  });
-
-  it('allows ultragoal help and status from Team worker environments', async () => {
-    await withCwd(async () => {
-      await capture(() => ultragoalCommand(['create-goals', '--brief', '- First milestone']));
+  it('ignores retired worker identity environment variables', async () => {
+    await withCwd(async (cwd) => {
       const previousPublic = process.env.OWX_TEAM_WORKER;
       const previousInternal = process.env.OWX_TEAM_INTERNAL_WORKER;
-      process.env.OWX_TEAM_WORKER = 'display-team/worker-1';
-      process.env.OWX_TEAM_INTERNAL_WORKER = 'internal-team/worker-1';
+      process.env.OWX_TEAM_WORKER = 'legacy/worker-1';
+      process.env.OWX_TEAM_INTERNAL_WORKER = 'legacy/worker-1';
       try {
-        const help = await capture(() => ultragoalCommand(['help']));
-        assert.equal(help.exitCode, undefined);
-        assert.match(help.stdout.join('\n'), /owx ultragoal/);
-
-        const status = await capture(() => ultragoalCommand(['status']));
-        assert.equal(status.exitCode, undefined);
-        assert.match(status.stdout.join('\n'), /ultragoal:/);
+        const result = await capture(() => ultragoalCommand([
+          'create-goals',
+          '--brief',
+          'Retired environment variables are inert',
+        ]));
+        assert.equal(result.exitCode, undefined);
+        assert.equal(existsSync(join(cwd, '.owx/ultragoal/goals.json')), true);
       } finally {
         if (typeof previousPublic === 'string') process.env.OWX_TEAM_WORKER = previousPublic;
         else delete process.env.OWX_TEAM_WORKER;

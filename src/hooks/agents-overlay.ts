@@ -23,7 +23,6 @@ import {
   owxNotepadPath,
   owxProjectMemoryPath,
   owxStateDir,
-  packageRoot,
 } from "../utils/paths.js";
 import {
   isPlanningComplete,
@@ -37,7 +36,6 @@ import {
 import { generateCodebaseMap } from "./codebase-map.js";
 import { buildExploreRoutingGuidance } from "./explore-routing.js";
 import {
-  SKILL_ACTIVE_STATE_FILE,
   listActiveSkills,
   readVisibleSkillActiveStateForStateDir,
 } from "../state/skill-active.js";
@@ -49,8 +47,6 @@ import {
 
 const START_MARKER = "<!-- OWX:RUNTIME:START -->";
 const END_MARKER = "<!-- OWX:RUNTIME:END -->";
-const WORKER_START_MARKER = "<!-- OWX:TEAM:WORKER:START -->";
-const WORKER_END_MARKER = "<!-- OWX:TEAM:WORKER:END -->";
 const MAX_OVERLAY_SIZE = 3500;
 const SKILL_REFERENCE_PATTERN = /\/skills\/([^/\s`]+)\/SKILL\.md\b/g;
 
@@ -137,10 +133,11 @@ type OverlaySection = {
   optional: boolean;
 };
 
-export type SessionOrchestrationMode = "default" | "team";
+export type SessionOrchestrationMode = "default";
 
 export interface GenerateOverlayOptions {
-  orchestrationMode?: SessionOrchestrationMode;
+  /** Retained temporarily for callers migrating off orchestration-specific overlays. */
+  orchestrationMode?: string;
 }
 
 function joinSections(sections: OverlaySection[]): string {
@@ -282,9 +279,11 @@ async function readProjectMemorySummary(cwd: string): Promise<string> {
 
 function getNativeSubagentRoutingInstructions(): string {
   return [
-    "When the native surface exposes `agent_type`, set it to an installed OWX role.",
+    "Native `agent_type` is the sole authority for a child agent's role identity.",
     "Use the most specific role (`architect`, `code-reviewer`, `critic`, `planner`, `debugger`, etc.); use `executor` only for generic implementation work.",
-    "On Codex App surfaces without `agent_type`, use the workflow's validated adapted role-intent receipt and exact `task_name`; never infer a role from prompt text or child paths.",
+    "If a required role cannot be selected, stop that lane with `role_identity_unavailable`; never infer a role from task names, prompts, labels, or child paths.",
+    "Delegate bounded work with explicit ownership; the leader integrates results and verifies the whole task.",
+    "Sequential retry is a degraded path when native delegation is unavailable, not a replacement coordination runtime.",
   ].join("\n");
 }
 
@@ -293,48 +292,15 @@ function getCompactionInstructions(): string {
     "Before context compaction, preserve critical state:",
     "1. Write progress checkpoint via `owx state write --input '<json>' --json`",
     "2. Save key decisions via `owx notepad write-working --input '<json>' --json`",
-    "3. Before large Team work near compaction, reload `.owx/state/team/<team>/preflight-context.json`",
-    "4. If context is >80% full, proactively checkpoint state",
+    "3. If context is >80% full, proactively checkpoint state",
   ].join("\n");
 }
 
-async function readTeamOrchestratorOverlay(): Promise<string> {
-  const overlayPath = join(packageRoot(), "prompts", "team-orchestrator.md");
-  try {
-    return (await readFile(overlayPath, "utf-8")).trim();
-  } catch {
-    return "";
-  }
-}
-
 export async function resolveSessionOrchestrationMode(
-  cwd: string,
-  sessionId?: string,
-  activeSkill?: string,
+  _cwd: string,
+  _sessionId?: string,
+  _activeSkill?: string,
 ): Promise<SessionOrchestrationMode> {
-  if (activeSkill === "team") return "team";
-  if (activeSkill) return "default";
-  if (sessionId && !existsSync(getStateDir(cwd, sessionId))) {
-    return "default";
-  }
-
-  const scopedStateDirs = await getAuthoritativeActiveStateDirs(cwd, sessionId);
-  for (const stateDir of scopedStateDirs) {
-    const statePath = join(stateDir, SKILL_ACTIVE_STATE_FILE);
-    if (!existsSync(statePath)) continue;
-
-    try {
-      const state = JSON.parse(await readFile(statePath, "utf-8")) as {
-        active?: boolean;
-        skill?: string;
-      };
-      if (state.active !== true) return "default";
-      return state.skill === "team" ? "team" : "default";
-    } catch {
-      return "default";
-    }
-  }
-
   return "default";
 }
 
@@ -345,9 +311,8 @@ export async function resolveSessionOrchestrationMode(
 export async function generateOverlay(
   cwd: string,
   sessionId?: string,
-  options: GenerateOverlayOptions = {},
+  _options: GenerateOverlayOptions = {},
 ): Promise<string> {
-  const orchestrationMode = options.orchestrationMode ?? "default";
   const [
     activeModes,
     notepadPriority,
@@ -355,7 +320,6 @@ export async function generateOverlay(
     codebaseMap,
     ralphActive,
     planningArtifacts,
-    teamOverlay,
     exploreRoutingGuidance,
   ] = await Promise.all([
     readActiveModes(cwd, sessionId),
@@ -364,9 +328,6 @@ export async function generateOverlay(
     generateCodebaseMap(cwd),
     isRalphActive(cwd, sessionId),
     readRalphPlanningArtifacts(cwd),
-    orchestrationMode === "team"
-      ? readTeamOrchestratorOverlay()
-      : Promise.resolve(""),
     Promise.resolve(buildExploreRoutingGuidance()),
   ]);
 
@@ -383,7 +344,7 @@ export async function generateOverlay(
 
   sections.push({
     key: "native_subagent_routing",
-    text: `**Native Subagent Routing:**\n${truncate(getNativeSubagentRoutingInstructions(), 520)}`,
+    text: `**Native Subagent Routing:**\n${truncate(getNativeSubagentRoutingInstructions(), 620)}`,
     optional: false,
   });
 
@@ -419,14 +380,6 @@ export async function generateOverlay(
     sections.push({
       key: "project_context",
       text: `**Project Context:**\n${truncate(projectMemory, 1000)}`,
-      optional: true,
-    });
-  }
-
-  if (teamOverlay) {
-    sections.push({
-      key: "team_orchestrator",
-      text: `**Orchestration Mode:** team\n${truncate(teamOverlay, 900)}`,
       optional: true,
     });
   }
@@ -477,7 +430,7 @@ export async function generateOverlay(
       { key: "session", text: truncate(sessionMeta, 200), optional: false },
       {
         key: "native_subagent_routing",
-        text: `**Native Subagent Routing:**\n${truncate(getNativeSubagentRoutingInstructions(), 520)}`,
+        text: `**Native Subagent Routing:**\n${truncate(getNativeSubagentRoutingInstructions(), 620)}`,
         optional: false,
       },
       {
@@ -554,11 +507,9 @@ function stripOverlayContent(content: string): string {
     const endIdx = result.indexOf(END_MARKER, startIdx);
     if (endIdx < 0) {
       // Malformed runtime marker block. Remove only until the next known marker
-      // so unrelated overlays (e.g. worker overlay) are preserved.
+      // so a later valid runtime overlay remains recoverable.
       const markerCandidates = [
         result.indexOf(START_MARKER, startIdx + START_MARKER.length),
-        result.indexOf(WORKER_START_MARKER, startIdx + START_MARKER.length),
-        result.indexOf(WORKER_END_MARKER, startIdx + START_MARKER.length),
       ].filter((i) => i >= 0);
 
       const nextMarkerIdx =

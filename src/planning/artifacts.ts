@@ -43,12 +43,9 @@ export interface ApprovedPlanContext {
 }
 
 export interface ApprovedExecutionLaunchHint extends ApprovedPlanContext {
-  mode: 'team' | 'ralph';
+  mode: 'ralph';
   command: string;
   task: string;
-  workerCount?: number;
-  agentType?: string;
-  linkedRalph?: boolean;
 }
 
 export interface LatestPlanningArtifactSelection {
@@ -61,9 +58,6 @@ interface ApprovedExecutionLaunchHintReadOptions {
   prdPath?: string;
   task?: string;
   command?: string;
-  workerCount?: number;
-  agentType?: string;
-  linkedRalph?: boolean;
 }
 
 export type ApprovedExecutionLaunchHintOutcome =
@@ -71,14 +65,6 @@ export type ApprovedExecutionLaunchHintOutcome =
   | { status: 'ambiguous' }
   | { status: 'resolved'; hint: ApprovedExecutionLaunchHint };
 
-export interface TeamDagArtifactResolution {
-  source: 'json-sidecar' | 'markdown-handoff' | 'none';
-  prdPath: string | null;
-  planSlug: string | null;
-  artifactPath?: string;
-  content?: string;
-  warnings: string[];
-}
 
 function readMatchingPaths(dir: string, pattern: RegExp): string[] {
   if (!existsSync(dir)) {
@@ -271,13 +257,13 @@ function readApprovedRepositoryContextSummary(
   prdContent: string,
 ): ApprovedRepositoryContextSummary | null {
   if (!planSlug) return extractApprovedRepositoryContextSection(prdPath, prdContent);
-  const sidecarPath = join(artifacts.plansDir, `repo-context-${planSlug}.md`);
-  if (existsSync(sidecarPath)) {
+  const repositoryContextPath = join(artifacts.plansDir, `repo-context-${planSlug}.md`);
+  if (existsSync(repositoryContextPath)) {
     try {
-      const sidecar = boundedRepositoryContextSummary(sidecarPath, readFileSync(sidecarPath, 'utf-8'));
-      if (sidecar) return sidecar;
+      const repositoryContext = boundedRepositoryContextSummary(repositoryContextPath, readFileSync(repositoryContextPath, 'utf-8'));
+      if (repositoryContext) return repositoryContext;
     } catch {
-      // Fall through to an inline approved PRD section when the inspectable sidecar is unreadable.
+      // Fall through to an inline approved PRD section when the repository context is unreadable.
     }
   }
   return extractApprovedRepositoryContextSection(prdPath, prdContent);
@@ -321,271 +307,59 @@ export function selectLatestPlanningArtifacts(
 export function readLatestPlanningArtifacts(cwd: string): LatestPlanningArtifactSelection {
   return selectLatestPlanningArtifacts(readPlanningArtifacts(cwd));
 }
-
-function extractTeamDagMarkdownHandoff(content: string): string | null {
-  const fencePattern = /```(?:json)?\s*\n(?<body>[\s\S]*?)```/gi;
-  let searchFrom = 0;
-  while (searchFrom < content.length) {
-    const headingIndex = content.toLowerCase().indexOf('team dag handoff', searchFrom);
-    if (headingIndex < 0) return null;
-    fencePattern.lastIndex = headingIndex;
-    const match = fencePattern.exec(content);
-    if (match?.groups?.body) {
-      return match.groups.body.trim();
-    }
-    searchFrom = headingIndex + 'team dag handoff'.length;
-  }
-  return null;
-}
-
-export function readTeamDagArtifactResolution(cwd: string): TeamDagArtifactResolution {
-  const artifacts = readPlanningArtifacts(cwd);
-  if (artifacts.prdPaths.length === 0 || artifacts.testSpecPaths.length === 0) {
-    return { source: 'none', prdPath: null, planSlug: null, warnings: ['planning_incomplete'] };
-  }
-
-  const selection = selectPlanningArtifactsBase(artifacts);
-  const prdPath = selection.prdPath;
-  const planSlug = prdPath ? artifactPathSuffix(prdPath, /^prd-(?<slug>.*)\.md$/i) : null;
-  if (!prdPath || !planSlug) {
-    return { source: 'none', prdPath, planSlug, warnings: ['missing_prd_slug'] };
-  }
-  if (selection.testSpecPaths.length === 0) {
-    return { source: 'none', prdPath, planSlug, warnings: ['missing_matching_test_spec'] };
-  }
-
-  const sidecarName = `team-dag-${planSlug}.json`;
-  const sidecarPath = join(artifacts.plansDir, sidecarName);
-  if (existsSync(sidecarPath)) {
-    try {
-      return {
-        source: 'json-sidecar',
-        prdPath,
-        planSlug,
-        artifactPath: sidecarPath,
-        content: readFileSync(sidecarPath, 'utf-8'),
-        warnings: [],
-      };
-    } catch {
-      return { source: 'none', prdPath, planSlug, artifactPath: sidecarPath, warnings: ['sidecar_unreadable'] };
-    }
-  }
-
-
-  try {
-    const prdContent = readFileSync(prdPath, 'utf-8');
-    const markdownHandoff = extractTeamDagMarkdownHandoff(prdContent);
-    if (markdownHandoff) {
-      return { source: 'markdown-handoff', prdPath, planSlug, content: markdownHandoff, warnings: [] };
-    }
-  } catch {
-    return { source: 'none', prdPath, planSlug, warnings: ['prd_unreadable'] };
-  }
-
-  return { source: 'none', prdPath, planSlug, warnings: [] };
-}
-
 type LaunchHintSelection =
   | { status: 'no-match' }
   | { status: 'ambiguous' }
   | { status: 'unique'; match: RegExpMatchArray; task: string };
 
-type LaunchHintMatchFilter = (match: RegExpMatchArray, task: string) => boolean;
-
-const TEAM_LAUNCH_HINT_PATTERN_SOURCE =
-  String.raw`(?<command>(?:owx\s+team|\$team)\s+(?<ralph>ralph\s+)?(?<count>\d+)(?::(?<role>[a-z][a-z0-9-]*))?\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
 const RALPH_LAUNCH_HINT_PATTERN_SOURCE =
   String.raw`(?<command>(?:owx\s+ralph|\$ralph)\s+(?<task>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))`;
 
-function launchHintPattern(mode: 'team' | 'ralph'): RegExp {
-  return mode === 'team'
-    ? new RegExp(TEAM_LAUNCH_HINT_PATTERN_SOURCE, 'gi')
-    : new RegExp(RALPH_LAUNCH_HINT_PATTERN_SOURCE, 'gi');
+function launchHintPattern(): RegExp {
+  return new RegExp(RALPH_LAUNCH_HINT_PATTERN_SOURCE, 'gi');
 }
 
-function launchHintExactPattern(mode: 'team' | 'ralph'): RegExp {
-  return mode === 'team'
-    ? new RegExp(`^${TEAM_LAUNCH_HINT_PATTERN_SOURCE}$`, 'i')
-    : new RegExp(`^${RALPH_LAUNCH_HINT_PATTERN_SOURCE}$`, 'i');
+function launchHintExactPattern(): RegExp {
+  return new RegExp(`^${RALPH_LAUNCH_HINT_PATTERN_SOURCE}$`, 'i');
 }
 
 function normalizeLaunchHintCommandFromMatch(
-  mode: 'team' | 'ralph',
   match: RegExpMatchArray | null | undefined,
 ): string | null {
-  const groups = match?.groups;
-  const rawCommand = groups?.command?.trim();
-  const taskToken = groups?.task?.trim();
-  if (!groups || !rawCommand || !taskToken) {
-    return null;
-  }
-
-  if (mode === 'team') {
-    const countToken = groups.count?.trim();
-    if (!countToken) {
-      return null;
-    }
-    const roleToken = groups.role?.trim();
-    const prefix = /^\$team\b/i.test(rawCommand) ? '$team' : 'owx team';
-    const countWithRole = roleToken ? `${countToken}:${roleToken}` : countToken;
-    const parts = [prefix];
-    if (groups.ralph?.trim()) {
-      parts.push('ralph');
-    }
-    parts.push(countWithRole, taskToken);
-    return parts.join(' ');
-  }
-
+  const rawCommand = match?.groups?.command?.trim();
+  const taskToken = match?.groups?.task?.trim();
+  if (!rawCommand || !taskToken) return null;
   const prefix = /^\$ralph\b/i.test(rawCommand) ? '$ralph' : 'owx ralph';
   return `${prefix} ${taskToken}`;
 }
 
-function normalizeLaunchHintCommand(
-  mode: 'team' | 'ralph',
-  command: string | undefined,
-): string | undefined {
+function normalizeLaunchHintCommand(command: string | undefined): string | undefined {
   const trimmed = command?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const parsed = trimmed.match(launchHintExactPattern(mode));
-  return normalizeLaunchHintCommandFromMatch(mode, parsed) ?? trimmed;
-}
-
-function collectLaunchHintMatches(
-  content: string,
-  mode: 'team' | 'ralph',
-): RegExpMatchArray[] {
-  return collectMarkdownVisibleMatches(content, launchHintPattern(mode));
+  if (!trimmed) return undefined;
+  return normalizeLaunchHintCommandFromMatch(trimmed.match(launchHintExactPattern())) ?? trimmed;
 }
 
 function selectLaunchHintMatch(
-  mode: 'team' | 'ralph',
   matches: RegExpMatchArray[],
   normalizedTask?: string,
   normalizedCommand?: string,
-  matchFilter?: LaunchHintMatchFilter,
 ): LaunchHintSelection {
-  const exactCommand = normalizeLaunchHintCommand(mode, normalizedCommand);
-  if (normalizedCommand) {
-    const exactMatches = matches.flatMap((match) => {
-      const command = normalizeLaunchHintCommandFromMatch(mode, match);
-      if (!command || command !== exactCommand) {
-        return [];
-      }
-      const task = match.groups?.task ? decodeApprovedExecutionQuotedValue(match.groups.task) : null;
-      if (!task) {
-        return [];
-      }
-      return [{ match, task }];
-    });
-    if (exactMatches.length === 0) return { status: 'no-match' };
-    if (exactMatches.length > 1) return { status: 'ambiguous' };
-    return { status: 'unique', ...exactMatches[0]! };
-  }
-
-  if (!normalizedTask) {
-    const decodedMatches = matches.flatMap((match) => {
-      const task = match.groups?.task ? decodeApprovedExecutionQuotedValue(match.groups.task) : null;
-      if (!task) {
-        return [];
-      }
-      if (matchFilter && !matchFilter(match, task)) {
-        return [];
-      }
-      return [{ match, task }];
-    });
-    if (decodedMatches.length === 0) return { status: 'no-match' };
-    if (decodedMatches.length > 1) return { status: 'ambiguous' };
-    return { status: 'unique', ...decodedMatches[0]! };
-  }
-
-  const exactMatches = matches.flatMap((match) => {
+  const exactCommand = normalizeLaunchHintCommand(normalizedCommand);
+  const decoded = matches.flatMap((match) => {
     const task = match.groups?.task ? decodeApprovedExecutionQuotedValue(match.groups.task) : null;
-    if (!task || task.trim() !== normalizedTask) {
-      return [];
-    }
-    if (matchFilter && !matchFilter(match, task)) {
-      return [];
-    }
-    return [{ match, task }];
+    const command = normalizeLaunchHintCommandFromMatch(match);
+    if (!task || !command) return [];
+    return [{ match, task, command }];
   });
-  if (exactMatches.length === 0) return { status: 'no-match' };
-  if (exactMatches.length > 1) return { status: 'ambiguous' };
-  return { status: 'unique', ...exactMatches[0]! };
-}
 
-function hasRequestedTeamLaunchSignature(
-  options: ApprovedExecutionLaunchHintReadOptions,
-): boolean {
-  return options.workerCount != null
-    || options.agentType != null
-    || options.linkedRalph != null;
-}
-
-function matchesRequestedTeamLaunchSignature(
-  match: RegExpMatchArray,
-  options: ApprovedExecutionLaunchHintReadOptions,
-): boolean {
-  const groups = match.groups;
-  if (!groups) {
-    return false;
-  }
-
-  if (options.workerCount != null) {
-    const workerCount = Number.parseInt(groups.count ?? '', 10);
-    if (!Number.isFinite(workerCount) || workerCount !== options.workerCount) {
-      return false;
-    }
-  }
-
-  if (options.agentType != null) {
-    const requestedAgentType = options.agentType.trim();
-    const actualAgentType = groups.role?.trim() || '';
-    if (actualAgentType !== requestedAgentType) {
-      return false;
-    }
-  }
-
-  if (options.linkedRalph != null) {
-    if (Boolean(groups.ralph?.trim()) !== options.linkedRalph) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function buildRequestedTeamLaunchSignatureMatchFilter(
-  options: ApprovedExecutionLaunchHintReadOptions,
-): LaunchHintMatchFilter | undefined {
-  if (options.command || !hasRequestedTeamLaunchSignature(options)) {
-    return undefined;
-  }
-  return (match: RegExpMatchArray, _task: string) => matchesRequestedTeamLaunchSignature(match, options);
-}
-
-function sameTeamLaunchSignatureMatch(
-  anchorHint: ApprovedExecutionLaunchHint,
-  match: RegExpMatchArray,
-): boolean {
-  const groups = match.groups;
-  if (!groups) {
-    return false;
-  }
-
-  const workerCount = Number.parseInt(groups.count ?? '', 10);
-  if (!Number.isFinite(workerCount) || workerCount !== anchorHint.workerCount) {
-    return false;
-  }
-
-  const actualAgentType = groups.role?.trim();
-  const expectedAgentType = anchorHint.agentType?.trim();
-  if ((actualAgentType || undefined) !== (expectedAgentType || undefined)) {
-    return false;
-  }
-
-  return Boolean(groups.ralph?.trim()) === Boolean(anchorHint.linkedRalph);
+  const selected = normalizedCommand
+    ? decoded.filter((entry) => entry.command === exactCommand)
+    : normalizedTask
+      ? decoded.filter((entry) => entry.task.trim() === normalizedTask)
+      : decoded;
+  if (selected.length === 0) return { status: 'no-match' };
+  if (selected.length > 1) return { status: 'ambiguous' };
+  return { status: 'unique', match: selected[0]!.match, task: selected[0]!.task };
 }
 
 function orderedPrdPathsNewestFirst(prdPaths: readonly string[]): string[] {
@@ -594,54 +368,26 @@ function orderedPrdPathsNewestFirst(prdPaths: readonly string[]): string[] {
 
 function readApprovedExecutionLaunchHintOutcomeForPrdPath(
   cwd: string,
-  mode: 'team' | 'ralph',
   prdPath: string,
   options: ApprovedExecutionLaunchHintReadOptions = {},
-  matchFilter?: LaunchHintMatchFilter,
   artifacts: PlanningArtifacts = readPlanningArtifacts(cwd),
 ): ApprovedExecutionLaunchHintOutcome {
   const approvedPlan = readApprovedPlanText(cwd, { ...options, prdPath }, artifacts);
-  if (!approvedPlan) {
-    return { status: 'absent' };
-  }
+  if (!approvedPlan) return { status: 'absent' };
+
   const selected = selectLaunchHintMatch(
-    mode,
-    collectLaunchHintMatches(approvedPlan.content, mode),
+    collectMarkdownVisibleMatches(approvedPlan.content, launchHintPattern()),
     options.task?.trim(),
     options.command?.trim(),
-    matchFilter,
   );
-  if (selected.status === 'ambiguous') {
-    return { status: 'ambiguous' };
-  }
-  if (selected.status !== 'unique' || !selected.match.groups) {
-    return { status: 'absent' };
-  }
-
-  if (mode === 'team') {
-    const workerCount = Number.parseInt(selected.match.groups.count, 10);
-    if (!Number.isFinite(workerCount)) {
-      return { status: 'absent' };
-    }
-    return {
-      status: 'resolved',
-      hint: {
-        mode,
-        command: normalizeLaunchHintCommandFromMatch(mode, selected.match) ?? selected.match.groups.command,
-        task: selected.task,
-        workerCount,
-        agentType: selected.match.groups.role || undefined,
-        linkedRalph: Boolean(selected.match.groups.ralph?.trim()),
-        ...approvedPlan.context,
-      },
-    };
-  }
+  if (selected.status === 'ambiguous') return { status: 'ambiguous' };
+  if (selected.status !== 'unique' || !selected.match.groups) return { status: 'absent' };
 
   return {
     status: 'resolved',
     hint: {
-      mode,
-      command: normalizeLaunchHintCommandFromMatch(mode, selected.match) ?? selected.match.groups.command,
+      mode: 'ralph',
+      command: normalizeLaunchHintCommandFromMatch(selected.match) ?? selected.match.groups.command,
       task: selected.task,
       ...approvedPlan.context,
     },
@@ -652,159 +398,68 @@ function isApprovedExecutionLaunchHintReady(hint: ApprovedExecutionLaunchHint): 
   return hint.testSpecPaths.length > 0 && existsSync(hint.sourcePath);
 }
 
-type SameLineageFallback =
-  | { status: 'none' }
-  | { status: 'ambiguous' }
-  | { status: 'resolved'; hint: ApprovedExecutionLaunchHint };
-
 function resolveOlderReusableSameLineageHint(
   cwd: string,
-  mode: 'team' | 'ralph',
   artifacts: PlanningArtifacts,
   latestPrdPath: string,
-  anchorHint: ApprovedExecutionLaunchHint,
-): SameLineageFallback {
-  const orderedPrdPaths = [...artifacts.prdPaths].sort(comparePlanningArtifactPaths);
-  const latestIndex = orderedPrdPaths.lastIndexOf(latestPrdPath);
-  if (latestIndex <= 0) {
-    return { status: 'none' };
-  }
-
+  task: string,
+): ApprovedExecutionLaunchHintOutcome {
+  const ordered = [...artifacts.prdPaths].sort(comparePlanningArtifactPaths);
+  const latestIndex = ordered.lastIndexOf(latestPrdPath);
   for (let index = latestIndex - 1; index >= 0; index -= 1) {
-    const prdPath = orderedPrdPaths[index]!;
     const outcome = readApprovedExecutionLaunchHintOutcomeForPrdPath(
       cwd,
-      mode,
-      prdPath,
-      { task: anchorHint.task },
-      mode === 'team'
-        ? (match: RegExpMatchArray, _task: string) => sameTeamLaunchSignatureMatch(anchorHint, match)
-        : undefined,
+      ordered[index]!,
+      { task },
       artifacts,
     );
-    if (outcome.status === 'ambiguous') {
-      return { status: 'ambiguous' };
-    }
-    if (outcome.status !== 'resolved') {
-      continue;
-    }
-    if (isApprovedExecutionLaunchHintReady(outcome.hint)) {
-      return { status: 'resolved', hint: outcome.hint };
+    if (outcome.status === 'ambiguous') return outcome;
+    if (outcome.status === 'resolved' && isApprovedExecutionLaunchHintReady(outcome.hint)) {
+      return outcome;
     }
   }
-
-  return { status: 'none' };
+  return { status: 'absent' };
 }
 
 export function readApprovedExecutionLaunchHintOutcome(
   cwd: string,
-  mode: 'team' | 'ralph',
+  mode: 'ralph',
   options: ApprovedExecutionLaunchHintReadOptions = {},
 ): ApprovedExecutionLaunchHintOutcome {
+  if (mode !== 'ralph') return { status: 'absent' };
   const artifacts = readPlanningArtifacts(cwd);
   if (options.prdPath) {
-    return readApprovedExecutionLaunchHintOutcomeForPrdPath(
-      cwd,
-      mode,
-      options.prdPath,
-      options,
-      mode === 'team' ? buildRequestedTeamLaunchSignatureMatchFilter(options) : undefined,
-      artifacts,
-    );
+    return readApprovedExecutionLaunchHintOutcomeForPrdPath(cwd, options.prdPath, options, artifacts);
   }
 
   const normalizedTask = options.task?.trim();
   const normalizedCommand = options.command?.trim();
   if (!normalizedTask && !normalizedCommand) {
     const latestPrdPath = selectLatestPlanningArtifactPath(artifacts.prdPaths);
-    if (!latestPrdPath) {
-      return { status: 'absent' };
-    }
-
-    const latestOutcome = readApprovedExecutionLaunchHintOutcomeForPrdPath(
-      cwd,
-      mode,
-      latestPrdPath,
-      options,
-      mode === 'team' ? buildRequestedTeamLaunchSignatureMatchFilter(options) : undefined,
-      artifacts,
-    );
-    if (latestOutcome.status === 'ambiguous') {
-      return { status: 'ambiguous' };
-    }
-    if (latestOutcome.status !== 'resolved') {
-      return { status: 'absent' };
-    }
-    if (isApprovedExecutionLaunchHintReady(latestOutcome.hint)) {
-      return latestOutcome;
-    }
-
-    const fallback = resolveOlderReusableSameLineageHint(
-      cwd,
-      mode,
-      artifacts,
-      latestPrdPath,
-      latestOutcome.hint,
-    );
-    if (fallback.status === 'ambiguous') {
-      return { status: 'ambiguous' };
-    }
-    return fallback.status === 'resolved'
-      ? { status: 'resolved', hint: fallback.hint }
-      : latestOutcome;
+    if (!latestPrdPath) return { status: 'absent' };
+    const latest = readApprovedExecutionLaunchHintOutcomeForPrdPath(cwd, latestPrdPath, options, artifacts);
+    if (latest.status !== 'resolved' || isApprovedExecutionLaunchHintReady(latest.hint)) return latest;
+    const fallback = resolveOlderReusableSameLineageHint(cwd, artifacts, latestPrdPath, latest.hint.task);
+    return fallback.status === 'absent' ? latest : fallback;
   }
 
   let newestNonreadyHint: ApprovedExecutionLaunchHint | null = null;
-  let teamLineageAnchorHint: ApprovedExecutionLaunchHint | null = null;
   for (const prdPath of orderedPrdPathsNewestFirst(artifacts.prdPaths)) {
-    const teamLineageAnchor = teamLineageAnchorHint;
-    const requestedTeamMatchFilter = mode === 'team'
-      ? buildRequestedTeamLaunchSignatureMatchFilter(options)
-      : undefined;
-    const teamLineageMatchFilter = requestedTeamMatchFilter ?? (
-      mode === 'team'
-      && normalizedTask
-      && !normalizedCommand
-      && teamLineageAnchor
-        ? (match: RegExpMatchArray, _task: string) => sameTeamLaunchSignatureMatch(teamLineageAnchor, match)
-        : undefined
-    );
-    const outcome = readApprovedExecutionLaunchHintOutcomeForPrdPath(
-      cwd,
-      mode,
-      prdPath,
-      options,
-      teamLineageMatchFilter,
-      artifacts,
-    );
-    if (outcome.status === 'ambiguous') {
-      return { status: 'ambiguous' };
-    }
-    if (outcome.status !== 'resolved') {
-      continue;
-    }
-    if (mode === 'team' && normalizedTask && !normalizedCommand) {
-      teamLineageAnchorHint ??= outcome.hint;
-    }
-    if (isApprovedExecutionLaunchHintReady(outcome.hint)) {
-      return outcome;
-    }
+    const outcome = readApprovedExecutionLaunchHintOutcomeForPrdPath(cwd, prdPath, options, artifacts);
+    if (outcome.status === 'ambiguous') return outcome;
+    if (outcome.status !== 'resolved') continue;
+    if (isApprovedExecutionLaunchHintReady(outcome.hint)) return outcome;
     newestNonreadyHint ??= outcome.hint;
   }
-
-  return newestNonreadyHint
-    ? { status: 'resolved', hint: newestNonreadyHint }
-    : { status: 'absent' };
+  return newestNonreadyHint ? { status: 'resolved', hint: newestNonreadyHint } : { status: 'absent' };
 }
 
 export function readApprovedExecutionLaunchHint(
   cwd: string,
-  mode: 'team' | 'ralph',
+  mode: 'ralph',
   options: ApprovedExecutionLaunchHintReadOptions = {},
 ): ApprovedExecutionLaunchHint | null {
   const outcome = readApprovedExecutionLaunchHintOutcome(cwd, mode, options);
-  if (outcome.status !== 'resolved' || !isApprovedExecutionLaunchHintReady(outcome.hint)) {
-    return null;
-  }
+  if (outcome.status !== 'resolved' || !isApprovedExecutionLaunchHintReady(outcome.hint)) return null;
   return outcome.hint;
 }

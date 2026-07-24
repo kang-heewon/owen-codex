@@ -26,15 +26,6 @@ describe('version sync contract', () => {
     const explore = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-explore', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
-    const runtimeCore = TOML.parse(
-      readFileSync(join(process.cwd(), 'crates', 'owx-runtime-core', 'Cargo.toml'), 'utf-8'),
-    ) as { package?: WorkspaceMemberPackageMetadata };
-    const mux = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-mux', 'Cargo.toml'), 'utf-8')) as {
-      package?: WorkspaceMemberPackageMetadata;
-    };
-    const runtime = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-runtime', 'Cargo.toml'), 'utf-8')) as {
-      package?: WorkspaceMemberPackageMetadata;
-    };
     const sparkshell = TOML.parse(readFileSync(join(process.cwd(), 'crates', 'owx-sparkshell', 'Cargo.toml'), 'utf-8')) as {
       package?: WorkspaceMemberPackageMetadata;
     };
@@ -43,23 +34,14 @@ describe('version sync contract', () => {
     assert.deepEqual(workspace.workspace?.members, [
       'crates/owx-api',
       'crates/owx-explore',
-      'crates/owx-mux',
-      'crates/owx-runtime-core',
-      'crates/owx-runtime',
       'crates/owx-sparkshell',
     ]);
     assert.equal(workspace.workspace?.package?.['rust-version'], '1.73');
     assert.deepEqual(api.package?.version, { workspace: true });
     assert.deepEqual(explore.package?.version, { workspace: true });
-    assert.deepEqual(runtimeCore.package?.version, { workspace: true });
-    assert.deepEqual(mux.package?.version, { workspace: true });
-    assert.deepEqual(runtime.package?.version, { workspace: true });
     assert.deepEqual(sparkshell.package?.version, { workspace: true });
     assert.deepEqual(api.package?.['rust-version'], { workspace: true });
     assert.deepEqual(explore.package?.['rust-version'], { workspace: true });
-    assert.deepEqual(runtimeCore.package?.['rust-version'], { workspace: true });
-    assert.deepEqual(mux.package?.['rust-version'], { workspace: true });
-    assert.deepEqual(runtime.package?.['rust-version'], { workspace: true });
     assert.deepEqual(sparkshell.package?.['rust-version'], { workspace: true });
   });
 

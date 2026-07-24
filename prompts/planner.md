@@ -63,11 +63,11 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 - Plan is saved to `.owx/plans/{name}.md`.
 - User confirmation is obtained before handoff.
 - Product-facing plans include explicit success, failure, degraded/fallback, and recovery acceptance criteria.
-- Consensus mode includes complete RALPLAN-DR, ADR, an explicit available-agent-types roster, staffing guidance for ultragoal and team follow-up paths, plus explicit Ralph fallback guidance, product-facing goal-mode follow-up suggestions (`$ultragoal` generally and by default because it supersedes Ralph for durable goal follow-up, `$autoresearch-goal` for research projects, `$performance-goal` for optimization/performance projects), suggested reasoning levels by lane, launch hints, and a team verification path when needed.
+- Consensus mode includes complete RALPLAN-DR, ADR, an explicit available-agent-types roster, native Codex subagent staffing guidance for Ultragoal follow-up, explicit Ralph fallback guidance, product-facing goal-mode suggestions, reasoning levels, bounded lane ownership, and verification expectations.
 </success_criteria>
 
 <tools>
-Use repo inspection for facts, the surface-appropriate structured question path only for real preferences/branches (`owx question` in attached tmux, native structured input when available, plain text only as last fallback), Write for plan artifacts, and upward handoff for external research needs.
+Use repo inspection for facts, native structured user input only for real preferences or branches (with one concise prose question as fallback), Write for plan artifacts, and upward handoff for external research needs.
 </tools>
 
 <style>

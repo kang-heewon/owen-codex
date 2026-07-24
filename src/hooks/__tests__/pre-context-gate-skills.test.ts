@@ -10,10 +10,6 @@ const ralplanSkill = readFileSync(
   join(__dirname, '../../../skills/ralplan/SKILL.md'),
   'utf-8',
 );
-const teamSkill = readFileSync(
-  join(__dirname, '../../../skills/team/SKILL.md'),
-  'utf-8',
-);
 const autopilotSkill = readFileSync(
   join(__dirname, '../../../skills/autopilot/SKILL.md'),
   'utf-8',
@@ -28,13 +24,6 @@ describe('pre-context gate guidance in planning/execution-heavy skills', () => {
     assert.match(ralplanSkill, /Pre-context Intake/i);
     assert.match(ralplanSkill, /\.owx\/context\/\{slug\}-\{timestamp\}\.md/);
     assert.match(ralplanSkill, /\$deep-interview\s+--quick/i);
-  });
-
-  it('team documents required context snapshot gate before launch', () => {
-    assert.match(teamSkill, /Pre-context Intake Gate/i);
-    assert.match(teamSkill, /\.owx\/context\/\{slug\}-\{timestamp\}\.md/);
-    assert.match(teamSkill, /\$deep-interview\s+--quick/i);
-    assert.match(teamSkill, /initialize\/sync it from canonical team runtime state before proceeding/i);
   });
 
   it('autopilot documents required pre-context intake before expansion', () => {

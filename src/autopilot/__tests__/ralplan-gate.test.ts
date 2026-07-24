@@ -206,69 +206,6 @@ describe('autopilot ralplan gate', () => {
     }
   });
 
-  it('reads the current native leader from the canonical overridden state root', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-canonical-leader-'));
-    const boxedRoot = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-canonical-state-'));
-    const sessionId = 'sess-autopilot-canonical-leader';
-    const originalRoots = {
-      OWX_ROOT: process.env.OWX_ROOT,
-      OWX_STATE_ROOT: process.env.OWX_STATE_ROOT,
-      OWX_TEAM_STATE_ROOT: process.env.OWX_TEAM_STATE_ROOT,
-    };
-    try {
-      process.env.OWX_ROOT = boxedRoot;
-      delete process.env.OWX_STATE_ROOT;
-      delete process.env.OWX_TEAM_STATE_ROOT;
-      const trackingPath = subagentTrackingPath(cwd);
-      await mkdir(join(trackingPath, '..'), { recursive: true });
-      await writeFile(join(trackingPath, '..', 'session.json'), JSON.stringify({ session_id: sessionId, native_session_id: 'thread-architect', cwd }));
-      await writeFile(trackingPath, JSON.stringify({
-        schemaVersion: 1,
-        sessions: {
-          [sessionId]: {
-            session_id: sessionId,
-            leader_thread_id: 'thread-leader',
-            threads: {
-              'thread-leader': { thread_id: 'thread-leader', kind: 'leader' },
-              'thread-architect': { thread_id: 'thread-architect', kind: 'subagent', mode: 'architect' },
-              'thread-critic': { thread_id: 'thread-critic', kind: 'subagent', mode: 'critic' },
-            },
-          },
-        },
-      }));
-      const state = {
-        current_phase: 'ralplan',
-        handoff_artifacts: {
-          ralplan_consensus_gate: {
-            complete: true,
-            sequence: ['architect-review', 'critic-review'],
-            ralplan_architect_review: {
-              agent_role: 'architect', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
-              thread_id: 'thread-architect', artifact_path: '.owx/artifacts/architect.md', tracker_path: '.owx/state/subagent-tracking.json',
-              completed_at: '2026-05-28T18:34:51.000Z',
-            },
-            ralplan_critic_review: {
-              agent_role: 'critic', provenance_kind: 'native_subagent', verdict: 'approve', session_id: sessionId,
-              thread_id: 'thread-critic', artifact_path: '.owx/artifacts/critic.md', tracker_path: '.owx/state/subagent-tracking.json',
-              completed_at: '2026-05-28T18:35:10.000Z',
-            },
-          },
-        },
-      };
-
-      const decision = canAdvanceAutopilotRalplanToUltragoal({ cwd, sessionId, currentState: state });
-      assert.equal(decision.allowed, false);
-      assert.match(buildAutopilotRalplanUltragoalGateError(decision), /architect tracker thread thread-architect is the session leader/);
-    } finally {
-      for (const [key, value] of Object.entries(originalRoots)) {
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
-      }
-      await rm(cwd, { recursive: true, force: true });
-      await rm(boxedRoot, { recursive: true, force: true });
-    }
-  });
-
   it('rejects native review evidence from the current native session leader', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-autopilot-ralplan-native-leader-'));
     const sessionId = 'sess-autopilot-native-leader';

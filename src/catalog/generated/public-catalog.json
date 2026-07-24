@@ -1,17 +1,16 @@
 {
-  "generatedAt": "2026-05-24T12:14:18.921Z",
+  "generatedAt": "2026-07-22T21:18:53.000Z",
   "version": "2026.02.28.1",
   "counts": {
-    "skillCount": 50,
-    "promptCount": 34,
-    "activeSkillCount": 28,
+    "skillCount": 47,
+    "promptCount": 33,
+    "activeSkillCount": 27,
     "activeAgentCount": 20
   },
   "coreSkills": [
     "autopilot",
     "ralph",
     "ultrawork",
-    "team",
     "ultragoal",
     "ralplan"
   ],
@@ -32,13 +31,6 @@
     },
     {
       "name": "ultrawork",
-      "category": "execution",
-      "status": "active",
-      "core": true,
-      "internalRequired": false
-    },
-    {
-      "name": "team",
       "category": "execution",
       "status": "active",
       "core": true,
@@ -91,13 +83,6 @@
       "category": "execution",
       "status": "active",
       "core": true,
-      "internalRequired": false
-    },
-    {
-      "name": "swarm",
-      "category": "execution",
-      "status": "deprecated",
-      "core": false,
       "internalRequired": false
     },
     {
@@ -367,13 +352,6 @@
       "status": "deprecated",
       "core": false,
       "internalRequired": false
-    },
-    {
-      "name": "worker",
-      "category": "utility",
-      "status": "internal",
-      "core": false,
-      "internalRequired": true
     }
   ],
   "agents": [
@@ -406,11 +384,6 @@
       "name": "executor",
       "category": "build",
       "status": "active"
-    },
-    {
-      "name": "team-executor",
-      "category": "build",
-      "status": "internal"
     },
     {
       "name": "verifier",
@@ -580,7 +553,5 @@
       "canonical": "configure-notifications"
     }
   ],
-  "internalHidden": [
-    "worker"
-  ]
+  "internalHidden": []
 }

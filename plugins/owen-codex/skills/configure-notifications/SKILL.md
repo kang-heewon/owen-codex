@@ -48,8 +48,7 @@ if [ -f "$CONFIG_FILE" ]; then
       custom_webhook_command: (.notifications.custom_webhook_command.enabled // false),
       custom_cli_command: (.notifications.custom_cli_command.enabled // false),
       verbosity: (.notifications.verbosity // "session"),
-      idleCooldownSeconds: (.notifications.idleCooldownSeconds // 60),
-      reply_enabled: (.notifications.reply.enabled // false)
+      idleCooldownSeconds: (.notifications.idleCooldownSeconds // 60)
     }
   ' "$CONFIG_FILE"
 else
@@ -69,7 +68,7 @@ Use AskUserQuestion:
 3. **Slack (native)** - incoming webhook
 4. **Generic webhook command** - `custom_webhook_command`
 5. **Generic CLI command** - `custom_cli_command`
-6. **Cross-cutting settings** - verbosity, idle cooldown, profiles, reply listener
+6. **Cross-cutting settings** - verbosity, idle cooldown, profiles
 7. **Disable all notifications** - set `notifications.enabled = false`
 
 ## Step 3: Configure Native Platforms (Discord / Telegram / Slack)
@@ -153,7 +152,7 @@ Notes:
 - Timeout precedence: `gateways.<name>.timeout` > `OWX_OPENCLAW_COMMAND_TIMEOUT_MS` > `5000`.
 - For clawdbot agent workflows, set `gateways.<name>.timeout` to `120000` (recommended).
 - For dev operations, enforce Korean output in all hook instructions.
-- Include both `session={{sessionId}}` and `tmux={{tmuxSession}}` in hook text for traceability.
+- Include `session={{sessionId}}` in hook text for traceability.
 - If follow-up is needed, explicitly instruct clawdbot to consult `SOUL.md` and continue in `#omc-dev`.
 - **Error handling**: Append `|| true` to prevent OWX hook failures from blocking the session.
 - **JSONL logging**: Use `.jsonl` extension and append (`>>`) for structured log aggregation.
@@ -185,27 +184,27 @@ jq \
    .notifications.openclaw.hooks["session-start"] = {
      enabled: true,
      gateway: "local",
-     instruction: "OWX hook=session-start project={{projectName}} session={{sessionId}} tmux={{tmuxSession}}. 한국어로 상태를 공유하고 SOUL.md를 참고해 필요한 후속 조치를 #omc-dev에 안내하세요."
+     instruction: "OWX hook=session-start project={{projectName}} session={{sessionId}}. 한국어로 상태를 공유하고 SOUL.md를 참고해 필요한 후속 조치를 #omc-dev에 안내하세요."
    } |
    .notifications.openclaw.hooks["session-idle"] = {
      enabled: true,
      gateway: "local",
-     instruction: "OWX hook=session-idle project={{projectName}} session={{sessionId}} tmux={{tmuxSession}}. 한국어로 idle 상황을 간단히 공유하고 진행중인 작업 팔로업을 안내하세요."
+     instruction: "OWX hook=session-idle project={{projectName}} session={{sessionId}}. 한국어로 idle 상황을 간단히 공유하고 진행중인 작업 팔로업을 안내하세요."
    } |
    .notifications.openclaw.hooks["ask-user-question"] = {
      enabled: true,
      gateway: "local",
-     instruction: "OWX hook=ask-user-question session={{sessionId}} tmux={{tmuxSession}} question={{question}}. 한국어로 사용자 응답 필요를 #omc-dev에 알리고 즉시 액션 아이템을 제시하세요."
+     instruction: "OWX hook=ask-user-question session={{sessionId}} question={{question}}. 한국어로 사용자 응답 필요를 #omc-dev에 알리고 즉시 액션 아이템을 제시하세요."
    } |
    .notifications.openclaw.hooks["stop"] = {
      enabled: true,
      gateway: "local",
-     instruction: "OWX hook=session-stop project={{projectName}} session={{sessionId}} tmux={{tmuxSession}}. 한국어로 중단 상태와 정리 액션을 SOUL.md 기준으로 전달하세요."
+     instruction: "OWX hook=session-stop project={{projectName}} session={{sessionId}}. 한국어로 중단 상태와 정리 액션을 SOUL.md 기준으로 전달하세요."
    } |
    .notifications.openclaw.hooks["session-end"] = {
      enabled: true,
      gateway: "local",
-     instruction: "OWX hook=session-end project={{projectName}} session={{sessionId}} tmux={{tmuxSession}} reason={{reason}}. 한국어로 완료 요약을 1줄로 남기고 필요한 후속 조치를 안내하세요."
+     instruction: "OWX hook=session-end project={{projectName}} session={{sessionId}} reason={{reason}}. 한국어로 완료 요약을 1줄로 남기고 필요한 후속 조치를 안내하세요."
    }' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
 ```
 
@@ -216,13 +215,10 @@ clawdbot agent --session-id owx-hooks --message "OWX hook test via clawdbot agen
   --thinking minimal --deliver --reply-channel discord --reply-to 'channel:1468539002985644084' --timeout 120 --json
 ```
 
-Dev runbook (Korean + tmux follow-up):
+Dev runbook (Korean follow-up):
 
 ```bash
-# 1) identify active OWX tmux sessions
-tmux list-sessions -F '#{session_name}' | rg '^owx-' || true
-
-# 2) confirm hook templates include session/tmux context
+# confirm hook templates include session context
 jq '.notifications.openclaw.hooks' "$CONFIG_FILE"
 
 # 3) inspect agent JSONL logs when delivery looks broken
@@ -254,11 +250,6 @@ Deterministic precedence:
 - `notifications.profiles`
 - `notifications.defaultProfile`
 
-### Reply listener
-- `notifications.reply.enabled`
-- env gates: `OWX_REPLY_ENABLED=true`, and for Discord `OWX_REPLY_DISCORD_USER_IDS=...`
-- For Discord bot replies, an authorized operator can reply with exact-match `status` to a tracked OWX notification to receive a bounded read-only session summary. This is a reply-thread-scoped status probe, not a general remote control surface.
-
 ## Step 6: Disable All Notifications
 
 ```bash
@@ -283,5 +274,5 @@ Show:
 - Native platforms enabled
 - Generic aliases enabled (`custom_webhook_command`, `custom_cli_command`)
 - Whether explicit `notifications.openclaw` exists (and therefore overrides aliases)
-- Verbosity + idle cooldown + reply listener state
+- Verbosity + idle cooldown
 - Config path (`~/.codex/.owx-config.json`)

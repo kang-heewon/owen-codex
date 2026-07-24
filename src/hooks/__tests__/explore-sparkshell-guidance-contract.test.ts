@@ -13,7 +13,7 @@ describe('explore + sparkshell guidance contract', () => {
   it('keeps AGENTS root and template aligned on supported repository-lookup routing and opt-in sparkshell guidance without the removed explore command', () => {
     const requiredPatterns = [
       /normal Codex repository inspection/i,
-      /owx sparkshell --tmux-pane/i,
+      /owx sparkshell/i,
       /explicit opt-?in/i,
       /When to use what/i,
     ];
@@ -58,17 +58,12 @@ describe('explore + sparkshell guidance contract', () => {
     }
   });
 
-  it('keeps sparkshell guidance explicit opt-in and preserves raw qa or tmux evidence', () => {
+  it('keeps sparkshell guidance explicit opt-in and preserves direct QA evidence', () => {
     expectPatterns('prompts/qa-tester.md', [
       /optional operator aid/i,
-      /does not replace raw `tmux capture-pane` evidence/i,
+      /does not replace direct command output/i,
       /explicit opt-?in/i,
     ]);
-
-    expectPatterns('skills/team/SKILL.md', [
-      /owx sparkshell --tmux-pane/i,
-      /explicit opt-?in/i,
-      /raw `tmux capture-pane` evidence/i,
-    ]);
+    expectPatterns('prompts/qa-tester.md', [/direct stdout, stderr, and exit codes/i]);
   });
 });

@@ -44,17 +44,11 @@ jobs:
           const expectedMembers = [
             'crates/owx-api',
             'crates/owx-explore',
-            'crates/owx-mux',
-            'crates/owx-runtime-core',
-            'crates/owx-runtime',
             'crates/owx-sparkshell',
           ];
           const manifests = [
             'crates/owx-api/Cargo.toml',
             'crates/owx-explore/Cargo.toml',
-            'crates/owx-runtime-core/Cargo.toml',
-            'crates/owx-mux/Cargo.toml',
-            'crates/owx-runtime/Cargo.toml',
             'crates/owx-sparkshell/Cargo.toml',
           ];
           const problems = [];
@@ -280,17 +274,11 @@ jobs:
           const expectedMembers = [
             'crates/owx-api',
             'crates/owx-explore',
-            'crates/owx-mux',
-            'crates/owx-runtime-core',
-            'crates/owx-runtime',
             'crates/owx-sparkshell',
           ];
           const manifests = [
             'crates/owx-api/Cargo.toml',
             'crates/owx-explore/Cargo.toml',
-            'crates/owx-runtime-core/Cargo.toml',
-            'crates/owx-mux/Cargo.toml',
-            'crates/owx-runtime/Cargo.toml',
             'crates/owx-sparkshell/Cargo.toml',
           ];
           const problems = [];
@@ -322,6 +310,9 @@ jobs:
 
           console.log(`[version-sync] OK package=${pkg.version} workspace=${workspace.workspace?.package?.version} tag=${tag ?? ''}`.trim());
           EOF
+      - run: npm run build
+      - run: npm run verify:removed-surfaces
+      - run: npm run verify:packed-files
       - run: npm pack --dry-run
       - run: npm publish --access public --provenance
         env:

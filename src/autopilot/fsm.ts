@@ -2,7 +2,6 @@ const AUTOPILOT_CHILD_PHASES = [
   'deep-interview',
   'ralplan',
   'ultragoal',
-  'team',
   'ralph',
   'code-review',
   'ultraqa',

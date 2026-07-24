@@ -1,9 +1,9 @@
 # PLAN.md — Hardening OWX into a Slop-Resistant Agentic Development Control Plane
 
-Status: Draft v0.1
-Date: 2026-06-30
+Status: Draft v0.2
+Date: 2026-07-23
 Audience: product, engineering, agent/runtime maintainers, contributors
-Scope: OWX CLI, skills, agents, team runtime, state, trace, docs, plugin packaging, and product surface
+Scope: OWX CLI, skills, native agent delegation, state, trace, docs, plugin packaging, and product surface
 
 ---
 
@@ -256,7 +256,7 @@ A failure without a next action is an incomplete product state.
 
 ### Principle 7 — Advanced power must not leak into first-run UX
 
-OWX can keep advanced capabilities like team mode, sidecars, native hooks, API servers, and auth hot-swapping. They should not crowd the core path.
+OWX can keep advanced capabilities like Codex-native agent delegation, native hooks, API servers, and auth hot-swapping. They should not crowd the core path.
 
 ### Principle 8 — Defaults before flags
 
@@ -284,7 +284,6 @@ Keep the public vocabulary small:
 Work       A tracked unit of user intent, backed by a WorkSpec, evidence, and report.
 Spec       The contract that defines scope, non-goals, acceptance, and verification.
 Agent      A bounded role that performs tasks but cannot silently expand the product surface.
-Team       A coordinated set of agents/workers used for larger work.
 Evidence   Test results, logs, diffs, reviews, and checks that support claims.
 Report     A proof-backed summary of what changed, what passed, what failed, and what remains unverified.
 Policy     Rules that govern execution, safety, surface changes, and verification.
@@ -304,12 +303,11 @@ performance-goal
 ralplan
 spark
 ledger
-sidecar
 mailbox
 worker runtime details
 ```
 
-They can become engines, modes, skills, or advanced implementation details under the public `Work` and `Team` model.
+They can become engines, modes, skills, or advanced implementation details under the public `Work` model.
 
 ### 5.3 Suggested Core Commands
 
@@ -317,13 +315,12 @@ Long term, the core help surface should fit on one screen:
 
 ```text
 owx setup       Install or configure OWX for this project/user.
-owx doctor      Diagnose environment, plugin, native, state, and team readiness.
+owx doctor      Diagnose environment, plugin, native, and state readiness.
 owx work        Compile, run, verify, and report durable work.
 owx status      Show current work, blockers, evidence, and next actions.
 owx report      Generate proof-backed reports from completed or active work.
 owx review      Run correctness, quality, surface, and slop checks.
 owx surface     Inspect and govern public product surface.
-owx team        Manage advanced multi-worker execution.
 ```
 
 Advanced/internal commands may remain available, but should be hidden from the default path or grouped under advanced help.
@@ -784,21 +781,21 @@ Scope discipline         changed files mapped to WorkSpec acceptance criteria
 Documentation hygiene    no duplicate docs, runnable examples, no deprecated terms
 Error recoverability     all new errors include recovery actions
 Code compactness         no one-callsite abstractions, unused exports, dead files
-Team discipline          worker boundaries respected, leader report only
+Delegation discipline    agent boundaries respected, leader report only
 ```
 
 ---
 
-## 12. Team Mode Hardening
+## 12. Native Agent Delegation
 
-Team mode is one of OWX's strongest differentiators, but multi-agent execution increases slop risk. Every worker may invent naming, helpers, docs, and state unless boundaries are explicit.
+OWX delegates independent work through Codex-native subagents. Multi-agent execution still increases slop risk, so every delegated lane needs explicit boundaries and evidence requirements.
 
-### 12.1 Team Policy
+### 12.1 Delegation Policy
 
-Each worker should receive:
+Each delegated agent should receive:
 
 ```yaml
-worker:
+agent:
   role: backend
   allowed_files:
     - "src/auth/**"
@@ -840,24 +837,22 @@ Reporter Agent
   Generates final report from proof bundle only.
 ```
 
-### 12.3 Team Gates
+### 12.3 Delegation Gates
 
 ```text
-No worker may change public surface directly.
-No worker may expand scope without WorkSpec revision.
+No delegated agent may change public surface directly.
+No delegated agent may expand scope without WorkSpec revision.
 No merge without proof bundle.
 No completion without shrink pass.
-No final report from individual workers; leader/reporting agent only.
+No final report from individual delegated agents; leader/reporting agent only.
 ```
 
-### 12.4 Team CLI Additions
+### 12.4 Native Coordination
 
-```bash
-owx team preview       # show planned workers, file boundaries, and risks
-owx team explain       # explain why tasks were assigned to workers
-owx team board         # show task state, blockers, evidence, next actions
-owx team merge --gated # merge only if checks, surface review, and shrink pass pass
-owx team cleanup       # clean sessions, worktrees, and stale worker state
+```text
+Codex owns agent spawning, messaging, waiting, interruption, and completion status.
+OWX owns durable work artifacts, scope contracts, evidence, and final verification.
+OWX must not recreate a second session manager or worker-state protocol.
 ```
 
 ---
@@ -991,7 +986,7 @@ Goal: reduce the public vocabulary.
 Deliverables:
 
 ```text
-- choose canonical public terms: Work, Spec, Agent, Team, Evidence, Report, Policy, Surface
+- choose canonical public terms: Work, Spec, Agent, Evidence, Report, Policy, Surface
 - move UltraGoal/Ralph/Autopilot/etc. to internal or advanced docs
 - rewrite default help around the core commands
 - make `owx list` default to active/public entries only
@@ -1041,7 +1036,7 @@ Acceptance:
 ```text
 - first-run path documented from install to first verified work
 - safety doc covers --madmax, auth, local state, traces, and generated artifacts
-- troubleshooting doc maps common doctor/team/plugin failures to recovery steps
+- troubleshooting doc maps common doctor/plugin/native-agent failures to recovery steps
 ```
 
 Priority: P0
@@ -1188,30 +1183,27 @@ Priority: P1/P2
 
 ---
 
-### Phase 8 — Team Hardening
+### Phase 8 — Native Agent Delegation Hardening
 
 Goal: make multi-agent work powerful without letting it tear the product surface apart.
 
 Deliverables:
 
 ```text
-- worker write boundaries
+- delegated-agent write boundaries
 - Surface Owner role
-- team preview
-- team explain
-- gated merge
 - leader-only final report
-- worker proof artifacts
-- team cleanup/recovery commands
+- delegated-agent proof artifacts
+- native lifecycle and recovery guidance
 ```
 
 Acceptance:
 
 ```text
-- workers cannot directly land public surface changes
+- delegated agents cannot directly land public surface changes
 - task assignment includes allowed/forbidden paths
 - merge requires verification, surface check, proof bundle, and shrink pass
-- team board shows blockers and next actions
+- native coordination status identifies blockers and next actions
 ```
 
 Priority: P2
@@ -1235,7 +1227,7 @@ Deliverables:
 Acceptance:
 
 ```text
-- score includes surface, evidence, scope, docs, errors, code compactness, and team discipline
+- score includes surface, evidence, scope, docs, errors, code compactness, and delegation discipline
 - score regressions are visible in CI
 - release notes include hardness deltas
 ```
@@ -1307,9 +1299,10 @@ Route older modes through the newer public model.
 ```text
 owx work --mode durable       # may use ultragoal internally
 owx work --mode autopilot     # may use autopilot internally
-owx work --team               # may use team runtime internally
 owx work --performance        # may use performance-goal internally
 ```
+
+Codex-native subagents may execute independent lanes while OWX retains the durable work contract.
 
 Do not delete proven engines prematurely. Collapse their public presentation first.
 
@@ -1393,10 +1386,10 @@ scope violation count
 shrink findings per work item
 ```
 
-### Team Quality Metrics
+### Delegation Quality Metrics
 
 ```text
-worker boundary violations
+delegated-agent boundary violations
 blocked tasks with recovery action
 merge attempts failing surface check
 time from blocked to recovered
@@ -1464,8 +1457,8 @@ These should be resolved early because they shape the surface.
 3. **Canonical entrypoint**
    Is durable work publicized as `owx work`, `owx goal`, or something else?
 
-4. **Team mode maturity**
-   Is team mode beta/advanced or a first-run feature?
+4. **Native delegation policy**
+   Which work may be delegated automatically, and which work requires explicit user direction?
 
 5. **Safety posture**
    What confirmations are required for `--madmax`, auth switching, native hooks, and local state writes?

@@ -50,18 +50,6 @@ describe('modes/base autoresearch contract integration', () => {
     }
   });
 
-  it('startMode allows the approved team + ralph overlap', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-mode-team-ralph-overlap-'));
-    try {
-      await startMode('team', 'demo team', 5, wd);
-      const started = await startMode('ralph', 'demo ralph', 5, wd);
-      assert.equal(started.mode, 'ralph');
-      assert.equal(started.active, true);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
   it('startMode blocks autoresearch when ralph is active', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-mode-autoresearch-contract-'));
     try {

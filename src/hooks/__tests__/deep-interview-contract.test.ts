@@ -117,22 +117,6 @@ describe("deep-interview Ouroboros contract", () => {
 		);
 	});
 
-	it("routes facts before judgment without changing the deep-interview question source", () => {
-		assert.match(deepInterviewSkill, /Route facts before judgment/i);
-		assert.match(deepInterviewSkill, /\[from-code\]\[auto-confirmed\]/i);
-		assert.match(deepInterviewSkill, /\[from-code\]/i);
-		assert.match(deepInterviewSkill, /\[from-research\]/i);
-		assert.match(deepInterviewSkill, /\[from-user\]/i);
-		assert.match(deepInterviewSkill, /transcript\/spec labels only/i);
-		assert.match(deepInterviewSkill, /never use them as `owx question` `source` values/i);
-		assert.match(deepInterviewSkill, /runtime `source: "deep-interview"` contract/i);
-		assert.match(deepInterviewSkill, /not interview rounds/i);
-		assert.match(deepInterviewSkill, /do not call `owx question`/i);
-		assert.match(deepInterviewSkill, /do not create a pending deep-interview question obligation/i);
-		assert.match(deepInterviewSkill, /Auto-confirm only descriptive facts/i);
-		assert.match(deepInterviewSkill, /decision-bearing question to the user as `\[from-user\]`/i);
-	});
-
 	it("prevents continuing ordinary questions after ambiguity falls below threshold", () => {
 		assert.match(deepInterviewSkill, /Profile `max rounds` is a hard cap, not a target/i);
 		assert.match(deepInterviewSkill, /Do not continue only to reach a numbered round count/i);
@@ -183,37 +167,6 @@ describe("deep-interview Ouroboros contract", () => {
 		);
 	});
 
-	it("keeps durable documentation updates opt-in and preserves grounding for ultragoal handoff", () => {
-		assert.match(
-			deepInterviewSkill,
-			/Durable glossary, ADR, or memory updates are opt-in and public-safe only/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/must not automatically create or dump public artifacts from interview transcripts/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Optional durable documentation recommendations, explicitly marked opt-in and public-safe/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Read applicable repo rules\/context during preflight; write durable glossary, ADR, or memory updates only when the user explicitly opts in/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/preserve intent, non-goals, decision boundaries, acceptance criteria, terminology grounding/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Do not score ambiguity, do not run readiness gates, and do not hand off to `\$ultragoal`, `\$ralplan`, `\$autopilot`, `\$ralph`, or `\$team` until that summary answer is captured/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Durable ADR\/memory updates, if any, were explicitly opted into and public-safe/i,
-		);
-	});
-
 	it("moves challenge modes and preserved evidence discipline earlier", () => {
 		assert.match(
 			deepInterviewSkill,
@@ -233,24 +186,6 @@ describe("deep-interview Ouroboros contract", () => {
 		);
 	});
 
-	it("includes contract-style execution bridge and no-direct-implementation guard", () => {
-		assert.match(deepInterviewSkill, /Execution Bridge/i);
-		assert.match(deepInterviewSkill, /\$ultragoal/i);
-		assert.match(deepInterviewSkill, /\$ralplan/i);
-		assert.match(deepInterviewSkill, /\$autopilot/i);
-		assert.match(deepInterviewSkill, /\$ralph/i);
-		assert.match(deepInterviewSkill, /\$team/i);
-		assert.match(deepInterviewSkill, /Input Artifact/i);
-		assert.match(deepInterviewSkill, /Invocation/i);
-		assert.match(deepInterviewSkill, /Consumer Behavior/i);
-		assert.match(deepInterviewSkill, /Skipped \/ Already-Satisfied Stages/i);
-		assert.match(deepInterviewSkill, /Expected Output/i);
-		assert.match(deepInterviewSkill, /Best When/i);
-		assert.match(deepInterviewSkill, /Next Recommended Step/i);
-		assert.match(deepInterviewSkill, /Residual-Risk Rule/i);
-		assert.match(deepInterviewSkill, /Do NOT implement directly/i);
-	});
-
 	it("documents optional execution contract foundation for Autopilot stride handoff", () => {
 		assert.match(deepInterviewSkill, /Optional execution contract foundation/i);
 		assert.match(deepInterviewSkill, /execution_contract_required/i);
@@ -268,154 +203,18 @@ describe("deep-interview Ouroboros contract", () => {
 		assert.match(pluginDeepInterviewSkill, /Optional execution contract foundation/i);
 	});
 
-	it("documents surface-aware owx question handling and fallback boundaries", () => {
-		assert.match(deepInterviewSkill, /owx question/i);
-		assert.match(
-			deepInterviewSkill,
-			/required structured-question equivalent/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/attached-tmux Codex CLI, deep-interview uses `owx question`/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/OWX_QUESTION_RETURN_PANE=\$TMUX_PANE/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/outside tmux and cannot render `owx question`, use (the )?native structured (question tool|input) when available/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/ask exactly one concise plain-text question and wait for the answer/i,
-		);
-		assert.doesNotMatch(
-			deepInterviewSkill,
-			/else, use `request_user_input` to present concise multiple-choice options/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/wait for that background terminal to finish and read its JSON answer before scoring ambiguity, asking another round, or handing off/i,
-		);
-	});
-
-	it("teaches canonical single-choice vs multi-answerable owx question payloads", () => {
-		assert.match(
-			deepInterviewSkill,
-			/Use canonical `type` values instead of authoring raw `multi_select` flags by hand/i,
-		);
-		assert.match(deepInterviewSkill, /type: "single-answerable"/i);
-		assert.match(deepInterviewSkill, /type: "multi-answerable"/i);
-		assert.match(
-			deepInterviewSkill,
-			/Use `single-answerable` when exactly one answer should drive the next branch/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Use `multi-answerable` when multiple options may all be true at once/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/If one selected option would immediately require a follow-up question to disambiguate the others, prefer a `single-answerable` round now/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Keep interview options bounded and concrete\./i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Canonical bounded single-choice payload:/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Which execution lane should own this once the interview is complete\?/i,
-		);
-		assert.match(deepInterviewSkill, /"value": "ralplan"/i);
-		assert.match(deepInterviewSkill, /"value": "autopilot"/i);
-		assert.match(deepInterviewSkill, /"value": "refine"/i);
-		assert.match(
-			deepInterviewSkill,
-			/Canonical bounded multi-select payload:/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Which non-goals must stay out of scope for the first pass\?/i,
-		);
-		assert.match(deepInterviewSkill, /"value": "no-ui-redesign"/i);
-		assert.match(deepInterviewSkill, /"value": "no-new-dependencies"/i);
-		assert.match(deepInterviewSkill, /"value": "no-api-contract-changes"/i);
-	});
-
-	it("locks canonical owx question answer shapes for single and multi rounds", () => {
-		assert.match(deepInterviewSkill, /Canonical answer-shape reminders:/i);
-		assert.match(deepInterviewSkill, /"kind": "option"/i);
-		assert.match(deepInterviewSkill, /"value": "ralplan"/i);
-		assert.match(deepInterviewSkill, /"selected_values": \["ralplan"\]/i);
-		assert.match(deepInterviewSkill, /"kind": "multi"/i);
-		assert.match(
-			deepInterviewSkill,
-			/"value": \["no-new-dependencies", "no-api-contract-changes"\]/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/"selected_values": \["no-new-dependencies", "no-api-contract-changes"\]/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/For `multi-answerable`, treat the selected-values field inside `answers\[0\]\.answer` as the source of truth/i,
-		);
-	});
-
 	it("preserves clarified intent and boundary constraints across execution handoff", () => {
 		assert.match(
 			deepInterviewSkill,
 			/preserve intent, non-goals, decision boundaries, acceptance criteria/i,
 		);
 		assert.match(deepInterviewSkill, /binding context/i);
-		assert.match(deepInterviewSkill, /team verification path/i);
-	});
-
-	it("suggests Ultragoal as the default durable follow-up with team and explicit Ralph fallback lanes", () => {
-		assert.match(deepInterviewSkill, /Goal-mode follow-ups/i);
-		assert.match(deepInterviewSkill, /\$ultragoal[\s\S]*general goal-oriented follow-up/i);
-		assert.match(deepInterviewSkill, /\$autoresearch-goal[\s\S]*research project/i);
-		assert.match(deepInterviewSkill, /\$performance-goal[\s\S]*(optimization|performance) project/i);
-		assert.match(deepInterviewSkill, /Recommend `\$ultragoal`[\s\S]*default durable goal-mode follow-up/i);
-		assert.match(deepInterviewSkill, /keep `\$ralph` only as an explicit fallback/i);
-		assert.match(deepInterviewSkill, /supersedes Ralph for goal tracking/i);
-		assert.match(deepInterviewSkill, /`\$ultragoal` \(Default durable execution follow-up\)/i);
-		assert.match(
-			deepInterviewSkill,
-			/Invocation:[\s\S]*`\$ultragoal create-goals --brief-file <spec-path>`[\s\S]*`\$ultragoal complete-goals`/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Expected Output:[\s\S]*\.owx\/ultragoal\/brief\.md[\s\S]*\.owx\/ultragoal\/goals\.json[\s\S]*\.owx\/ultragoal\/ledger\.jsonl/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Skipped \/ Already-Satisfied Stages:[\s\S]*doc\/context preflight/i,
-		);
-		assert.match(
-			deepInterviewSkill,
-			/Handoff options provided \(`\$ultragoal`, `\$ralplan`, `\$autopilot`, `\$ralph`, `\$team`\)/i,
-		);
+		assert.match(deepInterviewSkill, /verification evidence tracked against the clarified criteria/i);
 	});
 
 	it("uses OWX-native output paths", () => {
 		assert.match(deepInterviewSkill, /\.owx\/interviews\//);
 		assert.match(deepInterviewSkill, /\.owx\/specs\//);
-	});
-
-	it("requires prompt-safe summary gating for oversized initial context", () => {
-		assert.match(deepInterviewSkill, /prompt-safe initial-context summary/i);
-		assert.match(deepInterviewSkill, /oversized initial context/i);
-		assert.match(deepInterviewSkill, /do not paste or forward the raw payload/i);
-		assert.match(deepInterviewSkill, /wait for the concise summary before ambiguity scoring, crystallizing artifacts, or any downstream execution handoff/i);
-		assert.match(deepInterviewSkill, /The oversized initial-context summary gate is blocking/i);
-		assert.match(deepInterviewSkill, /Do not score ambiguity, do not run readiness gates, and do not hand off to `\$ultragoal`, `\$ralplan`, `\$autopilot`, `\$ralph`, or `\$team` until that summary answer is captured/i);
-		assert.match(deepInterviewSkill, /goals, constraints, success criteria, non-goals, decision boundaries/i);
 	});
 
 	it("documents total prompt-budget hardening for retained context", () => {
@@ -440,37 +239,6 @@ describe("deep-interview Ouroboros contract", () => {
 		assert.match(deepInterviewSkill, /context_snapshot_path/i);
 	});
 
-	it("documents the autoresearch specialization contract", () => {
-		assert.match(deepInterviewSkill, /Autoresearch specialization/i);
-		assert.match(deepInterviewSkill, /Accepted seed inputs/i);
-		assert.match(deepInterviewSkill, /topic/i);
-		assert.match(deepInterviewSkill, /evaluator/i);
-		assert.match(deepInterviewSkill, /keep-policy/i);
-		assert.match(deepInterviewSkill, /slug/i);
-		assert.match(deepInterviewSkill, /mission clarity/i);
-		assert.match(deepInterviewSkill, /evaluator readiness/i);
-		assert.match(
-			deepInterviewSkill,
-			/\.owx\/specs\/deep-interview-autoresearch-\{slug\}\.md/i,
-		);
-		assert.match(deepInterviewSkill, /Mission Draft/i);
-		assert.match(deepInterviewSkill, /Evaluator Draft/i);
-		assert.match(deepInterviewSkill, /Launch Readiness/i);
-		assert.match(deepInterviewSkill, /Seed Inputs/i);
-		assert.match(deepInterviewSkill, /Confirmation Bridge/i);
-		assert.match(deepInterviewSkill, /refine further/i);
-		assert.match(deepInterviewSkill, /launch/i);
-		assert.match(
-			deepInterviewSkill,
-			/do not run direct CLI launch or detached\/split tmux launch, and only hand off to `\$autoresearch` after explicit confirmation/i,
-		);
-		assert.match(deepInterviewSkill, /<\.\.\.>/i);
-		assert.match(deepInterviewSkill, /TODO/i);
-		assert.match(deepInterviewSkill, /TBD/i);
-		assert.match(deepInterviewSkill, /REPLACE_ME/i);
-		assert.match(deepInterviewSkill, /CHANGEME/i);
-		assert.match(deepInterviewSkill, /your-command-here/i);
-	});
 });
 
 describe("cross-skill and AGENTS coherence for deep-interview", () => {
@@ -492,11 +260,4 @@ describe("cross-skill and AGENTS coherence for deep-interview", () => {
 		assert.match(templateAgents, /Socratic deep interview/i);
 	});
 
-	it("makes template AGENTS explicit about surface-aware deep-interview questioning", () => {
-		assert.match(templateAgents, /deep-interview is active in attached-tmux OWX CLI\/runtime.*`owx question`/i);
-		assert.match(templateAgents, /after launching `owx question` in a background terminal, wait for that terminal to finish and read the JSON answer before continuing/i);
-		assert.match(templateAgents, /OWX_QUESTION_RETURN_PANE=\$TMUX_PANE/i);
-		assert.match(templateAgents, /Outside tmux or native surfaces that cannot render `owx question` should use the native structured question path when available/i);
-		assert.match(templateAgents, /ask exactly one concise plain-text question and wait for the answer/i);
-	});
 });

@@ -28,7 +28,7 @@ export const API_USAGE = [
   '  generate text <prompt...> [--state-file path]',
   '  generate image <prompt...> [--state-file path]',
   '',
-  'Runs the native owx-api localhost gateway sidecar and forwards arguments unchanged.',
+  'Runs the native owx-api localhost gateway and forwards arguments unchanged.',
   'Note: real-private backend mode is experimental and requires local bearer auth.',
   `Set ${OWX_API_BIN_ENV} to override the native binary path.`,
 ].join('\n');

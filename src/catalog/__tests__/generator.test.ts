@@ -37,12 +37,11 @@ describe('catalog reader/contract', () => {
     const expected = await readSourceManifestCounts();
     assert.equal(contract.counts.skillCount, expected.skills);
     assert.equal(contract.counts.promptCount, expected.agents);
-    assert.ok(contract.skills.some((s) => s.name === 'swarm' && s.status === 'deprecated' && !s.canonical));
-    assert.ok(!contract.aliases.some((a) => a.name === 'swarm'));
+    assert.ok(!contract.skills.some((s) => s.name === 'swarm'));
     assert.ok(!contract.aliases.some((a) => a.name === 'ask-claude'));
     assert.ok(!contract.aliases.some((a) => a.name === 'ask-gemini'));
     assert.ok(!contract.aliases.some((a) => a.name === 'analyze'));
-    assert.ok(contract.internalHidden.includes('worker'));
+    assert.ok(!contract.internalHidden.includes('worker'));
     assert.ok(contract.coreSkills.includes('autopilot'));
     assert.ok(contract.coreSkills.includes('ultragoal'));
     assert.ok(contract.skills.some((s) => s.name === 'analyze' && s.status === 'active'));

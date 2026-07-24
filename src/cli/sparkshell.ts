@@ -9,7 +9,6 @@ import { isAbsolute, join, resolve } from 'path';
 import { getPackageRoot } from '../utils/package.js';
 import { classifySpawnError } from '../utils/platform-command.js';
 import { readConfiguredEnvOverrides } from '../config/models.js';
-import { buildCapturePaneArgv } from '../scripts/tmux-hook-engine.js';
 import {
   SPARKSHELL_BIN_ENV as SPARKSHELL_BIN_ENV_SHARED,
   getPackageVersion,
@@ -25,10 +24,8 @@ export const SPARKSHELL_USAGE = [
   'Usage: owx sparkshell <command> [args...]',
   '   or: owx sparkshell [--json] [--budget <chars>] <command> [args...]',
   '   or: owx sparkshell --shell \'<shell command>\'',
-  '   or: owx sparkshell --tmux-pane <pane-id> [--tail-lines <100-1000>]',
-  'Runs the native owx-sparkshell sidecar with direct argv execution, explicit shell execution, or explicit tmux pane summarization.',
+  'Runs the native owx-sparkshell helper with direct argv execution or explicit shell execution.',
   'Shell metacharacters are interpreted only with explicit --shell opt-in.',
-  'Tmux pane mode is explicit opt-in and captures a larger pane tail before applying raw-vs-summary behavior.',
   'Environment: OWX_SPARKSHELL_BIN overrides the native binary; OWX_SPARKSHELL_MODEL selects the summary model; OWX_SPARKSHELL_FALLBACK_MODEL selects the retry model.',
   'Environment: OWX_SPARKSHELL_MODEL_INSTRUCTIONS_FILE overrides packaged summary instructions; OWX_SPARKSHELL_SUMMARY_TIMEOUT_MS controls local API summary timeout.',
 ].join('\n');
@@ -227,7 +224,7 @@ export function isSparkShellNativeCompatibilityFailure(result: SpawnSyncReturns<
 
 interface SparkShellFallbackInvocation {
   argv: string[];
-  kind: 'command' | 'tmux-pane';
+  kind: 'command';
 }
 
 interface RunSparkShellFallbackOptions {
@@ -275,68 +272,14 @@ export function parseSparkShellFallbackInvocation(
     return { kind: 'command', argv: resolveFallbackShellArgv(script, options) };
   }
 
-  const paneStart = args.findIndex((arg) => arg === '--tmux-pane' || arg.startsWith('--tmux-pane='));
-  if (paneStart < 0) {
-    return { kind: 'command', argv: [...args] };
-  }
-
-  let paneId: string | undefined;
-  let tailLines = 200;
-  let sawTailLines = false;
-
-  for (let index = 0; index < args.length; index += 1) {
-    const token = args[index];
-    if (token === '--tmux-pane') {
-      const next = args[index + 1];
-      if (!next || next.startsWith('-')) throw new Error(`--tmux-pane requires a pane id.\n${SPARKSHELL_USAGE}`);
-      paneId = next;
-      index += 1;
-      continue;
-    }
-    if (token.startsWith('--tmux-pane=')) {
-      const value = token.slice('--tmux-pane='.length).trim();
-      if (!value) throw new Error(`--tmux-pane requires a pane id.\n${SPARKSHELL_USAGE}`);
-      paneId = value;
-      continue;
-    }
-    if (token === '--tail-lines') {
-      const next = args[index + 1];
-      if (!next || next.startsWith('-')) throw new Error(`--tail-lines requires a numeric value.\n${SPARKSHELL_USAGE}`);
-      const parsed = Number.parseInt(next, 10);
-      if (!Number.isFinite(parsed) || parsed < 100 || parsed > 1000) {
-        throw new Error(`--tail-lines must be an integer between 100 and 1000.\n${SPARKSHELL_USAGE}`);
-      }
-      tailLines = parsed;
-      sawTailLines = true;
-      index += 1;
-      continue;
-    }
-    if (token.startsWith('--tail-lines=')) {
-      const parsed = Number.parseInt(token.slice('--tail-lines='.length), 10);
-      if (!Number.isFinite(parsed) || parsed < 100 || parsed > 1000) {
-        throw new Error(`--tail-lines must be an integer between 100 and 1000.\n${SPARKSHELL_USAGE}`);
-      }
-      tailLines = parsed;
-      sawTailLines = true;
-      continue;
-    }
-    throw new Error(`tmux pane mode does not accept an additional command.\n${SPARKSHELL_USAGE}`);
-  }
-
-  if (!paneId) throw new Error(`--tmux-pane requires a pane id.\n${SPARKSHELL_USAGE}`);
-  if (!paneId.trim()) throw new Error(`--tmux-pane requires a pane id.\n${SPARKSHELL_USAGE}`);
-
-  return {
-    kind: 'tmux-pane',
-    argv: ['tmux', ...buildCapturePaneArgv(paneId, sawTailLines ? tailLines : 200)],
-  };
+  return { kind: 'command', argv: [...args] };
 }
 
 function runSparkShellFallback(args: readonly string[], options: RunSparkShellFallbackOptions = {}): void {
   const { announce = true } = options;
   const invocation = parseSparkShellFallbackInvocation(args);
   if (announce) {
-    process.stderr.write('[sparkshell] native sidecar unavailable; falling back to raw command execution without summary support.\n');
+    process.stderr.write('[sparkshell] native helper unavailable; falling back to raw command execution without summary support.\n');
   }
   const result = spawnSync(invocation.argv[0], invocation.argv.slice(1), {
     cwd: process.cwd(),
@@ -403,7 +346,7 @@ export async function sparkshellCommand(args: string[]): Promise<void> {
   }
 
   if (!hasExplicitOverride && isSparkShellNativeCompatibilityFailure(result)) {
-    process.stderr.write('[sparkshell] GLIBC-incompatible native sidecar detected; falling back to raw command execution without summary support.\n');
+    process.stderr.write('[sparkshell] GLIBC-incompatible native helper detected; falling back to raw command execution without summary support.\n');
     runSparkShellFallback(args, { announce: false });
     return;
   }

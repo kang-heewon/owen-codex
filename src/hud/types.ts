@@ -85,14 +85,6 @@ export interface UltraqaStateForHud {
   source?: LateGateHudSource;
 }
 
-/** Team state for HUD display */
-export interface TeamStateForHud {
-  active: boolean;
-  current_phase?: string;
-  agent_count?: number;
-  team_name?: string;
-}
-
 /** Metrics tracked by notify hook */
 export interface HudMetrics {
   total_turns: number;
@@ -131,12 +123,10 @@ export interface HudRenderContext {
   autoresearch: AutoresearchStateForHud | null;
   codeReview?: CodeReviewStateForHud | null;
   ultraqa: UltraqaStateForHud | null;
-  team: TeamStateForHud | null;
+  /** Deprecated compatibility input. The renderer and state reader ignore it. */
   metrics: HudMetrics | null;
   hudNotify: HudNotifyState | null;
   session: SessionStateForHud | null;
-  /** Rust-authored runtime snapshot (present when bridge is enabled and snapshot.json exists). */
-  runtimeSnapshot?: import('../runtime/bridge.js').RuntimeSnapshot | null;
 }
 
 /** HUD preset names */
@@ -193,6 +183,5 @@ export const DEFAULT_HUD_CONFIG: ResolvedHudConfig = {
 export interface HudFlags {
   watch: boolean;
   json: boolean;
-  tmux: boolean;
   preset?: HudPreset;
 }

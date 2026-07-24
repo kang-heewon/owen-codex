@@ -33,7 +33,7 @@ const antiSlopWorkingAgreementPatterns = [
 
 const antiSlopWorkflowPatterns = [
   /^Anti-slop workflow:$/m,
-  /^- Cleanup\/refactor\/deslop work still follows the same `\$deep-interview` -> `\$ralplan` -> `\$team`\/`\$ralph` path; use `\$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow\.$/m,
+  /^- Cleanup\/refactor\/deslop work still follows the same `\$deep-interview` -> `\$ralplan` -> `\$ultragoal` or explicit `\$ralph` path; use `\$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow\.$/m,
   /^- Write a cleanup plan before modifying code; lock existing behavior with regression tests first, then make one smell-focused pass at a time\.$/m,
   /^- Prefer deletion over addition, and prefer reuse plus boundary repair over new layers\.$/m,
   /^- No new dependencies without explicit request\.$/m,
@@ -57,7 +57,7 @@ const aiSlopCleanerWorkflowPatterns = [
   /^     - \*\*Grounded compatibility\/fail-safe fallback\*\* — is scoped to an external\/version\/fail-safe boundary, documents the rationale, preserves failure evidence, and has regression tests for both the primary and fallback behavior$/m,
   /^   - Prefer root-cause repair, deletion, boundary repair, or explicit failure behavior before preserving fallback paths$/m,
   /^   - For broad, ambiguous, cross-layer, or architectural fallback-like code, invoke `\$ralplan` for consensus resolution before edits$/m,
-  /^   - Recursion guard: when already inside ralplan, ralph, team, or another OWX workflow, do not spawn a nested `\$ralplan`; record the finding and attach it to the active ralplan, leader, or plan handoff instead$/m,
+  /^   - Recursion guard: when already inside ralplan, ralph, ultragoal, or another OWX workflow, do not spawn a nested `\$ralplan`; record the finding and attach it to the active workflow or plan handoff instead$/m,
   /^4\. \*\*Categorize issues before editing\*\*$/m,
   /^   - \*\*Fallback-like code\*\* — masking fallbacks, workaround branches, bypasses, swallowed errors, silent defaults, broad shims, alternate execution paths$/m,
   /^   - \*\*Duplication\*\* — repeated logic, copy-paste branches, redundant helpers$/m,
@@ -170,7 +170,7 @@ describe('anti-slop workflow surfaces', () => {
     assert.match(skill, /consensus resolution/i);
     assert.match(skill, /Recursion guard/i);
     assert.match(skill, /do not spawn a nested `?\$ralplan`?/i);
-    assert.match(skill, /active ralplan/i);
+    assert.match(skill, /active workflow/i);
     assert.match(skill, /Fallback Findings/i);
     assert.match(skill, /classifications/i);
     assert.match(skill, /escalation status/i);

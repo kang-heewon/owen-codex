@@ -1,6 +1,6 @@
 ---
 name: prometheus-strict
-description: "[OWX] Clean-room interview-driven planner: Metis clarifies, Momus challenges, Oracle synthesizes, then hands off to $ultragoal/$team."
+description: "[OWX] Clean-room interview-driven planner with native Codex subagent staffing guidance."
 argument-hint: "<goal or problem statement>"
 ---
 
@@ -13,7 +13,7 @@ Credit: Inspired by OMO Prometheus (`code-yeongyu/oh-my-openagent`), reimplement
 <Purpose>
 Prometheus Strict creates a rigorous plan before execution when ambiguity is still risky. It separates three planning voices: Metis clarifies requirements, Momus challenges assumptions and validation gaps, and Oracle synthesizes the handoff-ready OWX-native plan.
 
-The output is a planning-only artifact for `$ultragoal` and, when independent lanes are justified, `$team`. When a durable artifact is useful, store or request the final plan under `.owx/plans/prometheus-strict/`.
+The output is a planning-only artifact for `$ultragoal`, with native Codex subagent staffing when independent lanes are justified. When a durable artifact is useful, store or request the final plan under `.owx/plans/prometheus-strict/`.
 </Purpose>
 
 <Use_When>
@@ -21,7 +21,7 @@ The output is a planning-only artifact for `$ultragoal` and, when independent la
 - Requirements are partially known but acceptance criteria, boundaries, risks, or validation are incomplete.
 - The user wants a strict interview before execution.
 - A future `$ultragoal` story needs durable scope, tests, and handoff sequencing.
-- A team split may be needed, but the lanes are not yet safe to assign.
+- Native Codex subagent lanes may be useful, but ownership is not yet safe to assign.
 </Use_When>
 
 <Do_Not_Use_When>
@@ -43,19 +43,18 @@ OWX already has `$plan`, `$ralplan`, and `$deep-interview`. Prometheus Strict ex
 - If a safe assumption is available, state it and continue.
 - Use repository reads when needed to make paths, tests, and handoff commands concrete.
 - During Metis planning, run pre-question research fan-out for every non-trivial intent unless the task is trivial, the cited spec is self-contained, or cached evidence already covers the same surface; use `explore` for repo facts and the exact cheap `gpt-5.4-mini` `researcher` lane for external docs / OSS references before asking the user. Prometheus Strict may fan out up to `2 explore + 4 researcher` agents per round so breadth comes from more citation-focused mini researchers while Metis/Momus/Oracle keep stronger judgment roles.
-- Recommend `$team` only when Oracle identifies independent, bounded, verifiable lanes.
+- Recommend native Codex subagents only when Oracle identifies independent, bounded, verifiable lanes; include explicit `agent_type` and ownership.
 
 ### Structured Question Surface
 
 Every Metis/Momus/Oracle question to the user MUST go through the surface-appropriate structured question path. Plain prose questioning is the last fallback, not the default.
 
-- In attached-tmux OWX runtime, use `owx question` as the OWX-owned structured question surface (this is the `AskUserQuestion` equivalent for Prometheus Strict). From attached-tmux Bash/tool paths, prefix the command with `OWX_QUESTION_RETURN_PANE=$TMUX_PANE` (or a concrete `%pane` value) so the leader-pane return target is preserved.
+- Use native structured user input when available.
 - **Batch independent high-leverage questions into a single `questions[]` array call**: scope, constraints, non-goals, deliverables, safety bounds, and acceptance criteria are normally independent and MUST be batched into one structured form so the user answers them in a single panel. Reserve one-at-a-time only for dependent question chains where the next question depends on the previous answer.
-- Wait for the `owx question` JSON answer before checking the clearance rule, asking another round, or handing off; prefer `answers[]` / `answers[i].answer`, and use the legacy top-level `answer` only as a compatibility fallback. After every `answers[]` batch, run at least **two gap-fill passes** before another question or handoff: Pass 1 assimilates user answers into the checklist; Pass 2 re-scans repo context, prior turns, research fan-out evidence, and conservative defaults to absorb non-CRITICAL residual gaps.
+- Wait for the complete answer before checking the clearance rule, asking another round, or handing off. After every answer batch, run at least **two gap-fill passes** before another question or handoff: Pass 1 assimilates answers into the checklist; Pass 2 re-scans repo context, prior turns, research fan-out evidence, and conservative defaults.
 - Minimum two emitted question rounds: when Metis emits any user-facing question round, do not hand off after Round 1 unless hostility/`<turn_aborted>` or the round-5 cap forces exit; handoff is allowed only after Round 2 has been emitted and processed. Zero-question complete-checklist handoff remains valid when no questions were emitted.
 - Between-round planning must actively use evidence: after Round 1 answers and the two gap-fill passes, refresh or reuse `<research_fan_out>` explore/researcher evidence, re-run spec prefill, and build Round 2 from residual CRITICAL gaps only.
-- Outside tmux, use the native structured input tool when one is available.
-- When neither structured surface can render (non-tmux Codex CLI, piped runs, CI), list the round's independent questions as a numbered prose block (`Q1: ... Q2: ... Q3: ...`) and wait for all answers in one user turn; do not split into separate round-trips.
+- When native structured input is unavailable, list the round's independent questions as a numbered prose block (`Q1: ... Q2: ... Q3: ...`) and wait for all answers in one user turn.
 - Multiple interview rounds ARE expected when clearance is not yet reached; each round is one batched form (or its prose fallback), never split across forms.
 
 ### Checklist Clearance
@@ -72,12 +71,12 @@ Every Prometheus Strict turn ends with EXACTLY ONE of the following terminations
 
 The 6-item checklist is: objective / scope IN+OUT / acceptance / test strategy / handoff target / no outstanding CRITICAL. A checklist item is YES when it is USER_ANSWERED ∪ ABSORBED_WITH_CITATION ∪ INFERRED_FROM_SPEC. Only UNKNOWN (no answer, no citation, no spec inference) counts as NO.
 
-- (a) `owx question` batch: use when at least one CRITICAL question survives `<gap_triage>` and `<self_review>`. The batch is the round; the turn waits for `answers[]` before continuing.
+- (a) native structured-input batch: use when at least one CRITICAL question survives `<gap_triage>` and `<self_review>`. The batch is the round; wait for the complete answer before continuing.
 - (b) explicit handoff: use when the 6-item checklist is fully YES. Hand off Metis → Momus after clearance, Momus → Oracle after critique, and Oracle → user or `<unresolved_blocker>` carry-forward after Pass 2 synthesis.
 - (c) stop-blocker: use when hostility/`<turn_aborted>` is detected via `<hostility_detection>` with subtype `hostility_exit`, or when the next action is destructive, credential-gated, external-production, and cannot be defaulted safely.
 
 Edge cases:
-1. Zero-questions-but-complete-checklist → option (b) explicit handoff. Do not emit an empty `owx question` form.
+1. Zero-questions-but-complete-checklist → option (b) explicit handoff. Do not emit an empty question form.
 2. Round-5-cap with incomplete checklist → option (a) emit one more question batch with surviving UNKNOWN items annotated, OR option (b) handoff with UNKNOWN items carried forward to Oracle as `<unresolved_blocker>` entries.
 3. Hostility/`<turn_aborted>` → option (c) for anger, profanity, or aborted-turn via `hostility_exit`; option (b) for dismissive-delegation (`알아서` / "you decide") with absorbed gaps annotated.
 </Turn_Termination_Rules>
@@ -98,7 +97,7 @@ Metis discovers success criteria, non-goals, evidence versus assumptions, requir
 Run the interview as a bounded loop:
 
 1. Identify every currently-UNKNOWN checklist item and every CRITICAL question whose answers would materially change scope, safety, or validation.
-2. Batch the round's independent questions into a single Structured Question Surface call (`questions[]` array, or numbered prose fallback outside tmux).
+2. Batch the round's independent questions into one native structured-input call, or use a numbered prose fallback.
 3. Collect the structured `answers[]`, then run **Gap-fill Pass 1 — answer assimilation**: update evidence vs. assumption and mark checklist items YES only when USER_ANSWERED, ABSORBED_WITH_CITATION, or INFERRED_FROM_SPEC.
 4. Run **Gap-fill Pass 2 — residual adversarial scan**: re-check every remaining UNKNOWN against repo context, prior turns, research fan-out evidence, framework/industry defaults, and conservative reversible defaults; absorb non-CRITICAL gaps with citations/assumptions and leave only CRITICAL blockers.
 5. Run **between-round planning** after Round 1: refresh or reuse `<research_fan_out>` explore/researcher evidence, re-run spec prefill, and prepare Round 2 from residual CRITICAL gaps only.
@@ -109,7 +108,7 @@ Run the interview as a bounded loop:
 
 Use `prometheus-strict-momus` as the adversarial critique voice. When native subagents are available, invoke the dedicated agent; otherwise run the same role in-context without editing files.
 
-Momus challenges underspecified acceptance criteria, unsafe assumptions, hidden destructive steps, overbroad scope, missing verification, ownership conflicts, and `$ultragoal`/`$team` handoff ambiguity.
+Momus challenges underspecified acceptance criteria, unsafe assumptions, hidden destructive steps, overbroad scope, missing verification, ownership conflicts, and Ultragoal/native-subagent handoff ambiguity.
 
 **Bounded retry contract**: after Oracle synthesizes in §4, re-invoke Momus on the synthesized plan to verify that Oracle's resolutions did not introduce new risks (scope addition without matching verification, lane split that creates dependency cycles, safety reinforcement that contradicts stop conditions). Repeat the Momus → Oracle re-synthesis cycle up to **3 times total**. If blocking objections remain after the 3rd cycle, mark them as carried-forward in the final plan and proceed to §5.
 
@@ -125,7 +124,7 @@ Use `prometheus-strict-oracle` as the synthesis voice. When native subagents are
 - Every step lists its owner / lane / executor; no shared-file conflicts between parallel lanes.
 - Stop, rollback, and acceptance criteria are mutually consistent (no acceptance criterion is satisfied by a state that also triggers rollback).
 - No destructive, credential-gated, or external-production step is unauthorized.
-- The handoff command is concrete (callable verbatim) and points at an existing workflow (`$ultragoal`, `$team`, or `none`).
+- The handoff is concrete and points at an existing workflow (`$ultragoal` or `none`) plus native-subagent staffing when warranted.
 - Clean-room credit is preserved.
 
 If any Pass 2 check fails, Oracle MUST loop back to Pass 1 to repair before emitting the plan. Cap Pass 1 ↔ Pass 2 cycles at **3**; on cycle 3 failure, emit the plan with the failing gates annotated as carried-forward and escalate to the user.
@@ -142,7 +141,7 @@ Prometheus Strict stops with a plan unless the user explicitly invokes or author
 
 ```text
 $ultragoal "<Oracle plan summary or .owx/plans/prometheus-strict/<slug>.md>"
-$team <N>:executor "execute the approved Ultragoal story in parallel lanes"  # only when warranted
+Spawn native Codex subagents with explicit `agent_type`, bounded ownership, and checkpoint-ready evidence when warranted.
 ```
 </Steps>
 
@@ -151,7 +150,7 @@ $team <N>:executor "execute the approved Ultragoal story in parallel lanes"  # o
 - Treat Metis research fan-out as part of planning, not execution: dispatch `explore` / exact `gpt-5.4-mini` `researcher` evidence-gathering before question generation for non-trivial intents, then re-prefill and ask only surviving CRITICAL gaps.
 - Use `prometheus-strict-metis`, `prometheus-strict-momus`, and `prometheus-strict-oracle` sequentially; do not fan out implementation work from this skill.
 - Use `$ultragoal` only as the recommended execution handoff after the plan is ready.
-- Use `$team` only when parallel lanes are independent and verifiable.
+- Use native Codex subagents only when parallel lanes are independent and verifiable.
 </Tool_Usage>
 
 ## State Management
@@ -169,7 +168,7 @@ Do not create hook state, Sisyphus state, or `start-work` compatibility state fo
 - [ ] Oracle plan includes a verification matrix.
 - [ ] Oracle Pass 2 self-verification completed; every machine-checkable contract item passes or is annotated as carried-forward.
 - [ ] Post-plan Metis gap check produced no blocking objections (or all are carried forward).
-- [ ] Handoff recommends `$ultragoal` and `$team` only when warranted.
+- [ ] Handoff recommends `$ultragoal` and bounded native Codex subagents only when warranted.
 - [ ] Clean-room credit is preserved.
 - [ ] No hook implementation or Sisyphus/start-work port was introduced.
 </Final_Checklist>
@@ -203,7 +202,7 @@ If writing a durable plan file, store this markdown at `.owx/plans/prometheus-st
 - Durable plan path: `.owx/plans/prometheus-strict/<slug>.md` or `N/A - inline plan only`
 
 ### Handoff
-- Recommended next workflow: <$ultragoal / $team / direct execution / none>
+- Recommended next workflow: <$ultragoal / direct execution / none>, with native-subagent staffing when warranted
 - Stop condition: <what proves the plan is ready or why it is blocked>
 
 ### Clean-Room Credit

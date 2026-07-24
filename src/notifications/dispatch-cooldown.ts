@@ -1,7 +1,7 @@
 /**
  * Dispatch Notification Cooldown
  *
- * Prevents flooding users with team dispatch notifications by enforcing a
+ * Prevents flooding users with repeated outbound notifications by enforcing a
  * minimum interval between dispatches. Similar to idle-cooldown.ts but
  * specifically for dispatch-related notifications.
  *

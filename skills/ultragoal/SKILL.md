@@ -75,17 +75,17 @@ Steering invariants:
 
 UserPromptSubmit uses the same steering API only for structured directives such as `OWX_ULTRAGOAL_STEER: { ... }`, `owx.ultragoal.steer: { ... }`, or `owx ultragoal steer: { ... }`. Normal prose does not mutate state, and repeated prompt-submit directives dedupe by prompt signature or idempotency key.
 
-## Use Ultragoal and Team together
+## Use native subagents for bounded stories
 
-Use ultragoal and team together for a durable Ultragoal story that benefits from parallel execution. Ultragoal remains leader-owned: `.owx/ultragoal/goals.json` stores the story plan and `.owx/ultragoal/ledger.jsonl` stores checkpoints. Team is the parallel execution engine and returns task/evidence status to the leader.
+For a durable story with independent lanes, the leader may delegate bounded, non-overlapping ownership directly to Codex native subagents. Native `agent_type` is the sole role authority. If a required role cannot be selected, record a visible `role_identity_unavailable` blocker; never infer role identity from task names, prompts, labels, or child paths. The leader retains `.owx/ultragoal` ownership, integrates child results, and owns verification.
 
-The leader checkpoints Ultragoal from Team evidence with a fresh `get_goal` snapshot:
+The leader checkpoints Ultragoal from integrated evidence with a fresh `get_goal` snapshot:
 
 ```sh
-owx ultragoal checkpoint --goal-id <id> --status complete --evidence "<team evidence mentioning .owx/ultragoal and <id>>" --codex-goal-json <fresh-get_goal-json-or-path>
+owx ultragoal checkpoint --goal-id <id> --status complete --evidence "<integrated evidence mentioning .owx/ultragoal and <id>>" --codex-goal-json <fresh-get_goal-json-or-path>
 ```
 
-Workers do not own ultragoal goal state, do not create worker ultragoal ledgers, and do not checkpoint Ultragoal. Team launch remains explicit; Ultragoal does not auto-launch Team and performs no hidden Codex goal mutation.
+Child agents do not own Ultragoal goal state, create separate ledgers, or checkpoint Ultragoal. When native delegation is unavailable, sequential execution or retry is the explicit degraded path; it is not a replacement coordination runtime. Ultragoal performs no hidden Codex goal mutation.
 
 ## Mandatory final cleanup and review gate
 

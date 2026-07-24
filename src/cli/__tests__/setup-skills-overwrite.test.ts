@@ -66,10 +66,7 @@ describe('owx setup skills overwrite behavior', () => {
       const installed = new Set(await readdir(skillsDir));
 
       assert.equal(installed.has('analyze'), true);
-      assert.equal(installed.has('team'), true);
-      assert.equal(installed.has('worker'), true);
       assert.equal(installed.has('autoresearch'), true);
-      assert.equal(installed.has('swarm'), false);
       assert.equal(installed.has('ecomode'), false);
       assert.equal(installed.has('ultraqa'), true);
       assert.equal(installed.has('ralph-init'), false);
@@ -133,7 +130,7 @@ describe('owx setup skills overwrite behavior', () => {
 
       await setup({ scope: 'project' });
 
-      const staleSkills = ['swarm', 'ecomode', 'configure-discord', 'configure-telegram', 'configure-slack', 'configure-openclaw'];
+      const staleSkills = ['ecomode', 'configure-discord', 'configure-telegram', 'configure-slack', 'configure-openclaw'];
       for (const staleSkill of staleSkills) {
         const staleDir = join(wd, '.codex', 'skills', staleSkill);
         await mkdir(staleDir, { recursive: true });
@@ -146,7 +143,6 @@ describe('owx setup skills overwrite behavior', () => {
       for (const staleSkill of staleSkills) {
         assert.equal(existsSync(join(wd, '.codex', 'skills', staleSkill)), false);
       }
-      assert.equal(existsSync(join(wd, '.codex', 'skills', 'team')), true);
     } finally {
       process.chdir(previousCwd);
       await rm(wd, { recursive: true, force: true });
@@ -168,7 +164,6 @@ describe('owx setup skills overwrite behavior', () => {
       await setup({ scope: 'project', force: true });
 
       assert.match(await readFile(pipelinePath, 'utf-8'), /^---\nname: pipeline/m);
-      assert.equal(existsSync(join(wd, '.codex', 'skills', 'team')), true);
     } finally {
       process.chdir(previousCwd);
       await rm(wd, { recursive: true, force: true });
@@ -185,17 +180,17 @@ describe('owx setup skills overwrite behavior', () => {
       await setup({ scope: 'project' });
 
       const wikiDir = join(wd, '.codex', 'skills', 'wiki');
-      const staleSwarmDir = join(wd, '.codex', 'skills', 'swarm');
+      const staleEcomodeDir = join(wd, '.codex', 'skills', 'ecomode');
       assert.equal(existsSync(wikiDir), true);
 
-      await mkdir(staleSwarmDir, { recursive: true });
-      await writeFile(join(staleSwarmDir, 'SKILL.md'), '# stale swarm\n');
+      await mkdir(staleEcomodeDir, { recursive: true });
+      await writeFile(join(staleEcomodeDir, 'SKILL.md'), '# stale ecomode\n');
 
       await setup({ scope: 'project', force: true });
 
       assert.equal(existsSync(wikiDir), true);
       assert.equal(existsSync(join(wikiDir, 'SKILL.md')), true);
-      assert.equal(existsSync(staleSwarmDir), false);
+      assert.equal(existsSync(staleEcomodeDir), false);
     } finally {
       process.chdir(previousCwd);
       await rm(wd, { recursive: true, force: true });
@@ -291,14 +286,14 @@ describe('owx setup skills overwrite behavior', () => {
       };
 
       await setup({ scope: 'project', verbose: true });
-      await mkdir(join(wd, '.codex', 'skills', 'swarm'), { recursive: true });
-      await writeFile(join(wd, '.codex', 'skills', 'swarm', 'SKILL.md'), '# stale swarm\n');
+      await mkdir(join(wd, '.codex', 'skills', 'ecomode'), { recursive: true });
+      await writeFile(join(wd, '.codex', 'skills', 'ecomode', 'SKILL.md'), '# stale ecomode\n');
       await setup({ scope: 'project', force: true, verbose: true });
 
       const output = logs.join('\n');
       assert.match(output, /skipped review\/ \(status: deprecated\)/);
       assert.match(output, /skipped ralph-init\/ \(status: deprecated\)/);
-      assert.match(output, /removed stale skill swarm\/ \(status: deprecated\)/);
+      assert.match(output, /removed stale skill ecomode\/ \(status: deprecated\)/);
       assert.match(output, /skills: updated=/);
     } finally {
       console.log = originalLog;

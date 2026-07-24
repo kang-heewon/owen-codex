@@ -16,7 +16,6 @@ function runOmx(cwd: string, argv: string[]) {
     env: {
       ...process.env,
       OWX_AUTO_UPDATE: '0',
-      OWX_NOTIFY_FALLBACK: '0',
       OWX_HOOK_DERIVED_SIGNALS: '0',
     },
   });

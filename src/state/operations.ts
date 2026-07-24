@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { withModeRuntimeContext } from './mode-state-context.js';
 import {
   getAllScopedStatePaths,
   getAuthoritativeActiveStateDirs,
@@ -15,7 +14,6 @@ import {
   resolveWorkingDirectoryForState,
   validateSessionId,
   validateStateModeSegment,
-  type StateRootSource,
 } from '../mcp/state-paths.js';
 import { evaluateRalphCompletionAuditEvidence } from '../ralph/completion-audit.js';
 import { ensureCanonicalRalphArtifacts } from '../ralph/persistence.js';
@@ -63,7 +61,6 @@ const AUTOPILOT_CHILD_PHASE_ORDER: AutopilotChildPhase[] = [
   'deep-interview',
   'ralplan',
   'ultragoal',
-  'team',
   'ralph',
   'code-review',
   'ultraqa',
@@ -143,7 +140,6 @@ function nativeUnsupportedNonCleanOutcome(
 export const SUPPORTED_STATE_READ_MODES = [
   'autopilot',
   'autoresearch',
-  'team',
   'ralph',
   'ultrawork',
   'ultraqa',
@@ -204,14 +200,14 @@ async function writeClearedSessionScopedModeState(
   sessionId: string,
 ): Promise<void> {
   const nowIso = new Date().toISOString();
-  const clearedState = withModeRuntimeContext({}, {
+  const clearedState = {
     mode,
     active: false,
     current_phase: 'cleared',
     updated_at: nowIso,
     completed_at: nowIso,
     session_id: sessionId,
-  });
+  };
   await writeAtomicFile(path, JSON.stringify(clearedState, null, 2));
 }
 
@@ -227,18 +223,22 @@ function validateStrictReadableMode(mode: unknown): string {
   return normalized;
 }
 
+function validateWritableMode(mode: unknown): string {
+  const normalized = validateStateModeSegment(mode);
+  if (!readModeSupportsStrictValidation(normalized)) {
+    throw new Error(`mode must be one of: ${SUPPORTED_STATE_READ_MODES.join(', ')}`);
+  }
+  return normalized;
+}
+
 async function initializeStateEnvironment(
   cwd: string,
   effectiveSessionId?: string,
-  rootSource?: StateRootSource,
 ): Promise<void> {
   await mkdir(getStateDir(cwd), { recursive: true });
   if (effectiveSessionId) {
     await mkdir(getStateDir(cwd, effectiveSessionId), { recursive: true });
   }
-  if (rootSource === 'team-env') return;
-  const { ensureTmuxHookInitialized } = await import('../cli/tmux-hook.js');
-  await ensureTmuxHookInitialized(cwd);
 }
 
 function hasExplicitStateField(
@@ -400,12 +400,12 @@ export async function executeStateOperation(
       }
 
       case 'state_write': {
+        const mode = validateWritableMode(rawArgs.mode);
         const stateScope = await resolveStateScope(cwd, explicitSessionId);
         const effectiveSessionId = stateScope.sessionId;
-        const { baseStateDir, rootSource } = getBaseStateDirWithSource(cwd);
-        await initializeStateEnvironment(cwd, effectiveSessionId, rootSource);
+        const { baseStateDir } = getBaseStateDirWithSource(cwd);
+        await initializeStateEnvironment(cwd, effectiveSessionId);
 
-        const mode = validateStateModeSegment(rawArgs.mode);
         const path = getStatePath(mode, cwd, effectiveSessionId);
         const {
           mode: _mode,
@@ -625,7 +625,7 @@ export async function executeStateOperation(
             }
           }
 
-          const merged = withModeRuntimeContext(existing, mergedRaw);
+          const merged = mergedRaw;
           await writeAtomicFile(path, JSON.stringify(merged, null, 2));
         });
 
@@ -668,12 +668,12 @@ export async function executeStateOperation(
       }
 
       case 'state_clear': {
+        const mode = validateWritableMode(rawArgs.mode);
         const stateScope = await resolveStateScope(cwd, explicitSessionId);
         const effectiveSessionId = stateScope.sessionId;
-        const { baseStateDir, rootSource } = getBaseStateDirWithSource(cwd);
-        await initializeStateEnvironment(cwd, effectiveSessionId, rootSource);
+        const { baseStateDir } = getBaseStateDirWithSource(cwd);
+        await initializeStateEnvironment(cwd, effectiveSessionId);
 
-        const mode = validateStateModeSegment(rawArgs.mode);
         const allSessions = rawArgs.all_sessions === true;
 
         if (!allSessions) {

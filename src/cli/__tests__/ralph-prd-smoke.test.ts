@@ -68,7 +68,6 @@ function buildEnv(home: string, fakeBin: string): Record<string, string> {
     HOME: home,
     PATH: `${fakeBin}:/usr/bin:/bin`,
     OWX_AUTO_UPDATE: '0',
-    OWX_NOTIFY_FALLBACK: '0',
     OWX_HOOK_DERIVED_SIGNALS: '0',
   };
 }

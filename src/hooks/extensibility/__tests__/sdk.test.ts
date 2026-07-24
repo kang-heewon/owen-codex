@@ -156,155 +156,15 @@ describe('createHookPluginSdk', () => {
     });
   });
 
-  describe('tmux.sendKeys', () => {
-    it('returns side_effects_disabled when sideEffectsEnabled is false', async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
-      try {
-        const sdk = createHookPluginSdk({
-          cwd,
-          pluginName: 'test',
-          event: makeEvent(),
-          sideEffectsEnabled: false,
-        });
-        const result = await sdk.tmux.sendKeys({ text: 'hello' });
-        assert.equal(result.ok, false);
-        assert.equal(result.reason, 'side_effects_disabled');
-      } finally {
-        await rm(cwd, { recursive: true, force: true });
-      }
-    });
-
-    it('returns invalid_text for empty text', async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
-      try {
-        const sdk = createHookPluginSdk({
-          cwd,
-          pluginName: 'test',
-          event: makeEvent(),
-          sideEffectsEnabled: true,
-        });
-        const result = await sdk.tmux.sendKeys({ text: '   ' });
-        assert.equal(result.ok, false);
-        assert.equal(result.reason, 'invalid_text');
-      } finally {
-        await rm(cwd, { recursive: true, force: true });
-      }
-    });
-
-    it('returns loop_guard_input_marker when text contains loop marker', async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
-      const originalMarker = process.env.OWX_HOOK_PLUGIN_LOOP_MARKER;
-      try {
-        process.env.OWX_HOOK_PLUGIN_LOOP_MARKER = '[TESTMARK]';
-        const sdk = createHookPluginSdk({
-          cwd,
-          pluginName: 'test',
-          event: makeEvent(),
-          sideEffectsEnabled: true,
-        });
-        const result = await sdk.tmux.sendKeys({ text: 'hello [TESTMARK] world' });
-        assert.equal(result.ok, false);
-        assert.equal(result.reason, 'loop_guard_input_marker');
-      } finally {
-        if (originalMarker === undefined) {
-          delete process.env.OWX_HOOK_PLUGIN_LOOP_MARKER;
-        } else {
-          process.env.OWX_HOOK_PLUGIN_LOOP_MARKER = originalMarker;
-        }
-        await rm(cwd, { recursive: true, force: true });
-      }
-    });
-
-
-    it('prefers non-HUD codex pane when targeting a tmux session', async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
-      const fakeBinDir = await mkdtemp(join(tmpdir(), 'owx-sdk-bin-'));
-      const fakeTmuxPath = join(fakeBinDir, 'tmux');
-      const previousPath = process.env.PATH;
-      try {
-        await writeFile(fakeTmuxPath, `#!/usr/bin/env bash
-set -eu
-cmd="$1"
-shift || true
-if [[ "$cmd" == "list-panes" ]]; then
-  printf "%%2	1	node /pkg/dist/cli/owx.js hud --watch
-%%42	0	codex --model gpt-5
-"
-  exit 0
-fi
-if [[ "$cmd" == "send-keys" ]]; then
-  exit 0
-fi
-if [[ "$cmd" == "display-message" ]]; then
-  target=""
-  format=""
-  while (($#)); do
-    case "$1" in
-      -p) shift ;;
-      -t) target="$2"; shift 2 ;;
-      *) format="$1"; shift ;;
-    esac
-  done
-  if [[ "$format" == "#{pane_id}" ]]; then
-    echo "$target"
-    exit 0
-  fi
-  exit 0
-fi
-exit 1
-`);
-        await import('node:fs/promises').then((fs) => fs.chmod(fakeTmuxPath, 0o755));
-        process.env.PATH = `${fakeBinDir}:${previousPath || ''}`;
-
-        const sdk = createHookPluginSdk({
-          cwd,
-          pluginName: 'test',
-          event: makeEvent(),
-          sideEffectsEnabled: true,
-        });
-        const result = await sdk.tmux.sendKeys({ text: 'hello', sessionName: 'devsess' });
-        assert.equal(result.ok, true);
-        assert.equal(result.target, '%42');
-      } finally {
-        if (typeof previousPath === 'string') process.env.PATH = previousPath;
-        else delete process.env.PATH;
-        await rm(cwd, { recursive: true, force: true });
-        await rm(fakeBinDir, { recursive: true, force: true });
-      }
-    });
-    it('returns target_missing when no pane is resolvable', async () => {
-      const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
-      const originalPane = process.env.TMUX_PANE;
-      try {
-        delete process.env.TMUX_PANE;
-        const sdk = createHookPluginSdk({
-          cwd,
-          pluginName: 'test',
-          event: makeEvent(),
-          sideEffectsEnabled: true,
-        });
-        const result = await sdk.tmux.sendKeys({ text: 'hello' });
-        assert.equal(result.ok, false);
-        assert.equal(result.reason, 'target_missing');
-      } finally {
-        if (originalPane !== undefined) {
-          process.env.TMUX_PANE = originalPane;
-        }
-        await rm(cwd, { recursive: true, force: true });
-      }
-    });
-  });
-
   describe('owx', () => {
     it('exposes only the explicit read-only owx readers', async () => {
       const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
       try {
         const sdk = createHookPluginSdk({ cwd, pluginName: 'test', event: makeEvent() });
 
-        assert.deepEqual(Object.keys(sdk.owx).sort(), ['hud', 'notifyFallback', 'session', 'updateCheck']);
+        assert.deepEqual(Object.keys(sdk.owx).sort(), ['hud', 'session', 'updateCheck']);
         assert.equal(typeof sdk.owx.session.read, 'function');
         assert.equal(typeof sdk.owx.hud.read, 'function');
-        assert.equal(typeof sdk.owx.notifyFallback.read, 'function');
         assert.equal(typeof sdk.owx.updateCheck.read, 'function');
         assert.equal('pluginState' in sdk, false);
         assert.equal('readJson' in sdk.owx, false);
@@ -314,8 +174,6 @@ exit 1
         assert.equal('delete' in sdk.owx.session, false);
         assert.equal('write' in sdk.owx.hud, false);
         assert.equal('delete' in sdk.owx.hud, false);
-        assert.equal('write' in sdk.owx.notifyFallback, false);
-        assert.equal('delete' in sdk.owx.notifyFallback, false);
         assert.equal('write' in sdk.owx.updateCheck, false);
         assert.equal('delete' in sdk.owx.updateCheck, false);
       } finally {
@@ -358,17 +216,12 @@ exit 1
       }
     });
 
-    it('reads hud, notifyFallback, and updateCheck state from root-scoped owx files', async () => {
+    it('reads hud and updateCheck state from root-scoped owx files', async () => {
       const cwd = await mkdtemp(join(tmpdir(), 'owx-sdk-'));
       try {
         await writeOmxStateFile(cwd, 'hud-state.json', {
           last_turn_at: '2026-01-01T00:00:00.000Z',
           turn_count: 3,
-        });
-        await writeOmxStateFile(cwd, 'notify-fallback-state.json', {
-          pid: 1234,
-          stopping: false,
-          tracked_files: 2,
         });
         await writeOmxStateFile(cwd, 'update-check.json', {
           last_checked_at: '2026-01-01T00:00:00.000Z',
@@ -379,11 +232,6 @@ exit 1
         assert.deepEqual(await sdk.owx.hud.read(), {
           last_turn_at: '2026-01-01T00:00:00.000Z',
           turn_count: 3,
-        });
-        assert.deepEqual(await sdk.owx.notifyFallback.read(), {
-          pid: 1234,
-          stopping: false,
-          tracked_files: 2,
         });
         assert.deepEqual(await sdk.owx.updateCheck.read(), {
           last_checked_at: '2026-01-01T00:00:00.000Z',
@@ -430,7 +278,6 @@ exit 1
         const sdk = createHookPluginSdk({ cwd, pluginName: 'test', event: makeEvent() });
         assert.equal(await sdk.owx.session.read(), null);
         assert.equal(await sdk.owx.hud.read(), null);
-        assert.equal(await sdk.owx.notifyFallback.read(), null);
         assert.equal(await sdk.owx.updateCheck.read(), null);
       } finally {
         await rm(cwd, { recursive: true, force: true });
@@ -458,18 +305,16 @@ exit 1
 });
 
 describe('clearHookPluginState', () => {
-  it('removes data.json and tmux.json for plugin', async () => {
+  it('removes data.json for plugin', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-clear-'));
     try {
       const pluginDir = join(cwd, '.owx', 'state', 'hooks', 'plugins', 'my-plugin');
       await mkdir(pluginDir, { recursive: true });
       await writeFile(join(pluginDir, 'data.json'), '{}');
-      await writeFile(join(pluginDir, 'tmux.json'), '{}');
 
       await clearHookPluginState(cwd, 'my-plugin');
 
       assert.equal(existsSync(join(pluginDir, 'data.json')), false);
-      assert.equal(existsSync(join(pluginDir, 'tmux.json')), false);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

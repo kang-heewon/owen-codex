@@ -117,7 +117,6 @@ export function buildPlanningGateLogEvent(
 export const TRACKED_WORKFLOW_MODES = [
   'autopilot',
   'autoresearch',
-  'team',
   'ultragoal',
   'ralph',
   'ultrawork',
@@ -130,18 +129,12 @@ export type TrackedWorkflowMode = (typeof TRACKED_WORKFLOW_MODES)[number];
 export type WorkflowTransitionAction = 'activate' | 'start' | 'write';
 export type WorkflowTransitionKind = 'allow' | 'overlap' | 'auto-complete' | 'deny';
 
-const ALLOWED_OVERLAP_PAIRS = new Set([
-  'ralph|team',
-]);
-
 const AUTO_COMPLETE_TRANSITIONS = new Set([
   'deep-interview->autopilot',
   'deep-interview->autoresearch',
   'deep-interview->ralph',
-  'deep-interview->team',
   'deep-interview->ultragoal',
   'deep-interview->ultrawork',
-  'ralplan->team',
   'ralplan->ultragoal',
   'ralplan->ralph',
   'ralplan->autopilot',
@@ -161,7 +154,6 @@ const PLANNING_LIKE_MODES = new Set<TrackedWorkflowMode>([
 const EXECUTION_LIKE_MODES = new Set<TrackedWorkflowMode>([
   'autopilot',
   'autoresearch',
-  'team',
   'ultragoal',
   'ralph',
   'ultrawork',
@@ -182,13 +174,9 @@ function normalizeTrackedModes(modes: Iterable<string>): TrackedWorkflowMode[] {
   return [...deduped];
 }
 
-function buildPairKey(a: string, b: string): string {
-  return [a, b].sort((left, right) => left.localeCompare(right)).join('|');
-}
-
 function isAllowedOverlap(a: TrackedWorkflowMode, b: TrackedWorkflowMode): boolean {
   if (a === 'ultrawork' || b === 'ultrawork') return true;
-  return ALLOWED_OVERLAP_PAIRS.has(buildPairKey(a, b));
+  return false;
 }
 
 function buildAutoCompleteKey(a: TrackedWorkflowMode, b: TrackedWorkflowMode): string {

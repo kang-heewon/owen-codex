@@ -316,7 +316,6 @@ async function dispatchDerivedEvent(event: Record<string, unknown>): Promise<voi
     const { dispatchHookEvent } = await import('../hooks/extensibility/dispatcher.js');
     await dispatchHookEvent(event as unknown as Parameters<typeof dispatchHookEvent>[0], {
       cwd,
-      allowTeamWorkerSideEffects: false,
     });
     await derivedLog({
       type: 'derived_event_dispatch',
@@ -388,7 +387,6 @@ async function dispatchOperationalEvent(input: OperationalEventInput): Promise<v
     });
     await dispatchHookEvent(event, {
       cwd,
-      allowTeamWorkerSideEffects: false,
     });
     await derivedLog({
       type: 'operational_event_dispatch',

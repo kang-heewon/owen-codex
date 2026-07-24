@@ -8,7 +8,7 @@ export const EXPLORE_BIN_ENV = EXPLORE_BIN_ENV_SHARED;
 export const EXPLORE_DEPRECATION_MESSAGE = [
   'owx explore is hard-deprecated and the direct command surface has been removed.',
   'Use normal Codex repository inspection tools/subagents for read-only repository lookups.',
-  'Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries.',
+  'Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence.',
 ].join(' ');
 
 export const EXPLORE_HELP = `owx explore - Hard-deprecated legacy command surface
@@ -22,7 +22,7 @@ Deprecated legacy forms (all fail intentionally):
 
 Migration:
   - Use normal Codex repository inspection tools/subagents for simple read-only repository lookups.
-  - Use \`owx sparkshell -- <command>\` for explicit shell-native read-only evidence or \`--tmux-pane\` summaries.
+  - Use \`owx sparkshell -- <command>\` for explicit shell-native read-only evidence.
 `;
 
 const WINDOWS_BUILTIN_EXPLORE_HARNESS_REASON =

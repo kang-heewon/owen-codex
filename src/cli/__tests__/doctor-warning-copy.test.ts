@@ -99,17 +99,6 @@ async function installPluginCacheFixture(codexDir: string): Promise<string> {
 	await rm(cacheDir, { recursive: true, force: true });
 	await mkdir(dirname(cacheDir), { recursive: true });
 	await cp(sourcePluginDir, cacheDir, { recursive: true });
-	await writeFile(
-		join(cacheDir, "hooks", "owx-command.json"),
-		`${JSON.stringify(
-			{
-				command: process.execPath,
-				argsPrefix: [join(root, "dist", "cli", "owx.js")],
-			},
-			null,
-			2,
-		)}\n`,
-	);
 	return cacheDir;
 }
 
@@ -533,46 +522,6 @@ command = "node"
 		}
 	});
 
-	it("warns about retired owx_team_run config left behind after upgrade", async () => {
-		const wd = await mkdtemp(join(tmpdir(), "owx-doctor-copy-"));
-		try {
-			const home = join(wd, "home");
-			const codexDir = join(home, ".codex");
-			await mkdir(codexDir, { recursive: true });
-			await writeFile(
-				join(codexDir, "config.toml"),
-				`
-[mcp_servers.owx_team_run]
-command = "node"
-args = ["/tmp/team-server.js"]
-enabled = true
-`.trimStart(),
-			);
-
-			const res = runOmx(wd, ["doctor"], {
-				HOME: home,
-				CODEX_HOME: join(home, ".codex"),
-			});
-			if (shouldSkipForSpawnPermissions(res.error)) return;
-			assert.equal(res.status, 0, res.stderr || res.stdout);
-			assert.match(
-				res.stdout,
-				/Config: retired \[mcp_servers\.owx_team_run\] table still present; run "owx setup --force" to repair the config/,
-			);
-			assert.match(
-				res.stdout,
-				/MCP Servers: 1 servers configured, but retired \[mcp_servers\.owx_team_run\] is not supported; run "owx setup --force" to repair the config/,
-			);
-			assert.doesNotMatch(res.stdout, /Config: config\.toml has OWX entries/);
-			assert.doesNotMatch(
-				res.stdout,
-				/MCP Servers: 1 user-managed MCP server\(s\) preserved; first-party OWX MCP omitted by default/,
-			);
-		} finally {
-			await rm(wd, { recursive: true, force: true });
-		}
-	});
-
 	it("warns when explore harness sources are packaged but cargo is unavailable", async () => {
 		const wd = await mkdtemp(join(tmpdir(), "owx-doctor-explore-copy-"));
 		try {
@@ -918,7 +867,7 @@ OWX_LORE_COMMIT_GUARD = "truee"
 		}
 	});
 
-	it("warns when plugin-scoped hook cache launcher content is stale", async () => {
+	it("warns when the plugin-scoped standalone hook cache is stale", async () => {
 		const wd = await mkdtemp(join(tmpdir(), "owx-doctor-plugin-hook-cache-stale-"));
 		try {
 			const home = join(wd, "home");
@@ -927,15 +876,8 @@ OWX_LORE_COMMIT_GUARD = "truee"
 			await mkdir(codexDir, { recursive: true });
 			const cacheDir = await installPluginCacheFixture(codexDir);
 			await writeFile(
-				join(cacheDir, "hooks", "owx-command.json"),
-				`${JSON.stringify(
-					{
-						command: process.execPath,
-						argsPrefix: ["/tmp/stale-owx-worktree/dist/cli/owx.js"],
-					},
-					null,
-					2,
-				)}\n`,
+				join(cacheDir, "hooks", "codex-native-hook.mjs"),
+				"// stale standalone hook\n",
 			);
 			await writeFile(
 				join(wd, ".owx", "setup-scope.json"),
@@ -966,7 +908,7 @@ OWX_LORE_COMMIT_GUARD = "truee"
 			assert.match(
 				res.stdout,
 				new RegExp(
-					`\\[!!\\] Native hooks: plugin-scoped hooks are enabled, but cached plugin hook files or pinned hook launcher in ${cacheDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} do not match the packaged plugin; setup-owned hooks\\.json is intentionally absent at .*\\.codex[\\/]+hooks\\.json; run "owx setup --plugin --force" to refresh the plugin cache`,
+					`\\[!!\\] Native hooks: plugin-scoped hooks are enabled, but cached plugin hook files in ${cacheDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} do not match the packaged plugin; setup-owned hooks\\.json is intentionally absent at .*\\.codex[\\/]+hooks\\.json; run "owx setup --plugin --force" to refresh the plugin cache`,
 				),
 			);
 			assert.doesNotMatch(res.stdout, /plugin cache native hook coverage smoke passed/);

@@ -120,7 +120,7 @@ jobs:
 
           function isNative(path) {
             return path === 'dist-workspace.toml'
-              || /^crates\/owx-(api|explore|mux|runtime-core|runtime|sparkshell)\//.test(path);
+              || /^crates\/owx-(api|explore|sparkshell)\//.test(path);
           }
 
           function isSharedConfig(path) {
@@ -144,7 +144,7 @@ jobs:
           }
 
           function isGjcRuntimeAffecting(path) {
-            return /^\.gjc\/(runtime|state|sessions|team|hooks|notifications)\//.test(path)
+            return /^\.gjc\/(runtime|state|sessions|hooks|notifications)\//.test(path)
               || /^\.gjc\/(config|settings|policy)\.(json|toml|ya?ml)$/.test(path);
           }
 
@@ -320,6 +320,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: npm run verify:removed-surfaces
+      - run: npm run verify:packed-files
       - name: Upload prebuilt dist artifact
         uses: actions/upload-artifact@v4
         with:
@@ -338,9 +340,8 @@ jobs:
       matrix:
         include:
           - node-version: 20
-            lane: team-state-runtime
+            lane: state-runtime
             test-roots: >-
-              dist/team/__tests__
               dist/state/__tests__
               dist/ralph/__tests__
               dist/ralplan/__tests__
@@ -382,7 +383,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install self-hosted test prerequisites
-        run: .github/scripts/install-prereqs.sh build-essential tmux -- cc tmux
+        run: .github/scripts/install-prereqs.sh build-essential -- cc
       - name: Setup Rust for harness-backed Node tests
         uses: dtolnay/rust-toolchain@v1
         with:
@@ -403,12 +404,9 @@ jobs:
           # Self-hosted runner lanes can leave platform/process handles alive
           # after all tests report. Force exit only after Node's test runner
           # finishes so successful suites do not hang indefinitely.
-          OWX_NODE_TEST_FORCE_EXIT: ${{ (matrix.lane == 'team-state-runtime' || matrix.lane == 'hooks-notify-platform') && '1' || '' }}
+          OWX_NODE_TEST_FORCE_EXIT: ${{ (matrix.lane == 'state-runtime' || matrix.lane == 'hooks-notify-platform') && '1' || '' }}
         run: |
           node dist/scripts/run-test-files.js ${{ matrix.test-roots }}
-      - name: Run cross-rebase smoke command
-        if: matrix.lane == 'smoke'
-        run: npm run test:team:cross-rebase-smoke:compiled
       - name: Run remaining smoke suite
         if: matrix.lane == 'smoke'
         run: |
@@ -422,52 +420,6 @@ jobs:
             dist/scripts/__tests__/smoke-packed-install.test.js \
             dist/verification/__tests__/explore-harness-release-workflow.test.js \
             dist/compat/__tests__/*.test.js
-
-  coverage-team-critical:
-    name: Coverage Gate (Team Critical)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [changes, build-dist]
-    if: ${{ needs.changes.outputs.full_suite == 'true' || needs.changes.outputs.ts_changed == 'true' || needs.changes.outputs.shared_config_changed == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install self-hosted test prerequisites
-        run: .github/scripts/install-prereqs.sh tmux -- tmux
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Download prebuilt dist artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: ci-dist-node20
-          path: dist
-      - name: Run team/state coverage gate
-        run: npm run coverage:team-critical:compiled
-      - name: Add coverage summary to job summary
-        run: |
-          node -e '
-            const fs = require("node:fs");
-            const summary = JSON.parse(fs.readFileSync("coverage/team/coverage-summary.json", "utf8"));
-            const total = summary.total;
-            const lines = [
-              "## Team/State Coverage Summary",
-              "",
-              "| Metric | Pct | Covered / Total |",
-              "|---|---:|---:|",
-              `| Lines | ${total.lines.pct}% | ${total.lines.covered} / ${total.lines.total} |`,
-              `| Functions | ${total.functions.pct}% | ${total.functions.covered} / ${total.functions.total} |`,
-              `| Branches | ${total.branches.pct}% | ${total.branches.covered} / ${total.branches.total} |`,
-              `| Statements | ${total.statements.pct}% | ${total.statements.covered} / ${total.statements.total} |`
-            ];
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join("\n")}\n`);
-          '
-      - name: Upload team coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: team-critical-coverage
-          path: coverage/team/
 
   ralph-persistence-gate:
     name: Ralph Persistence Gate
@@ -525,7 +477,7 @@ jobs:
     if: always()
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'gajae-layofflabs-2' }}
     timeout-minutes: 10
-    needs: [changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build]
+    needs: [changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, ralph-persistence-gate, build]
     steps:
       - name: Check required job results
         shell: bash
@@ -543,7 +495,6 @@ jobs:
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           BUILD_DIST_RESULT: ${{ needs.build-dist.result }}
           TEST_RESULT: ${{ needs.test.result }}
-          COVERAGE_TEAM_CRITICAL_RESULT: ${{ needs.coverage-team-critical.result }}
           RALPH_PERSISTENCE_GATE_RESULT: ${{ needs.ralph-persistence-gate.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           REASON: ${{ needs.changes.outputs.reason }}
@@ -593,7 +544,6 @@ jobs:
           echo "  typecheck: $TYPECHECK_RESULT"
           echo "  build-dist: $BUILD_DIST_RESULT"
           echo "  test: $TEST_RESULT"
-          echo "  coverage-team-critical: $COVERAGE_TEAM_CRITICAL_RESULT"
           echo "  ralph-persistence-gate: $RALPH_PERSISTENCE_GATE_RESULT"
           echo "  build: $BUILD_RESULT"
 
@@ -615,7 +565,6 @@ jobs:
           check_job typecheck "$TYPECHECK_RESULT" "$ts_active"
           check_job build-dist "$BUILD_DIST_RESULT" "$dist_active"
           check_job test "$TEST_RESULT" "$ts_active"
-          check_job coverage-team-critical "$COVERAGE_TEAM_CRITICAL_RESULT" "$ts_active"
           check_job ralph-persistence-gate "$RALPH_PERSISTENCE_GATE_RESULT" "$ts_active"
           check_job build "$BUILD_RESULT" "$build_active"
 

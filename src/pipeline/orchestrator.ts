@@ -43,8 +43,6 @@ export async function runPipeline(config: PipelineConfig): Promise<PipelineResul
 
   const cwd = config.cwd ?? process.cwd();
   const maxRalphIterations = config.maxRalphIterations ?? 10;
-  const workerCount = config.workerCount ?? 2;
-  const agentType = config.agentType ?? 'executor';
   const startTime = Date.now();
 
   // Initialize pipeline mode state
@@ -56,8 +54,6 @@ export async function runPipeline(config: PipelineConfig): Promise<PipelineResul
     pipeline_stage_index: 0,
     pipeline_stage_results: {},
     pipeline_max_ralph_iterations: maxRalphIterations,
-    pipeline_worker_count: workerCount,
-    pipeline_agent_type: agentType,
     review_cycle: 0,
     review_verdict: null,
     qa_verdict: null,
@@ -319,8 +315,6 @@ export async function readPipelineState(
     pipeline_stage_index: state.pipeline_stage_index as number,
     pipeline_stage_results: state.pipeline_stage_results as Record<string, StageResult>,
     pipeline_max_ralph_iterations: state.pipeline_max_ralph_iterations as number,
-    pipeline_worker_count: state.pipeline_worker_count as number,
-    pipeline_agent_type: state.pipeline_agent_type as string,
     review_cycle: state.review_cycle as number | undefined,
     review_verdict: state.review_verdict,
     qa_verdict: state.qa_verdict,
@@ -404,11 +398,6 @@ function validateConfig(config: PipelineConfig): void {
     }
   }
 
-  if (config.workerCount != null) {
-    if (!Number.isInteger(config.workerCount) || config.workerCount <= 0) {
-      throw new Error('workerCount must be a positive integer');
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -428,8 +417,6 @@ export function createAutopilotPipelineConfig(
     cwd?: string;
     sessionId?: string;
     maxRalphIterations?: number;
-    workerCount?: number;
-    agentType?: string;
     stages?: PipelineConfig['stages'];
     onStageTransition?: PipelineConfig['onStageTransition'];
   },
@@ -441,8 +428,6 @@ export function createAutopilotPipelineConfig(
     cwd: options.cwd,
     sessionId: options.sessionId,
     maxRalphIterations: options.maxRalphIterations ?? 10,
-    workerCount: options.workerCount ?? 2,
-    agentType: options.agentType ?? 'executor',
     onStageTransition: options.onStageTransition,
   };
 }

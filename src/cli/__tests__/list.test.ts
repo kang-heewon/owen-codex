@@ -32,7 +32,7 @@ describe("cli/list", () => {
     assert.equal(typeof payload.version, "string");
     assert.ok((payload.counts?.skillCount ?? 0) > 0);
     assert.ok((payload.counts?.promptCount ?? 0) > 0);
-    assert.ok(payload.skills?.some((skill) => skill.name === "team"));
+    assert.equal(payload.skills?.some((skill) => skill.name === "team"), false);
     assert.ok(payload.agents?.some((agent) => agent.name === "executor"));
     assert.ok(Array.isArray(payload.aliases));
     assert.ok(Array.isArray(payload.internalHidden));
@@ -42,7 +42,7 @@ describe("cli/list", () => {
     const lines = await captureStdout(() => listCommand([]));
     assert.match(lines[0] ?? "", /^OWX catalog /);
     assert.ok(lines.some((line) => line.startsWith("Skills: ")));
-    assert.ok(lines.some((line) => line.includes("team")));
+    assert.equal(lines.some((line) => /(?:^|\s)team(?:\s|$)/.test(line)), false);
     assert.ok(lines.some((line) => line.startsWith("Agents: ")));
   });
 });

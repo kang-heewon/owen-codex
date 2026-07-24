@@ -194,7 +194,7 @@ export async function onHookEvent() {}
     }
   });
 
-  it('disables side effects for team workers by default', async () => {
+  it('honors explicit side-effect suppression', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-dispatch-'));
     try {
       const dir = join(cwd, '.owx', 'hooks');
@@ -202,15 +202,15 @@ export async function onHookEvent() {}
       await writeFile(
         join(dir, 'se-test.mjs'),
         `export async function onHookEvent(event, sdk) {
-          const result = await sdk.tmux.sendKeys({ text: 'hello' });
-          await sdk.state.write('send_result', result.reason);
+          await sdk.state.write('event', event.event);
         }`,
       );
 
       const event = buildHookEvent('session-start');
       const result = await dispatchHookEvent(event, {
         cwd,
-        env: { ...process.env, OWX_HOOK_PLUGINS: '1', OWX_TEAM_WORKER: 'worker-1' },
+        env: { ...process.env, OWX_HOOK_PLUGINS: '1' },
+        sideEffectsEnabled: false,
       });
 
       assert.equal(result.enabled, true);

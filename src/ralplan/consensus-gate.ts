@@ -38,8 +38,8 @@ export function buildRalplanConsensusGateFromSources(
     const evidence = extractSequentialConsensusEvidence(candidate.value);
     if (evidence) {
       if (
-        options.requireNativeSubagents
-        && !hasTrackerBackedNativeRalplanLanes(evidence, options)
+        hasAdaptedRoleProvenance(evidence)
+        || (options.requireNativeSubagents && !hasTrackerBackedNativeRalplanLanes(evidence, options))
       ) {
         nativeBlockedEvidence ??= { ...evidence, source: candidate.source };
         continue;
@@ -62,7 +62,7 @@ export function buildRalplanConsensusGateFromSources(
       ralplan_architect_review: nativeBlockedEvidence.ralplan_architect_review,
       ralplan_critic_review: nativeBlockedEvidence.ralplan_critic_review,
       source: nativeBlockedEvidence.source,
-      blockedReason: 'native_subagent_consensus_evidence_missing',
+      blockedReason: 'role_identity_unavailable',
       blockedDetails: [
         trackerBackedNativeReviewProblem(nativeBlockedEvidence.ralplan_architect_review, 'architect', options),
         trackerBackedNativeReviewProblem(nativeBlockedEvidence.ralplan_critic_review, 'critic', options),
@@ -227,6 +227,14 @@ function isApproveReview(value: Record<string, unknown> | null, agentRole: 'arch
   return value.verdict === 'approve' || value.approved === true || value.clean === true;
 }
 
+function hasAdaptedRoleProvenance(evidence: {
+  ralplan_architect_review: Record<string, unknown>;
+  ralplan_critic_review: Record<string, unknown>;
+}): boolean {
+  return [evidence.ralplan_architect_review, evidence.ralplan_critic_review]
+    .some((review) => review.provenance_kind === 'omx_adapted' || review.provenance_kind === 'adapted');
+}
+
 function hasArchitectThenCriticSequence(value: Record<string, unknown>): boolean {
   if (!Array.isArray(value.sequence)) return true;
   return value.sequence[0] === 'architect-review' && value.sequence[1] === 'critic-review';
@@ -290,7 +298,7 @@ function trackerBackedNativeReviewProblem(
 ): string | null {
   if (!review) return `${agentRole} review is missing`;
   if (review.agent_role !== agentRole) return `${agentRole} review has agent_role=${String(review.agent_role || 'missing')}`;
-  if (review.provenance_kind !== 'native_subagent' && review.provenance_kind !== 'omx_adapted') {
+  if (review.provenance_kind !== 'native_subagent') {
     return `${agentRole} review has provenance_kind=${String(review.provenance_kind || 'missing')}`;
   }
   const sessionId = typeof options.sessionId === 'string' && options.sessionId.trim()
@@ -324,12 +332,6 @@ function trackerBackedNativeReviewProblem(
   if (!leaderThreadId || leaderThread?.kind !== 'leader') return `${agentRole} tracker session ${sessionId} has no established leader thread`;
   if (thread.kind !== 'subagent') return `${agentRole} tracker thread ${threadId} has kind=${String(thread.kind || 'missing')}`;
   if (thread.mode !== agentRole) return `${agentRole} tracker thread ${threadId} has mode=${String(thread.mode || 'missing')}`;
-  if (review.provenance_kind === 'omx_adapted') {
-    if (thread.role !== agentRole) return `${agentRole} tracker thread ${threadId} has role=${String(thread.role || 'missing')}`;
-    if (thread.provenance_kind !== 'omx_adapted') {
-      return `${agentRole} tracker thread ${threadId} has provenance_kind=${String(thread.provenance_kind || 'missing')}`;
-    }
-  }
   return null;
 }
 

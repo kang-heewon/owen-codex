@@ -50,8 +50,6 @@ export const KEYWORD_TRIGGER_DEFINITIONS: readonly KeywordTriggerDefinition[] = 
   { keyword: '$design', skill: 'design', priority: 6, guidance: 'Activate canonical DESIGN.md design-source-of-truth workflow' },
   { keyword: '$frontend-ui-ux', skill: 'design', priority: 5, guidance: 'Deprecated: route to $design for DESIGN.md guidance; use $visual-ralph for visual-reference implementation' },
 
-  { keyword: '$team', skill: 'team', priority: 8, guidance: 'Activate coordinated team mode' },
-  { keyword: 'coordinated team', skill: 'team', priority: 8, guidance: 'Activate coordinated team mode' },
 
   { keyword: '$cancel', skill: 'cancel', priority: 5, guidance: 'Cancel active execution modes' },
   { keyword: 'stop', skill: 'cancel', priority: 5, guidance: 'Cancel active execution modes' },

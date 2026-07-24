@@ -8,13 +8,14 @@ describe('HUD watch resource cleanup', () => {
     let unregisterCalls = 0;
     const fakeTimer = Symbol('timer') as unknown as ReturnType<typeof setInterval>;
 
-    await runWatchMode('/tmp/project', { watch: true, json: false, tmux: false }, {
+    await runWatchMode('/tmp/project', { watch: true, json: false }, {
       isTTY: true,
-      env: {},
       readHudConfigFn: async () => ({ preset: 'minimal', git: { display: 'repo-branch' }, statusLine: { preset: 'minimal' } }),
       readAllStateFn: async () => ({ cwd: '/tmp/project', config: {}, state: {}, timestamp: '2026-05-21T00:00:00.000Z' }) as never,
-      renderHudFn: () => 'hud',
-      runAuthorityTickFn: async () => { sigintHandler?.(); },
+      renderHudFn: () => {
+        queueMicrotask(() => sigintHandler?.());
+        return 'hud';
+      },
       writeStdout: () => {},
       writeStderr: () => {},
       registerSigint: (handler) => {

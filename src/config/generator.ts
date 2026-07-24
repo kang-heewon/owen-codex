@@ -103,10 +103,8 @@ const CODE_AUTHORING_INSTRUCTIONS =
 const PRODUCT_TASTE_INSTRUCTIONS =
   "When shaping product behavior, make the core user loop stronger before adding breadth: identify the single primary action, define explicit success and failure states, remove or hide weak optional paths, and never disguise failure as success with friendly copy, empty results, silent fallbacks, or vague degraded behavior. Prefer decisive product states over explanatory text; every fallback must preserve failure evidence and give the user a clear recovery action.";
 
-export const OWX_DEVELOPER_INSTRUCTIONS =
-  `You have owen-codex installed. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing, $name workflow invocation, and role-specialized subagents. When the native surface exposes \`agent_type\`, set it to an installed role. On Codex App surfaces without role routing, use the workflow's validated adapted role-intent protocol and exact receipt task_name; never infer a role from prompt text or a child path. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. Native subagents live in .codex/agents and may handle independent parallel subtasks within one Codex session or team pane. Skills load from .codex/skills, not native-agent TOMLs. Treat installed prompts as narrower execution surfaces under AGENTS.md authority. ${PRODUCT_TASTE_INSTRUCTIONS} ${CODE_AUTHORING_INSTRUCTIONS}`;
-export const OWX_PLUGIN_DEVELOPER_INSTRUCTIONS =
-  `You have owen-codex installed through Codex plugin mode. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing and $name workflow invocation. When the native surface exposes \`agent_type\`, set it to an installed role. On Codex App surfaces without role routing, use the workflow's validated adapted role-intent protocol and exact receipt task_name; never infer a role from prompt text or a child path. Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources when the plugin is installed; native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works. User-installed skills may still live under ~/.codex/skills. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. ${PRODUCT_TASTE_INSTRUCTIONS} ${CODE_AUTHORING_INSTRUCTIONS}`;
+export const OWX_DEVELOPER_INSTRUCTIONS = `You have owen-codex installed. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing, $name workflow invocation, and role-specialized subagents. Native \`agent_type\` is the sole authority for a child's role identity. Set it to the most specific installed role. If a workflow requires a role that the current surface cannot select, stop that lane with a visible \`role_identity_unavailable\` blocker; never infer role identity from task names, prompts, labels, or child paths. Use native subagents directly for independent, bounded work with explicit ownership; the leader integrates results and owns final verification. Sequential retry is a degraded path when native delegation is unavailable, not a replacement coordination runtime. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. Native subagents live in .codex/agents. Skills load from .codex/skills, not native-agent TOMLs. Treat installed prompts as narrower execution surfaces under AGENTS.md authority. ${PRODUCT_TASTE_INSTRUCTIONS} ${CODE_AUTHORING_INSTRUCTIONS}`;
+export const OWX_PLUGIN_DEVELOPER_INSTRUCTIONS = `You have owen-codex installed through Codex plugin mode. AGENTS.md is the orchestration brain and main control surface. Follow AGENTS.md for skill/keyword routing and $name workflow invocation. Native \`agent_type\` is the sole authority for a child's role identity. Set it to the most specific installed role. If a workflow requires a role that the current surface cannot select, stop that lane with a visible \`role_identity_unavailable\` blocker; never infer role identity from task names, prompts, labels, or child paths. Use native subagents directly for independent, bounded work with explicit ownership; the leader integrates results and owns final verification. Sequential retry is a degraded path when native delegation is unavailable, not a replacement coordination runtime. Registered Codex plugin marketplace surfaces supply OWX workflows and plugin-scoped companion resources when the plugin is installed; native agent roles are installed as setup-owned Codex agent TOML files in plugin mode so agent_type routing works. User-installed skills may still live under ~/.codex/skills. Use outcome-first, concise progress updates: state the target result, constraints, validation evidence, and stop condition before adding process detail. ${PRODUCT_TASTE_INSTRUCTIONS} ${CODE_AUTHORING_INSTRUCTIONS}`;
 const SHARED_MCP_REGISTRY_MARKER = "owen-codex (OWX) Shared MCP Registry Sync";
 const SHARED_MCP_REGISTRY_END_MARKER =
   "# End owen-codex shared MCP registry sync";
@@ -155,9 +153,7 @@ const OWX_MANAGED_STATUS_LINE_MARKER = "# owx:managed-status-line";
 // Treat that exact value as OWX-managed for backward compatibility so
 // upgrades/preset switches still strip the legacy line. Any other preset
 // literal without the marker is assumed user-written.
-const LEGACY_OWX_STATUS_LINE = statusLineForPreset(
-  DEFAULT_STATUS_LINE_PRESET,
-);
+const LEGACY_OWX_STATUS_LINE = statusLineForPreset(DEFAULT_STATUS_LINE_PRESET);
 
 // Set of every status_line literal OWX itself can emit today. Used together
 // with the marker comment: if a status_line is preceded by the marker AND
@@ -169,12 +165,11 @@ const OWX_PRESET_STATUS_LINE_VALUES: ReadonlySet<string> = new Set(
     statusLineForPreset(preset),
   ),
 );
-const LEGACY_OWX_TEAM_RUN_TABLE_PATTERN =
-  /^\s*\[mcp_servers\.(?:"owx_team_run"|owx_team_run)\]\s*$/m;
 const OWX_CONFIG_MARKER = "owen-codex (OWX) Configuration";
 const OWX_CONFIG_END_MARKER = "# End owen-codex";
 
-const CODEX_MODEL_AVAILABILITY_NUX_TABLE_PATTERN = /^\s*\[tui\.model_availability_nux\]\s*(?:#.*)?$/;
+const CODEX_MODEL_AVAILABILITY_NUX_TABLE_PATTERN =
+  /^\s*\[tui\.model_availability_nux\]\s*(?:#.*)?$/;
 const TOML_TABLE_HEADER_PATTERN = /^\s*\[\[?[^\]]+\]?\]\s*(?:#.*)?$/;
 
 export function stripCodexModelAvailabilityNux(config: string): string {
@@ -182,7 +177,7 @@ export function stripCodexModelAvailabilityNux(config: string): string {
   const result: string[] = [];
   let removed = false;
 
-  for (let i = 0; i < lines.length;) {
+  for (let i = 0; i < lines.length; ) {
     if (CODEX_MODEL_AVAILABILITY_NUX_TABLE_PATTERN.test(lines[i])) {
       removed = true;
       i += 1;
@@ -210,10 +205,6 @@ export async function cleanCodexModelAvailabilityNuxIfNeeded(
 
   await writeFile(configPath, cleaned);
   return true;
-}
-
-export function hasLegacyOmxTeamRunTable(config: string): boolean {
-  return LEGACY_OWX_TEAM_RUN_TABLE_PATTERN.test(config);
 }
 
 function unwrapTomlString(value: string | undefined): string | undefined {
@@ -317,7 +308,9 @@ export function getRootTomlArray(config: string, key: string): string[] | null {
   }
 }
 
-function resolveNotifyEntrypoint(command: readonly string[]): string | undefined {
+function resolveNotifyEntrypoint(
+  command: readonly string[],
+): string | undefined {
   if (!/(?:^|[\\/])node(?:\.exe)?$/i.test(command[0] ?? "")) {
     return command[0];
   }
@@ -339,22 +332,27 @@ function getPreviousNotifyWrapperValue(
   return undefined;
 }
 
-function isOmxDispatcherMetadataCommand(command: readonly string[] | null | undefined): boolean {
+function isOmxDispatcherMetadataCommand(
+  command: readonly string[] | null | undefined,
+): boolean {
   if (!command) return false;
   const entrypoint = resolveNotifyEntrypoint(command);
   if (!entrypoint || !/(?:^|[\\/])notify-dispatcher\.js$/.test(entrypoint)) {
     return false;
   }
   const metadataIndex = command.indexOf("--metadata");
-  const metadataPath = metadataIndex >= 0 ? command[metadataIndex + 1] : undefined;
-  return typeof metadataPath === "string" && /(?:^|[\\/])(?:\.owx[\\/])?notify-dispatch\.json$/.test(metadataPath);
+  const metadataPath =
+    metadataIndex >= 0 ? command[metadataIndex + 1] : undefined;
+  return (
+    typeof metadataPath === "string" &&
+    /(?:^|[\\/])(?:\.owx[\\/])?notify-dispatch\.json$/.test(metadataPath)
+  );
 }
 
 function isOmxManagedPayloadText(value: string): boolean {
   const containsManagedPackageNotify =
-    /(?:^|[\\/])notify-(?:hook|dispatcher)\.js(?:\s|$|["'])/.test(
-      value,
-    ) && /(?:^|[\\/])owen-codex(?:[\\/]|$)/.test(value);
+    /(?:^|[\\/])notify-(?:hook|dispatcher)\.js(?:\s|$|["'])/.test(value) &&
+    /(?:^|[\\/])owen-codex(?:[\\/]|$)/.test(value);
   const containsDispatcherMetadataNotify =
     /(?:^|[\\/])notify-dispatcher\.js(?:\s|$|["'])/.test(value) &&
     /--metadata(?:\s|=)/.test(value) &&
@@ -604,16 +602,18 @@ function escapeRegExp(value: string): string {
 
 function stripOrphanedManagedNotify(config: string, pkgRoot: string): string {
   const rootNotify = getRootTomlArray(config, "notify");
-  if (
-    rootNotify &&
-    !isOmxManagedNotifyCommand(rootNotify, pkgRoot)
-  ) {
+  if (rootNotify && !isOmxManagedNotifyCommand(rootNotify, pkgRoot)) {
     return config;
   }
-  const managedHookPath = escapeRegExp(resolve(pkgRoot, "dist", "scripts", "notify-hook.js"));
+  const managedHookPath = escapeRegExp(
+    resolve(pkgRoot, "dist", "scripts", "notify-hook.js"),
+  );
   return config
     .replace(
-      new RegExp(`^\\s*notify\\s*=\\s*\\["node",\\s*"${managedHookPath}"\\]\\s*$(\\n)?`, "gm"),
+      new RegExp(
+        `^\\s*notify\\s*=\\s*\\["node",\\s*"${managedHookPath}"\\]\\s*$(\\n)?`,
+        "gm",
+      ),
       "",
     )
     .replace(
@@ -647,8 +647,10 @@ function isAnyCodexHookFeatureFlagLine(line: string): boolean {
 }
 
 function isAnyPluginModeHookFeatureFlagLine(line: string): boolean {
-  return isAnyCodexHookFeatureFlagLine(line)
-    || isFeatureFlagLine(line, CODEX_PLUGIN_SCOPED_HOOKS_FEATURE_FLAG);
+  return (
+    isAnyCodexHookFeatureFlagLine(line) ||
+    isFeatureFlagLine(line, CODEX_PLUGIN_SCOPED_HOOKS_FEATURE_FLAG)
+  );
 }
 
 function upsertFeatureFlagLineInSection(
@@ -730,9 +732,8 @@ function upsertFeatureFlags(
   const featuresStart = lines.findIndex((line) =>
     /^\s*\[features\]\s*$/.test(line),
   );
-  const hookFeatureFlagLine = formatCodexHookFeatureFlagLine(
-    codexHookFeatureFlag,
-  );
+  const hookFeatureFlagLine =
+    formatCodexHookFeatureFlagLine(codexHookFeatureFlag);
 
   if (featuresStart < 0) {
     const base = config.trimEnd();
@@ -835,11 +836,17 @@ function extractMarkerBlockContent(
     const nextStartIdx = lines.findIndex(
       (line, index) => index > i && line.trim() === startMarker,
     );
-    if (nextEndIdx === -1 || (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)) {
+    if (
+      nextEndIdx === -1 ||
+      (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)
+    ) {
       return undefined;
     }
 
-    return lines.slice(i + 1, nextEndIdx).join("\n").trim();
+    return lines
+      .slice(i + 1, nextEndIdx)
+      .join("\n")
+      .trim();
   }
   return undefined;
 }
@@ -852,7 +859,7 @@ function stripMarkerBlock(
   const lines = config.split(/\r?\n/);
   const kept: string[] = [];
 
-  for (let i = 0; i < lines.length;) {
+  for (let i = 0; i < lines.length; ) {
     if (lines[i].trim() !== startMarker) {
       kept.push(lines[i]);
       i += 1;
@@ -865,7 +872,10 @@ function stripMarkerBlock(
     const nextStartIdx = lines.findIndex(
       (line, index) => index > i && line.trim() === startMarker,
     );
-    if (nextEndIdx === -1 || (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)) {
+    if (
+      nextEndIdx === -1 ||
+      (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)
+    ) {
       kept.push(lines[i]);
       i += 1;
       continue;
@@ -873,7 +883,10 @@ function stripMarkerBlock(
     i = nextEndIdx + 1;
   }
 
-  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return kept
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 function isPlainTomlRecord(value: unknown): value is Record<string, unknown> {
@@ -898,7 +911,9 @@ function collectProjectHookTrustStateKeys(config: string): Set<string> {
   const keys = new Set<string>();
   const parsed = safeParseToml(config);
   const hooksTable = isPlainTomlRecord(parsed) ? parsed.hooks : undefined;
-  const hooksState = isPlainTomlRecord(hooksTable) ? hooksTable.state : undefined;
+  const hooksState = isPlainTomlRecord(hooksTable)
+    ? hooksTable.state
+    : undefined;
   if (!isPlainTomlRecord(hooksState)) return keys;
   for (const [key, entry] of Object.entries(hooksState)) {
     if (!isPlainTomlRecord(entry)) continue;
@@ -971,7 +986,9 @@ export function syncProjectScopeTrustStateFromRuntime(
       ([a], [b]) => a.localeCompare(b),
     )) {
       if (!isPlainTomlRecord(entry)) continue;
-      const serialized = TOML.stringify({ [projectKey]: entry } as TOML.JsonMap);
+      const serialized = TOML.stringify({
+        [projectKey]: entry,
+      } as TOML.JsonMap);
       const renderedHeader = `[projects."${escapeTomlBasicString(projectKey)}"]`;
       const body = serialized
         .split(/\r?\n/)
@@ -983,7 +1000,9 @@ export function syncProjectScopeTrustStateFromRuntime(
   }
 
   const hooksTable = parsed.hooks;
-  const hooksState = isPlainTomlRecord(hooksTable) ? hooksTable.state : undefined;
+  const hooksState = isPlainTomlRecord(hooksTable)
+    ? hooksTable.state
+    : undefined;
   if (isPlainTomlRecord(hooksState)) {
     for (const [stateKey, entry] of Object.entries(hooksState).sort(
       ([a], [b]) => a.localeCompare(b),
@@ -1076,7 +1095,7 @@ function stripProofManagedCodexHookTrustStateTables(
   const kept: string[] = [];
   const preservedConflictKeys = new Set<string>();
 
-  for (let i = 0; i < lines.length;) {
+  for (let i = 0; i < lines.length; ) {
     const header = parseHooksStateHeader(lines[i] ?? "");
     if (!header) {
       kept.push(lines[i]);
@@ -1124,7 +1143,7 @@ function stripManagedCodexHookTrustStateWithResult(
   const lines = config.split(/\r?\n/);
   const kept: string[] = [];
 
-  for (let i = 0; i < lines.length;) {
+  for (let i = 0; i < lines.length; ) {
     const trimmed = lines[i].trim();
     if (trimmed !== OWX_HOOK_TRUST_START_MARKER) {
       kept.push(lines[i]);
@@ -1139,7 +1158,10 @@ function stripManagedCodexHookTrustStateWithResult(
       (line, index) => index > i && line.trim() === OWX_HOOK_TRUST_START_MARKER,
     );
 
-    if (nextEndIdx === -1 || (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)) {
+    if (
+      nextEndIdx === -1 ||
+      (nextStartIdx !== -1 && nextStartIdx < nextEndIdx)
+    ) {
       kept.push(lines[i]);
       i += 1;
       continue;
@@ -1222,7 +1244,9 @@ export function upsertManagedCodexHookTrustState(
     hookTrustToml,
     OWX_HOOK_TRUST_END_MARKER,
     "",
-  ].filter((line, index) => index !== 0 || line.length > 0).join("\n");
+  ]
+    .filter((line, index) => index !== 0 || line.length > 0)
+    .join("\n");
 }
 
 export function upsertPluginModeRuntimeFeatureFlags(
@@ -1270,7 +1294,11 @@ export function upsertPluginModeRuntimeFeatureFlags(
   }
 
   ({ sectionEnd } = options.pluginScopedHooks
-    ? upsertPluginScopedHookFeatureFlagInSection(lines, featuresStart, sectionEnd)
+    ? upsertPluginScopedHookFeatureFlagInSection(
+        lines,
+        featuresStart,
+        sectionEnd,
+      )
     : upsertCodexHookFeatureFlagInSection(
         lines,
         featuresStart,
@@ -1362,9 +1390,7 @@ function collectTomlTableKeyEntries(
 ): { key: string; lines: string[] }[] {
   return findTomlTableEntryRanges(lines, range.start + 1, range.end)
     .filter(
-      (
-        entry,
-      ): entry is TomlTableEntryRange & { key: string } =>
+      (entry): entry is TomlTableEntryRange & { key: string } =>
         entry.key !== undefined,
     )
     .map((entry) => ({
@@ -1427,20 +1453,14 @@ function upsertEnvSettings(config: string): string {
   if (shellEnvSetRange === undefined) {
     const base = lines.join("\n").trimEnd();
     const envLines = legacyEnvEntries.flatMap((entry) => entry.lines);
-    if (
-      legacyEnvEntries.every(
-        (entry) => entry.key !== OWX_EXPLORE_CMD_ENV,
-      )
-    ) {
+    if (legacyEnvEntries.every((entry) => entry.key !== OWX_EXPLORE_CMD_ENV)) {
       envLines.push(
         `${OWX_EXPLORE_CMD_ENV} = "${OWX_EXPLORE_ROUTING_DEFAULT}"`,
       );
     }
-    const envBlock = [
-      "[shell_environment_policy.set]",
-      ...envLines,
-      "",
-    ].join("\n");
+    const envBlock = ["[shell_environment_policy.set]", ...envLines, ""].join(
+      "\n",
+    );
     if (base.length === 0) return envBlock;
     return `${base}\n\n${envBlock}`;
   }
@@ -1592,9 +1612,8 @@ export function upsertCodexHooksFeatureFlag(
   const featuresStart = lines.findIndex((line) =>
     /^\s*\[features\]\s*$/.test(line),
   );
-  const hookFeatureFlagLine = formatCodexHookFeatureFlagLine(
-    codexHookFeatureFlag,
-  );
+  const hookFeatureFlagLine =
+    formatCodexHookFeatureFlagLine(codexHookFeatureFlag);
 
   if (featuresStart < 0) {
     const base = config.trimEnd();
@@ -1641,12 +1660,13 @@ export function stripOmxEnvSettings(config: string): string {
  */
 
 function isOmxFirstPartyMcpSection(tableName: string): boolean {
-  const match = tableName.match(/^mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))$/);
+  const match = tableName.match(
+    /^mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))$/,
+  );
   const name = match?.[1] ?? match?.[2];
   return Boolean(
     name &&
-      ((OWX_FIRST_PARTY_MCP_SERVER_NAMES as readonly string[]).includes(name) ||
-        name === "owx_team_run"),
+      (OWX_FIRST_PARTY_MCP_SERVER_NAMES as readonly string[]).includes(name),
   );
 }
 
@@ -1662,8 +1682,8 @@ function isLegacyOmxAgentSection(tableName: string): boolean {
  * This covers legacy configs that were written before markers were added,
  * or configs where the marker was accidentally removed.
  *
- * Targets: exact first-party [mcp_servers.<name>] entries, retired
- * [mcp_servers.owx_team_run], and legacy [agents.<name>] entries.
+ * Targets: exact first-party MCP entries plus legacy
+ * [agents.<name>] entries.
  */
 function stripOrphanedOmxSections(config: string): string {
   const lines = config.split(/\r?\n/);
@@ -1711,12 +1731,11 @@ function stripOrphanedOmxSections(config: string): string {
 }
 
 export function hasFirstPartyOmxMcpRegistrations(config: string): boolean {
-  const firstPartyNames = new Set<string>([
-    ...OWX_FIRST_PARTY_MCP_SERVER_NAMES,
-    "owx_team_run",
-  ]);
+  const firstPartyNames = new Set<string>(OWX_FIRST_PARTY_MCP_SERVER_NAMES);
   for (const line of config.split(/\r?\n/)) {
-    const match = line.match(/^\s*\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/);
+    const match = line.match(
+      /^\s*\[mcp_servers\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\s*$/,
+    );
     const name = match?.[1] ?? match?.[2];
     if (name && firstPartyNames.has(name)) return true;
   }
@@ -1730,7 +1749,10 @@ export function extractFirstPartyOmxMcpSections(config: string): string {
 
   while (i < lines.length) {
     const tableMatch = lines[i].match(/^\s*\[([^\]]+)\]\s*$/);
-    if (!tableMatch || !isOmxFirstPartyMcpSection(tableMatch[1])) {
+    if (
+      !tableMatch ||
+      !isOmxFirstPartyMcpSection(tableMatch[1])
+    ) {
       i += 1;
       continue;
     }
@@ -1766,7 +1788,10 @@ export function stripFirstPartyOmxMcpSections(config: string): string {
     index += 1;
   }
 
-  return result.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd();
+  return result
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 function extractCustomizedTuiSectionsFromOmxBlocks(config: string): string[] {
@@ -2101,14 +2126,14 @@ export function extractSharedMcpRegistryServersFromConfig(config: string): {
       const args = Array.isArray(value.args)
         ? value.args.filter((arg): arg is string => typeof arg === "string")
         : [];
-      const enabled =
-        typeof value.enabled === "boolean" ? value.enabled : true;
+      const enabled = typeof value.enabled === "boolean" ? value.enabled : true;
       const timeoutCandidate =
         typeof value.startup_timeout_sec === "number"
           ? value.startup_timeout_sec
           : value.startupTimeoutSec;
       const startupTimeoutSec =
-        typeof timeoutCandidate === "number" && Number.isFinite(timeoutCandidate)
+        typeof timeoutCandidate === "number" &&
+        Number.isFinite(timeoutCandidate)
           ? timeoutCandidate
           : undefined;
 
@@ -2281,9 +2306,7 @@ function getSharedMcpRegistryBlock(
     lines.push(`[${toMcpServerTableKey(server.name)}]`);
     lines.push(`command = "${escapeTomlString(server.command)}"`);
     lines.push(
-      `args = [${server.args
-        .map((arg) => `"${escapeTomlString(arg)}"`)
-        .join(", ")}]`,
+      `args = [${server.args.map((arg) => `"${escapeTomlString(arg)}"`).join(", ")}]`,
     );
     lines.push(`enabled = ${server.enabled ? "true" : "false"}`);
     if (typeof server.startupTimeoutSec === "number") {
@@ -2348,9 +2371,7 @@ function getOmxTablesBlock(
       lines.push(`[mcp_servers.${server.name}]`);
       lines.push(`command = "${escapeTomlString(server.command)}"`);
       lines.push(
-        `args = [${server.args
-          .map((arg) => `"${escapeTomlString(arg)}"`)
-          .join(", ")}]`,
+        `args = [${server.args.map((arg) => `"${escapeTomlString(arg)}"`).join(", ")}]`,
       );
       lines.push(`enabled = ${server.enabled ? "true" : "false"}`);
       if (typeof server.startupTimeoutSec === "number") {
@@ -2515,11 +2536,7 @@ export function buildMergedConfig(
 /**
  * Detect and repair upgrade-era managed config incompatibilities in config.toml.
  *
- * After an owx version upgrade the OLD setup code (still loaded in memory)
- * may leave a config with duplicate [tui] sections or the retired
- * [mcp_servers.owx_team_run] table. Codex rejects duplicate tables and newer
- * OWX builds no longer ship the team MCP entrypoint, so we repair both before
- * the CLI is spawned.
+ * Repairs retained managed configuration issues before the CLI is spawned.
  *
  * Returns `true` if a repair was performed.
  */
@@ -2532,10 +2549,9 @@ export async function repairConfigIfNeeded(
 
   const content = await readFile(configPath, "utf-8");
   const tuiCount = (content.match(/^\s*\[tui\]\s*$/gm) || []).length;
-  const hasLegacyTeamRunTable = hasLegacyOmxTeamRunTable(content);
   const hasLauncherTimeoutGap =
     findLauncherTimeoutRepairTargets(content).length > 0;
-  if (tuiCount <= 1 && !hasLegacyTeamRunTable && !hasLauncherTimeoutGap)
+  if (tuiCount <= 1 && !hasLauncherTimeoutGap)
     return false;
 
   // Managed config compatibility issue detected — run full merge to repair

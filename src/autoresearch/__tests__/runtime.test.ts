@@ -75,11 +75,10 @@ describe('autoresearch runtime', () => {
           repoRoot: repo,
           worktreeRoot: join(repo, '.owx', 'worktrees', 'candidate'),
           gitCommonDir: join(repo, '.git'),
-          worktreeScope: 'autoresearch',
           codeGraphMode: 'shared',
           codeGraphProjectPath: repo,
           codeGraphDbPath: join(repo, '.codegraph', 'codegraph.db'),
-          codeGraphSource: 'leader-shared',
+          codeGraphSource: 'repository-shared',
           requestedCodeGraphMode: 'auto',
         },
       });
@@ -90,7 +89,7 @@ describe('autoresearch runtime', () => {
       assert.match(instructions, /Mission file:/i);
       assert.match(instructions, /Sandbox policy:/i);
       assert.match(instructions, /## CodeGraph/);
-      assert.match(instructions, /shared leader index/);
+      assert.match(instructions, /shared repository index/);
       assert.match(instructions, /not branch-accurate/);
     } finally {
       await rm(repo, { recursive: true, force: true });

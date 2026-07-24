@@ -6,7 +6,7 @@
 
 import type { HudRenderContext, HudPreset } from './types.js';
 import { green, yellow, cyan, dim, bold, magenta, getRalphColor, isColorEnabled, RESET } from './colors.js';
-import { HUD_TMUX_HEIGHT_LINES, HUD_TMUX_MAX_HEIGHT_LINES, HUD_TMUX_ULTRAGOAL_HEIGHT_LINES } from './constants.js';
+import { HUD_MAX_RENDER_LINES, HUD_RENDER_LINES, HUD_ULTRAGOAL_RENDER_LINES } from './constants.js';
 
 const SEP = dim(' | ');
 const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f-\u009f]/g;
@@ -144,24 +144,6 @@ function renderUltraqa(ctx: HudRenderContext): string | null {
   return green(`qa:${phase}`);
 }
 
-function formatTeamSummary(ctx: HudRenderContext): string | null {
-  if (!ctx.team) return null;
-  const count = ctx.team.agent_count;
-  const name = ctx.team.team_name ? sanitizeDynamicText(ctx.team.team_name) : '';
-  if (count !== undefined && count > 0) {
-    return `team:${count} workers`;
-  }
-  if (name) {
-    return `team:${name}`;
-  }
-  return 'team';
-}
-
-function renderTeam(ctx: HudRenderContext): string | null {
-  const summary = formatTeamSummary(ctx);
-  return summary ? green(summary) : null;
-}
-
 function normalizeTrailingEllipsis(value: string): string {
   return value.replace(/(?:\.\.\.|…)+$/u, '…');
 }
@@ -173,7 +155,7 @@ function truncateDynamicText(value: string, maxLength: number): string {
 }
 
 export function getHudRenderMaxLines(ctx: Pick<HudRenderContext, 'ultragoal'>): number {
-  return ctx.ultragoal?.active ? HUD_TMUX_ULTRAGOAL_HEIGHT_LINES : HUD_TMUX_HEIGHT_LINES;
+  return ctx.ultragoal?.active ? HUD_ULTRAGOAL_RENDER_LINES : HUD_RENDER_LINES;
 }
 
 function clampHudMaxLines(ctx: Pick<HudRenderContext, 'ultragoal'>, maxLines: number | undefined): number {
@@ -188,8 +170,7 @@ function renderUltragoal(ctx: HudRenderContext): string | null {
   const complete = ctx.ultragoal.complete;
   if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(complete)) return null;
 
-  const teamSummary = formatTeamSummary(ctx);
-  const progress = cyan(`ultragoal ${complete}/${total}${teamSummary ? ` + ${teamSummary}` : ''}`);
+  const progress = cyan(`ultragoal ${complete}/${total}`);
   const activeGoal = ctx.ultragoal.activeGoal ?? ctx.ultragoal.ongoingGoals?.[0];
   const formatGoal = (goal: typeof activeGoal, titleLength: number): string => {
     if (!goal) return '';
@@ -214,7 +195,7 @@ function renderUltragoal(ctx: HudRenderContext): string | null {
 
 function renderExecutionSummary(ctx: HudRenderContext): string | null {
   if (ctx.ultragoal?.active) return renderUltragoal(ctx);
-  return renderTeam(ctx);
+  return null;
 }
 
 function renderTurns(ctx: HudRenderContext): string | null {
@@ -405,7 +386,7 @@ function wrapHudParts(
     : Infinity;
   const maxLines = Number.isFinite(options.maxLines) && (options.maxLines ?? 0) > 0
     ? Math.max(1, Math.floor(options.maxLines ?? 0))
-    : HUD_TMUX_MAX_HEIGHT_LINES;
+    : HUD_MAX_RENDER_LINES;
 
   if (!Number.isFinite(maxWidth)) {
     return `${label} ${parts.join(SEP)}`;

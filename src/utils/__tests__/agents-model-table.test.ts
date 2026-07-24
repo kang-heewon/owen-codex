@@ -89,7 +89,7 @@ describe('agents model table', () => {
     assert.match(table, /\| `executor` \| `gpt-frontier` \| medium \| Code implementation, refactoring, feature work \(deep-worker, standard\) \|/);
   });
 
-  it('replaces existing marker-bounded content and inserts the block after team_model_resolution when missing', () => {
+  it('replaces existing marker-bounded content and appends the block when missing', () => {
     const context = {
       frontierModel: 'gpt-frontier',
       sparkModel: 'gpt-spark',
@@ -107,19 +107,8 @@ describe('agents model table', () => {
     assert.match(replaced, /## Model Capability Table/);
     assert.doesNotMatch(replaced, /stale/);
 
-    const withoutMarkers = [
-      '<team_model_resolution>',
-      'content',
-      '</team_model_resolution>',
-      '',
-      '---',
-      '',
-      '<verification>',
-    ].join('\n');
+    const withoutMarkers = ['content', '', '---', '', '<verification>'].join('\n');
     const inserted = upsertAgentsModelTable(withoutMarkers, context);
-    assert.match(
-      inserted,
-      /<\/team_model_resolution>\n\n<!-- OWX:MODELS:START -->[\s\S]*<!-- OWX:MODELS:END -->\n\n---/,
-    );
+    assert.match(inserted, /<verification>\n\n<!-- OWX:MODELS:START -->[\s\S]*<!-- OWX:MODELS:END -->/);
   });
 });

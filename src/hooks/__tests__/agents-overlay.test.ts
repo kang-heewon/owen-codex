@@ -29,8 +29,6 @@ import {
 
 const RUNTIME_START = "<!-- OWX:RUNTIME:START -->";
 const RUNTIME_END = "<!-- OWX:RUNTIME:END -->";
-const WORKER_START = "<!-- OWX:TEAM:WORKER:START -->";
-const WORKER_END = "<!-- OWX:TEAM:WORKER:END -->";
 
 async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "owx-overlay-test-"));
@@ -62,29 +60,22 @@ describe("generateOverlay", () => {
     assert.ok(overlay.includes("<!-- OWX:RUNTIME:END -->"));
     assert.ok(overlay.includes("test-session-1"));
     assert.ok(overlay.includes("Compaction Protocol"));
-    assert.ok(overlay.includes("preflight-context.json"));
+    assert.doesNotMatch(overlay, /preflight-context\.json/);
   });
 
   it("injects surface-aware native subagent role routing guidance", async () => {
     const overlay = await generateOverlay(tempDir, "native-subagent-routing");
     assert.match(overlay, /\*\*Native Subagent Routing:\*\*/);
-    assert.match(overlay, /surface exposes `agent_type`, set it to an installed OWX role/i);
-    assert.match(overlay, /Codex App surfaces without `agent_type`/i);
-    assert.match(overlay, /validated adapted role-intent receipt/i);
-    assert.match(overlay, /exact `task_name`/i);
+    assert.match(overlay, /Native `agent_type` is the sole authority/i);
+    assert.match(overlay, /role_identity_unavailable/i);
+    assert.match(overlay, /never infer a role from task names, prompts, labels, or child paths/i);
+    assert.match(overlay, /leader integrates results and verifies the whole task/i);
+    assert.match(overlay, /Sequential retry is a degraded path/i);
   });
 
-  it("includes the team orchestrator overlay only when orchestration mode is team", async () => {
-    const overlay = await generateOverlay(tempDir, "team-session", {
-      orchestrationMode: "team",
-    });
-    assert.match(overlay, /\*\*Orchestration Mode:\*\* team/);
-    assert.match(overlay, /supervised, high-overhead coordination surface/i);
-
-    const defaultOverlay = await generateOverlay(tempDir, "default-session", {
-      orchestrationMode: "default",
-    });
-    assert.doesNotMatch(defaultOverlay, /\*\*Orchestration Mode:\*\* team/);
+  it("does not inject orchestration-runtime overlays", async () => {
+    const overlay = await generateOverlay(tempDir, "default-session");
+    assert.doesNotMatch(overlay, /\*\*Orchestration Mode:\*\*/);
   });
 
   it("adds repository-lookup routing guidance without referencing the removed explore command", async () => {
@@ -136,7 +127,7 @@ describe("generateOverlay", () => {
       recursive: true,
     });
     await writeFile(
-      join(tempDir, ".owx", "state", "sessions", "sess1", "team-state.json"),
+      join(tempDir, ".owx", "state", "sessions", "sess1", "autopilot-state.json"),
       JSON.stringify({
         active: true,
         iteration: 1,
@@ -148,13 +139,13 @@ describe("generateOverlay", () => {
       join(tempDir, ".owx", "state", "sessions", "sess1", "skill-active-state.json"),
       JSON.stringify({
         active: true,
-        skill: "team",
+        skill: "autopilot",
         phase: "running",
         session_id: "sess1",
       }),
     );
     const overlay = await generateOverlay(tempDir, "sess1");
-    assert.ok(overlay.includes("team"));
+    assert.ok(overlay.includes("autopilot"));
     assert.ok(overlay.includes("iteration 1/5"));
   });
 
@@ -185,17 +176,17 @@ describe("generateOverlay", () => {
       join(sessionDir, "skill-active-state.json"),
       JSON.stringify({
         active: true,
-        skill: "team",
+        skill: "ultragoal",
         phase: "running",
         session_id: sessionId,
         active_skills: [
-          { skill: "team", phase: "running", active: true, session_id: sessionId },
+          { skill: "ultragoal", phase: "running", active: true, session_id: sessionId },
           { skill: "ralph", phase: "executing", active: true, session_id: sessionId },
         ],
       }),
     );
     await writeFile(
-      join(sessionDir, "team-state.json"),
+      join(sessionDir, "ultragoal-state.json"),
       JSON.stringify({ active: true, current_phase: "running" }),
     );
     await writeFile(
@@ -204,7 +195,7 @@ describe("generateOverlay", () => {
     );
 
     const overlay = await generateOverlay(tempDir, sessionId);
-    assert.match(overlay, /- team: phase: running/);
+    assert.match(overlay, /- ultragoal: phase: running/);
     assert.match(overlay, /- ralph: iteration 2\/5, phase: executing/);
   });
 
@@ -377,7 +368,7 @@ describe("generateOverlay", () => {
       join(sessionDir, "skill-active-state.json"),
       JSON.stringify({
         active: true,
-        skill: "team",
+        skill: "autopilot",
         phase: "running",
         session_id: sessionId,
       }),
@@ -421,188 +412,11 @@ describe("generateOverlay", () => {
 });
 
 describe("resolveSessionOrchestrationMode", () => {
-  let tempDir: string;
-
-  before(async () => {
-    tempDir = await makeTempDir();
-  });
-  after(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it("uses explicit activeSkill when provided", async () => {
-    const mode = await resolveSessionOrchestrationMode(
-      tempDir,
-      "sess-explicit",
-      "team",
+  it("always resolves the sole native orchestration mode", async () => {
+    assert.equal(
+      await resolveSessionOrchestrationMode("/tmp/project", "session", "legacy-mode"),
+      "default",
     );
-    assert.equal(mode, "team");
-  });
-
-  it("does not inherit root skill-active orchestration mode into a fresh session", async () => {
-    await writeFile(
-      join(tempDir, ".owx", "state", "skill-active-state.json"),
-      JSON.stringify({
-        active: true,
-        skill: "team",
-      }),
-    );
-
-    const mode = await resolveSessionOrchestrationMode(
-      tempDir,
-      "fresh-session-isolation",
-    );
-    assert.equal(mode, "default");
-  });
-
-  it("reads persisted team skill state from the current session scope", async () => {
-    const sessionId = "sess-team";
-    const sessionDir = join(tempDir, ".owx", "state", "sessions", sessionId);
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      join(sessionDir, "skill-active-state.json"),
-      JSON.stringify({ active: true, skill: "team" }),
-    );
-
-    const mode = await resolveSessionOrchestrationMode(tempDir, sessionId);
-    assert.equal(mode, "team");
-  });
-
-  it("falls back to default mode for non-team skill state", async () => {
-    const sessionId = "sess-autopilot";
-    const sessionDir = join(tempDir, ".owx", "state", "sessions", sessionId);
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      join(sessionDir, "skill-active-state.json"),
-      JSON.stringify({ active: true, skill: "autopilot" }),
-    );
-
-    const mode = await resolveSessionOrchestrationMode(tempDir, sessionId);
-    assert.equal(mode, "default");
-  });
-
-  it("does not resurrect stale root team skill state when session-scoped skill state is inactive", async () => {
-    const sessionId = "sess-team-complete";
-    const rootStatePath = join(
-      tempDir,
-      ".owx",
-      "state",
-      "skill-active-state.json",
-    );
-    const sessionDir = join(tempDir, ".owx", "state", "sessions", sessionId);
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      rootStatePath,
-      JSON.stringify({ active: true, skill: "team" }),
-    );
-    await writeFile(
-      join(sessionDir, "skill-active-state.json"),
-      JSON.stringify({ active: false, skill: "team", phase: "completing" }),
-    );
-
-    const mode = await resolveSessionOrchestrationMode(tempDir, sessionId);
-    assert.equal(mode, "default");
-  });
-
-  it("does not inherit root team skill state into a fresh session without session-scoped state", async () => {
-    const sessionId = "sess-root-fallback";
-    await writeFile(
-      join(tempDir, ".owx", "state", "skill-active-state.json"),
-      JSON.stringify({ active: true, skill: "team" }),
-    );
-
-    const mode = await resolveSessionOrchestrationMode(tempDir, sessionId);
-    assert.equal(mode, "default");
-  });
-
-  it("active mode summary follows canonical session skill state instead of stale root mode files", async () => {
-    const sessionId = "sess-active-summary";
-    const rootStateDir = join(tempDir, ".owx", "state");
-    const sessionDir = join(rootStateDir, "sessions", sessionId);
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      join(rootStateDir, "ralph-state.json"),
-      JSON.stringify({ active: true, iteration: 9, max_iterations: 10, current_phase: "stale-root" }),
-    );
-    await writeFile(
-      join(sessionDir, "skill-active-state.json"),
-      JSON.stringify({
-        active: true,
-        skill: "team",
-        phase: "running",
-        session_id: sessionId,
-        active_skills: [{ skill: "team", phase: "running", active: true, session_id: sessionId }],
-      }),
-    );
-    await writeFile(
-      join(sessionDir, "team-state.json"),
-      JSON.stringify({ active: true, team_name: "delta" }),
-    );
-
-    const overlay = await generateOverlay(tempDir, sessionId);
-    assert.ok(overlay.includes("- team: phase: running"));
-    assert.equal(overlay.includes("ralph"), false);
-  });
-
-  it("active mode summary suppresses stale autoresearch mode files when canonical session skill state excludes it", async () => {
-    const sessionId = "sess-autoresearch-summary";
-    const rootStateDir = join(tempDir, ".owx", "state");
-    const sessionDir = join(rootStateDir, "sessions", sessionId);
-    await mkdir(sessionDir, { recursive: true });
-    await writeFile(
-      join(rootStateDir, "autoresearch-state.json"),
-      JSON.stringify({ active: true, current_phase: "running" }),
-    );
-    await writeFile(
-      join(sessionDir, "skill-active-state.json"),
-      JSON.stringify({
-        active: true,
-        skill: "team",
-        phase: "running",
-        session_id: sessionId,
-        active_skills: [{ skill: "team", phase: "running", active: true, session_id: sessionId }],
-      }),
-    );
-    await writeFile(
-      join(sessionDir, "team-state.json"),
-      JSON.stringify({ active: true, team_name: "delta" }),
-    );
-
-    const overlay = await generateOverlay(tempDir, sessionId);
-    assert.ok(overlay.includes("- team: phase: running"));
-    assert.equal(overlay.includes("- autoresearch:"), false);
-  });
-
-  it("active mode summary reads canonical state from OWX_TEAM_STATE_ROOT", async () => {
-    const sessionId = "sess-overlay-team-root";
-    const teamStateRoot = join(tempDir, "team-state-root");
-    const sessionDir = join(teamStateRoot, "sessions", sessionId);
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    try {
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-      await mkdir(sessionDir, { recursive: true });
-      await writeFile(
-        join(sessionDir, "skill-active-state.json"),
-        JSON.stringify({
-          active: true,
-          skill: "team",
-          phase: "team-exec",
-          session_id: sessionId,
-          active_skills: [{ skill: "team", phase: "team-exec", active: true, session_id: sessionId }],
-        }),
-      );
-      await writeFile(
-        join(sessionDir, "team-state.json"),
-        JSON.stringify({ active: true, team_name: "rooted" }),
-      );
-
-      const overlay = await generateOverlay(tempDir, sessionId);
-
-      assert.ok(overlay.includes("- team: phase: team-exec"));
-    } finally {
-      if (typeof previousTeamStateRoot === "string") process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-    }
   });
 });
 
@@ -714,54 +528,6 @@ IF BLOCKED, TRY AN ALTERNATIVE APPROACH. ONLY ASK WHEN TRULY AMBIGUOUS OR DESTRU
     assert.ok(result.includes("new-file-test"));
   });
 
-  it("stripOverlay removes runtime overlay and preserves worker overlay (runtime->worker order)", async () => {
-    const agentsMd = join(tempDir, "AGENTS-stacked-rw.md");
-    await writeFile(agentsMd, originalContent);
-
-    const runtimeOverlay = await generateOverlay(tempDir, "stacked-rw");
-    await applyOverlay(agentsMd, runtimeOverlay, tempDir);
-
-    const workerOverlay = `${WORKER_START}
-<team_worker_protocol>
-worker protocol body
-</team_worker_protocol>
-${WORKER_END}
-`;
-    const withRuntime = await readFile(agentsMd, "utf-8");
-    await writeFile(agentsMd, `${withRuntime.trimEnd()}\n\n${workerOverlay}`);
-
-    await stripOverlay(agentsMd, tempDir);
-    const result = await readFile(agentsMd, "utf-8");
-    assert.ok(!result.includes(RUNTIME_START));
-    assert.ok(!result.includes(RUNTIME_END));
-    assert.ok(result.includes(WORKER_START));
-    assert.ok(result.includes(WORKER_END));
-  });
-
-  it("stripOverlay removes runtime overlay and preserves worker overlay (worker->runtime order)", async () => {
-    const agentsMd = join(tempDir, "AGENTS-stacked-wr.md");
-    const workerOverlay = `${WORKER_START}
-<team_worker_protocol>
-worker protocol body
-</team_worker_protocol>
-${WORKER_END}
-`;
-    await writeFile(
-      agentsMd,
-      `${originalContent.trimEnd()}\n\n${workerOverlay}`,
-    );
-
-    const runtimeOverlay = await generateOverlay(tempDir, "stacked-wr");
-    await applyOverlay(agentsMd, runtimeOverlay, tempDir);
-
-    await stripOverlay(agentsMd, tempDir);
-    const result = await readFile(agentsMd, "utf-8");
-    assert.ok(!result.includes(RUNTIME_START));
-    assert.ok(!result.includes(RUNTIME_END));
-    assert.ok(result.includes(WORKER_START));
-    assert.ok(result.includes(WORKER_END));
-  });
-
   it("stripOverlay removes duplicate runtime marker blocks", async () => {
     const agentsMd = join(tempDir, "AGENTS-duplicate-runtime.md");
     const dup = `${originalContent.trimEnd()}
@@ -782,27 +548,6 @@ ${RUNTIME_END}
     assert.equal(result.trim(), originalContent.trim());
   });
 
-  it("stripOverlay handles malformed runtime start marker without deleting worker overlay", async () => {
-    const agentsMd = join(tempDir, "AGENTS-malformed-runtime.md");
-    const malformed = `${originalContent.trimEnd()}
-
-${RUNTIME_START}
-<session_context>
-incomplete runtime block
-
-${WORKER_START}
-<team_worker_protocol>
-worker protocol body
-</team_worker_protocol>
-${WORKER_END}
-`;
-    await writeFile(agentsMd, malformed);
-    await stripOverlay(agentsMd, tempDir);
-    const result = await readFile(agentsMd, "utf-8");
-    assert.ok(!result.includes(RUNTIME_START));
-    assert.ok(result.includes(WORKER_START));
-    assert.ok(result.includes(WORKER_END));
-  });
 });
 
 describe("session-scoped model instructions file", () => {
@@ -1007,7 +752,7 @@ describe("session-scoped model instructions file", () => {
     await writeFile(
       join(tempDir, "AGENTS.md"),
       [
-        "# Team AGENTS",
+        "# Project AGENTS",
         "",
         "Preserve header guidance.",
         "",
@@ -1029,7 +774,7 @@ describe("session-scoped model instructions file", () => {
     );
     const sessionContent = await readFile(writtenPath, "utf-8");
 
-    assert.match(sessionContent, /# Team AGENTS/);
+    assert.match(sessionContent, /# Project AGENTS/);
     assert.match(sessionContent, /Preserve header guidance\./);
     assert.match(sessionContent, /Preserve footer guidance\./);
     assert.doesNotMatch(sessionContent, /Generated managed block/);

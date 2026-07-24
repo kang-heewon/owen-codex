@@ -17,7 +17,7 @@ Credit: Inspired by OMO Prometheus (`code-yeongyu/oh-my-openagent`), reimplement
 Prometheus Strict is planning-only by default. It should hand off to:
 
 1. `$ultragoal` for durable goal execution.
-2. `$team` only when the Oracle plan identifies independent parallel lanes.
+2. Native Codex subagents only when the Oracle plan identifies independent parallel lanes, each with explicit `agent_type` and ownership.
 
 ## Non-Goals
 
@@ -32,4 +32,4 @@ The skill returns a Prometheus Strict Plan with clarified requirements, resolved
 
 ## Durable Plan Artifacts
 
-When the plan should survive handoff or review, write the final Oracle synthesis to `.owx/plans/prometheus-strict/<slug>.md` and include that path in the plan before invoking `$ultragoal` or `$team`. Inline-only plans may set the artifact path to `N/A - inline plan only`.
+When the plan should survive handoff or review, write the final Oracle synthesis to `.owx/plans/prometheus-strict/<slug>.md` and include that path before invoking `$ultragoal`. Inline-only plans may set the artifact path to `N/A - inline plan only`.

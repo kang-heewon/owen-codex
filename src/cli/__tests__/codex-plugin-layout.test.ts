@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmod, cp, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { buildMergedConfig } from '../../config/generator.js';
@@ -176,7 +176,7 @@ async function assertSyncPluginCheckRejectsLauncherWithoutContract(): Promise<vo
     const launcher = await readFile(fixtureHookLauncherPath, 'utf-8');
     await writeFile(
       fixtureHookLauncherPath,
-      launcher.replace('owx-plugin-hook-launcher:v1', 'owx-plugin-hook-launcher:missing'),
+      launcher.replace('owx-plugin-hook-standalone:v1', 'owx-plugin-hook-standalone:missing'),
       'utf-8',
     );
 
@@ -213,9 +213,9 @@ async function assertPluginHookEventsAlignWithLauncher(): Promise<void> {
 async function assertPluginHookLaunchesPostCompactFromCache(): Promise<void> {
   const cacheRoot = await mkdtemp(join(tmpdir(), 'owx-plugin-hook-cache-'));
   const cachePluginRoot = join(cacheRoot, pluginName, 'local');
-  const shimDir = join(cacheRoot, 'bin');
+  const emptyBinDir = join(cacheRoot, 'empty-bin');
   await cp(pluginRoot, cachePluginRoot, { recursive: true });
-  await writeOmxShim(shimDir);
+  await mkdir(emptyBinDir, { recursive: true });
 
   try {
     const payload = JSON.stringify({
@@ -230,9 +230,8 @@ async function assertPluginHookLaunchesPostCompactFromCache(): Promise<void> {
       input: payload,
       env: {
         ...process.env,
-        PATH: `${shimDir}${delimiter}${process.env.PATH || ''}`,
+        PATH: emptyBinDir,
         OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
         OWX_HOOK_DERIVED_SIGNALS: '0',
         OWX_ROOT: join(cacheRoot, '.owx-root'),
         OWX_SESSION_ID: 'owx-plugin-hook-postcompact-smoke',
@@ -242,64 +241,10 @@ async function assertPluginHookLaunchesPostCompactFromCache(): Promise<void> {
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(result.stdout, '', 'PostCompact plugin hook launcher should emit no stdout');
+    assert.equal(result.stdout, '', 'PostCompact plugin hook should emit no stdout');
     assert.doesNotMatch(result.stderr, /MODULE_NOT_FOUND|Cannot find module/);
-  } finally {
-    await rm(cacheRoot, { recursive: true, force: true });
-  }
-}
-
-async function assertPluginHookDelegatesPostCompactToPinnedCommand(): Promise<void> {
-  const cacheRoot = await mkdtemp(join(tmpdir(), 'owx-plugin-hook-delegate-'));
-  const cachePluginRoot = join(cacheRoot, pluginName, 'local');
-  const recorderPath = join(cacheRoot, 'record-hook.mjs');
-  const argsPath = join(cacheRoot, 'recorded-args.json');
-  const stdinPath = join(cacheRoot, 'recorded-stdin.json');
-  await cp(pluginRoot, cachePluginRoot, { recursive: true });
-  await writeFile(
-    recorderPath,
-    [
-      "import { writeFileSync } from 'node:fs';",
-      "const chunks = [];",
-      "for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));",
-      `writeFileSync(${JSON.stringify(argsPath)}, JSON.stringify(process.argv.slice(2)));`,
-      `writeFileSync(${JSON.stringify(stdinPath)}, Buffer.concat(chunks));`,
-      "",
-    ].join('\n'),
-    'utf-8',
-  );
-  await writeJson(join(cachePluginRoot, 'hooks', 'owx-command.json'), {
-    command: process.execPath,
-    argsPrefix: [recorderPath],
-  });
-
-  try {
-    const payload = JSON.stringify({
-      hook_event_name: 'PostCompact',
-      session_id: 'owx-plugin-hook-postcompact-delegate',
-      transcript_path: join(cacheRoot, 'missing-transcript.jsonl'),
-      cwd: cacheRoot,
-    });
-    const result = spawnSync(process.execPath, [join(cachePluginRoot, 'hooks', 'codex-native-hook.mjs')], {
-      cwd: cachePluginRoot,
-      encoding: 'utf-8',
-      input: payload,
-      env: {
-        ...process.env,
-        OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
-        OWX_HOOK_DERIVED_SIGNALS: '0',
-        OWX_ROOT: join(cacheRoot, '.owx-root'),
-        OWX_SESSION_ID: 'owx-plugin-hook-postcompact-delegate',
-        OWX_SOURCE_CWD: cacheRoot,
-        OWX_STARTUP_CWD: cacheRoot,
-      },
-    });
-
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.equal(result.stdout, '', 'PostCompact plugin hook launcher should emit no stdout when delegate is quiet');
-    assert.deepEqual(JSON.parse(await readFile(argsPath, 'utf-8')), ['codex-native-hook']);
-    assert.deepEqual(JSON.parse(await readFile(stdinPath, 'utf-8')), JSON.parse(payload));
+    await assert.rejects(stat(join(cachePluginRoot, 'hooks', 'owx-command.json')));
+    await assert.rejects(stat(join(cacheRoot, 'dist', 'cli', 'owx.js')));
   } finally {
     await rm(cacheRoot, { recursive: true, force: true });
   }
@@ -321,7 +266,6 @@ async function assertPluginCacheLaunchable(entrypoint: string): Promise<void> {
         ...process.env,
         PATH: `${shimDir}${delimiter}${process.env.PATH || ''}`,
         OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
         OWX_HOOK_DERIVED_SIGNALS: '0',
       },
     });
@@ -353,7 +297,21 @@ async function withPluginCacheCopy<T>(run: (cachePluginRoot: string, cacheRoot: 
 
 function pluginHookEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const env = { ...process.env };
-  for (const key of ['OWX_TEAM_STATE_ROOT', 'OWX_ROOT', 'OWX_STATE_ROOT', 'OWX_SESSION_ID', 'CODEX_SESSION_ID']) {
+  for (const key of [
+    'OWX_TE\x41M_STATE_ROOT',
+    'OWX_ROOT',
+    'OWX_STATE_ROOT',
+    'OWX_SESSION_ID',
+    'CODEX_SESSION_ID',
+    'OWX_NOTIFY_TEMP_CONTRACT',
+    'OWX_NOTIFY_PROFILE',
+    'OWX_DISCORD_WEBHOOK_URL',
+    'OWX_DISCORD_NOTIFIER_BOT_TOKEN',
+    'OWX_DISCORD_NOTIFIER_CHANNEL',
+    'OWX_TELEGRAM_BOT_TOKEN',
+    'OWX_TELEGRAM_CHAT_ID',
+    'OWX_SLACK_WEBHOOK_URL',
+  ]) {
     delete env[key];
   }
   return { ...env, ...overrides };
@@ -369,7 +327,7 @@ function runPluginNativeHook(
     input,
     encoding: 'utf-8',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: pluginHookEnv(env),
+    env: pluginHookEnv({ CODEX_HOME: join(cachePluginRoot, '.codex-test'), ...env }),
   });
 }
 
@@ -447,170 +405,503 @@ describe('official Codex plugin layout', () => {
     }
   });
 
-  it('emits Stop JSON when the plugin hook pinned launcher is invalid', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
+  it('observes retained App lifecycle events without an OWX launcher', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot, cacheRoot) => {
+      const entrypoint = await readFile(join(cachePluginRoot, 'hooks', 'codex-native-hook.mjs'), 'utf-8');
+      assert.doesNotMatch(entrypoint, /owx-command\.json|dist\/cli\/owx\.js/);
+      await stat(join(cachePluginRoot, 'hooks', 'project-hook-runner.mjs'));
+      const hooksManifest = await readJson<{ hooks?: Record<string, unknown> }>(join(cachePluginRoot, 'hooks', 'hooks.json'));
+      const sessionId = 'sess-plugin-standalone-events';
+      await mkdir(join(cachePluginRoot, '.owx', 'hooks'), { recursive: true });
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'hooks', 'plugins', 'observe', 'data.json'), {
+        prior_surface: 'canonical-sdk',
+      });
+      await writeFile(join(cachePluginRoot, '.owx', 'hooks', 'observe.mjs'), [
+        'export async function onHookEvent(event, sdk) {',
+        "  await sdk.state.write('observed_prior', await sdk.state.read('prior_surface'));",
+        "  await sdk.state.write('last_event', event.event);",
+        "  await sdk.state.write('runtime_session_id', (await sdk.owx.session.read())?.session_id ?? null);",
+        "  await sdk.state.write('runtime_hud_turn_count', (await sdk.owx.hud.read())?.turn_count ?? null);",
+        "  try { await sdk.state.write('../escape', true); } catch { await sdk.state.write('invalid_key_rejected', true); }",
+        "  if (event.event === 'keyword-detector') await sdk.state.write('prompt_seen', ['prompt', 'input', 'user_prompt', 'userPrompt', 'text'].some((key) => key in event.context));",
+        "  await sdk.log.info('observed', { source: event.source });",
+        '}',
+        '',
+      ].join('\n'));
+      const sessionStart = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        cwd: cachePluginRoot,
+      }), {
+        PATH: join(cacheRoot, 'empty-bin'),
+        OWX_NATIVE_HOOK_COMMAND: join(cacheRoot, 'missing-owx'),
+      });
+      assert.equal(sessionStart.status, 0, sessionStart.stderr || sessionStart.stdout);
+      const sessionStartOutput = parseSingleJsonStdout(sessionStart.stdout);
+      assert.match(JSON.stringify(sessionStartOutput), /native subagents directly/);
+      assert.equal(sessionStart.stderr, '');
 
+      const session = await readJson<{ session_id: string; cwd: string }>(
+        join(cachePluginRoot, '.owx', 'state', 'session.json'),
+      );
+      assert.equal(session.session_id, sessionId);
+      assert.equal(session.cwd, cachePluginRoot);
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'hud-state.json'), { turn_count: 99 });
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId, 'hud-state.json'), { turn_count: 3 });
+
+      const promptSubmit = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'UserPromptSubmit',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        cwd: cachePluginRoot,
+        prompt: '$ralplan make a careful plan',
+      }));
+      assert.equal(promptSubmit.status, 0, promptSubmit.stderr || promptSubmit.stdout);
+      assert.match(JSON.stringify(parseSingleJsonStdout(promptSubmit.stdout)), /\$ralplan/);
+      const skillState = await readJson<{ skill: string; source: string }>(
+        join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId, 'skill-active-state.json'),
+      );
+      assert.equal(skillState.skill, 'ralplan');
+      assert.equal(skillState.source, 'plugin-user-prompt-submit');
+
+      const postToolUse = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'thread-leader',
+        turn_id: 'turn-1',
+        cwd: cachePluginRoot,
+        tool_name: 'spawn_agent',
+        tool_input: { agent_type: 'architect' },
+        tool_response: { thread_id: 'thread-child', status: 'running' },
+      }));
+      assert.equal(postToolUse.status, 0, postToolUse.stderr || postToolUse.stdout);
+      assert.equal(postToolUse.stdout, '');
+      const tracking = await readJson<{
+        sessions: Record<string, { threads: Record<string, {
+          thread_id: string;
+          kind: string;
+          first_seen_at: string;
+          last_seen_at: string;
+          turn_count: number;
+          last_turn_id: string;
+          role: string;
+          provenance_kind: string;
+        }> }>;
+      }>(join(cachePluginRoot, '.owx', 'state', 'subagent-tracking.json'));
+      assert.deepEqual(
+        tracking.sessions[sessionId]?.threads['thread-child'],
+        {
+          thread_id: 'thread-child',
+          kind: 'subagent',
+          first_seen_at: tracking.sessions[sessionId]?.threads['thread-child']?.first_seen_at,
+          last_seen_at: tracking.sessions[sessionId]?.threads['thread-child']?.last_seen_at,
+          turn_count: 1,
+          last_turn_id: 'turn-1',
+          role: 'architect',
+          provenance_kind: 'native_tool_result',
+        },
+      );
+
+      for (const hookEventName of Object.keys(hooksManifest.hooks ?? {})
+        .filter((name) => !['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop'].includes(name))) {
+        const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+          hook_event_name: hookEventName,
+          session_id: sessionId,
+          cwd: cachePluginRoot,
+        }), {
+          PATH: join(cacheRoot, 'empty-bin'),
+          OWX_NATIVE_HOOK_COMMAND: join(cacheRoot, 'missing-owx'),
+        });
+        assert.equal(result.status, 0, `${hookEventName}: ${result.stderr || result.stdout}`);
+        assert.equal(result.stdout, '', `${hookEventName} should not emit hook output`);
+        assert.equal(result.stderr, '', `${hookEventName} should not emit diagnostics`);
+      }
+
+      const logsDir = join(cachePluginRoot, '.owx', 'logs');
+      const lifecycleLogs = (await readdir(logsDir)).filter((name) => name.startsWith('native-hooks-'));
+      assert.equal(lifecycleLogs.length, 1);
+      const lifecycleLog = await readFile(join(logsDir, lifecycleLogs[0]), 'utf-8');
+      for (const eventName of Object.keys(hooksManifest.hooks ?? {}).filter((name) => name !== 'Stop')) {
+        assert.match(lifecycleLog, new RegExp(`"event":"${eventName}"`));
+      }
+      const hookPluginState = await readJson<{
+        last_event: string;
+        observed_prior: string;
+        prompt_seen: boolean;
+        invalid_key_rejected: boolean;
+        runtime_session_id: string;
+        runtime_hud_turn_count: number;
+      }>(
+        join(cachePluginRoot, '.owx', 'state', 'hooks', 'plugins', 'observe', 'data.json'),
+      );
+      assert.equal(hookPluginState.last_event, 'post-compact');
+      assert.equal(hookPluginState.observed_prior, 'canonical-sdk');
+      assert.equal(hookPluginState.prompt_seen, false);
+      assert.equal(hookPluginState.invalid_key_rejected, true);
+      assert.equal(hookPluginState.runtime_session_id, sessionId);
+      assert.equal(hookPluginState.runtime_hud_turn_count, 3);
+      assert.match(lifecycleLog, /"event":"hook-plugin-dispatch"/);
+    });
+  });
+
+  it('normalizes invalid session state through the standalone project hook SDK', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      await mkdir(join(cachePluginRoot, '.owx', 'hooks'), { recursive: true });
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'session.json'), { session_id: '', cwd: cachePluginRoot });
+      await writeFile(join(cachePluginRoot, '.owx', 'hooks', 'session-reader.mjs'), [
+        'export async function onHookEvent(_event, sdk) {',
+        "  await sdk.state.write('session_is_null', (await sdk.owx.session.read()) === null);",
+        '}',
+        '',
+      ].join('\n'));
+      const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreCompact',
+        cwd: cachePluginRoot,
+      }));
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const pluginState = await readJson<{ session_is_null: boolean }>(
+        join(cachePluginRoot, '.owx', 'state', 'hooks', 'plugins', 'session-reader', 'data.json'),
+      );
+      assert.equal(pluginState.session_is_null, true);
+    });
+  });
+
+  it('enforces retained Ralplan and Deep-interview PreToolUse boundaries', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      const sessionId = 'sess-plugin-planning-boundary';
+      const sessionDir = join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId);
+      const start = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart', session_id: sessionId, cwd: cachePluginRoot,
+      }));
+      assert.equal(start.status, 0, start.stderr || start.stdout);
+
+      await writeJson(join(sessionDir, 'skill-active-state.json'), {
+        version: 1,
+        active: true,
+        skill: 'ralplan',
+        session_id: sessionId,
+        active_skills: [{ skill: 'ralplan', active: true, session_id: sessionId }],
+      });
+      await writeJson(join(sessionDir, 'ralplan-state.json'), {
+        mode: 'ralplan', active: true, current_phase: 'planning', session_id: sessionId,
+      });
+      const ralplanBlocked = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Write',
+        tool_input: { file_path: 'src/implementation.ts' },
+      }));
+      assert.equal(ralplanBlocked.status, 0, ralplanBlocked.stderr || ralplanBlocked.stdout);
+      assert.equal(parseSingleJsonStdout(ralplanBlocked.stdout).decision, 'block');
+
+      const ralplanArtifact = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Write',
+        tool_input: { file_path: '.owx/plans/retained.md' },
+      }));
+      assert.equal(ralplanArtifact.status, 0, ralplanArtifact.stderr || ralplanArtifact.stdout);
+      assert.equal(ralplanArtifact.stdout, '');
+
+      const stateWrite = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Write',
+        tool_input: { file_path: '.owx/state/escape.json' },
+      }));
+      assert.equal(parseSingleJsonStdout(stateWrite.stdout).decision, 'block');
+
+      const mixedMove = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Bash',
+        tool_input: { command: 'mv .owx/plans/draft.md src/implementation.ts' },
+      }));
+      assert.equal(parseSingleJsonStdout(mixedMove.stdout).decision, 'block');
+
+      for (const command of [
+        'FOO=bar mv .owx/plans/draft.md src/implementation.ts',
+        'install .owx/plans/draft.md src/implementation.ts',
+        'find src -type f -delete',
+        'find src -type f -fprint src/generated.txt',
+        'sort -o src/generated.txt .owx/plans/draft.md',
+        'sort --temporary-directory=src .owx/plans/draft.md',
+        'uniq .owx/plans/draft.md src/generated.txt',
+        "yq -i '.x = 1' src/config.yml",
+        'git diff --output=src/patch.diff',
+        'git grep -O./scripts/mutate.sh planning',
+        'git -ccore.fsmonitor=./scripts/mutate.sh status',
+        'git -cdiff.external=./scripts/mutate.sh diff',
+        'git diff -- .owx/plans',
+        'echo planning & touch src/implementation.ts',
+        './scripts/rg planning .owx/plans',
+        '"echo"/../scripts/jq',
+        "rg --pre='touch src/pre-ran' planning .owx/plans",
+        'rg "--pre=./scripts/mutate.sh" planning .owx/plans',
+        'file -C -m src/custom.magic',
+        'cat =(touch src/implementation.ts)',
+        "echo *(e:'touch src/implementation.ts':)",
+        'printf -v PATH ./scripts && jq',
+        'echo ${ touch src/implementation.ts; }',
+        "sh -c 'mv .owx/plans/draft.md src/implementation.ts'",
+        'echo $(touch src/implementation.ts)',
+        'command_name=mv; $command_name .owx/plans/draft.md src/implementation.ts',
+      ]) {
+        const adversarial = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+          hook_event_name: 'PreToolUse',
+          session_id: sessionId,
+          cwd: cachePluginRoot,
+          tool_name: 'Bash',
+          tool_input: { command },
+        }));
+        assert.equal(parseSingleJsonStdout(adversarial.stdout).decision, 'block', command);
+      }
+
+      const readOnlyCommand = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Bash',
+        tool_input: { command: 'grep -n "planning" .owx/plans/retained.md && cat .owx/plans/retained.md' },
+      }));
+      assert.equal(readOnlyCommand.status, 0, readOnlyCommand.stderr || readOnlyCommand.stdout);
+      assert.equal(readOnlyCommand.stdout, '');
+
+      await mkdir(join(cachePluginRoot, '.owx', 'plans'), { recursive: true });
+      await mkdir(join(cachePluginRoot, 'src'), { recursive: true });
+      await symlink(join(cachePluginRoot, 'src'), join(cachePluginRoot, '.owx', 'plans', 'linked-src'));
+      const symlinkWrite = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'Write',
+        tool_input: { file_path: '.owx/plans/linked-src/escape.ts' },
+      }));
+      assert.equal(parseSingleJsonStdout(symlinkWrite.stdout).decision, 'block');
+
+      await writeJson(join(sessionDir, 'skill-active-state.json'), {
+        version: 1,
+        active: true,
+        skill: 'deep-interview',
+        session_id: sessionId,
+        active_skills: [{ skill: 'deep-interview', active: true, session_id: sessionId }],
+      });
+      await writeJson(join(sessionDir, 'deep-interview-state.json'), {
+        mode: 'deep-interview', active: true, current_phase: 'interviewing', session_id: sessionId,
+      });
+      const interviewBlocked = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+        tool_name: 'apply_patch',
+        tool_input: { patch: '*** Update File: src/implementation.ts' },
+      }));
+      assert.equal(interviewBlocked.status, 0, interviewBlocked.stderr || interviewBlocked.stdout);
+      assert.equal(parseSingleJsonStdout(interviewBlocked.stdout).decision, 'block');
+      assert.match(interviewBlocked.stdout, /Deep-interview/);
+    });
+  });
+
+  it('isolates and terminates timed-out standalone project hook plugins', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      await mkdir(join(cachePluginRoot, '.owx', 'hooks'), { recursive: true });
+      await writeFile(join(cachePluginRoot, '.owx', 'hooks', 'loop.mjs'), [
+        'export function onHookEvent() {',
+        '  for (;;) {}',
+        '}',
+        '',
+      ].join('\n'));
+      const startedAt = Date.now();
+      const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PreCompact',
+        session_id: 'sess-plugin-timeout',
+        cwd: cachePluginRoot,
+      }), { OWX_HOOK_PLUGIN_TIMEOUT_MS: '100' });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.ok(Date.now() - startedAt < 2_000, 'timed-out plugin should be terminated promptly');
+      const logName = (await readdir(join(cachePluginRoot, '.owx', 'logs')))
+        .find((name) => name.startsWith('native-hooks-'));
+      assert.ok(logName);
+      const lifecycleLog = await readFile(join(cachePluginRoot, '.owx', 'logs', logName), 'utf-8');
+      assert.match(lifecycleLog, /"plugin_id":"loop","status":"failed","reason":"timeout"/);
+    });
+  });
+
+  it('records scoped native support and capacity evidence from PostToolUse', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      const sessionId = 'sess-plugin-native-evidence';
+      runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart', session_id: sessionId, cwd: cachePluginRoot,
+      }));
+      const unsupported = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'leader-thread',
+        turn_id: 'turn-unsupported',
+        cwd: cachePluginRoot,
+        tool_name: 'spawn_agent',
+        tool_response: { error: 'native subagents unavailable' },
+      }));
+      assert.equal(unsupported.status, 0, unsupported.stderr || unsupported.stdout);
+      const support = await readJson<{ reason: string; source: string; session_id: string }>(
+        join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId, 'native-subagent-support.json'),
+      );
+      assert.deepEqual(
+        { reason: support.reason, source: support.source, session_id: support.session_id },
+        { reason: 'native_subagents_unsupported', source: 'persisted_support_blocker', session_id: sessionId },
+      );
+
+      const capacity = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'PostToolUse',
+        session_id: sessionId,
+        thread_id: 'leader-thread',
+        turn_id: 'turn-capacity',
+        cwd: cachePluginRoot,
+        tool_name: 'spawn_agent',
+        tool_response: { error: 'agent thread limit reached' },
+      }));
+      assert.equal(capacity.status, 0, capacity.stderr || capacity.stdout);
+      const capacityState = await readJson<{ reason: string; source: string; expires_at: string }>(
+        join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId, 'native-subagent-capacity.json'),
+      );
+      assert.equal(capacityState.reason, 'agent_thread_limit_reached');
+      assert.equal(capacityState.source, 'capacity_blocker');
+      assert.ok(Date.parse(capacityState.expires_at) > Date.now());
+    });
+  });
+
+  it('attempts configured outbound lifecycle notifications from the standalone hook', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      const codexHome = join(cachePluginRoot, '.codex-notifications');
+      await writeJson(join(codexHome, '.owx-config.json'), {
+        notifications: {
+          enabled: true,
+          webhook: { enabled: true, url: 'http://invalid.example/hook' },
+          events: { 'session-start': { enabled: true } },
+        },
+      });
+      const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: 'sess-plugin-notification',
+        cwd: cachePluginRoot,
+      }), { CODEX_HOME: codexHome });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const logName = (await readdir(join(cachePluginRoot, '.owx', 'logs')))
+        .find((name) => name.startsWith('notifications-'));
+      assert.ok(logName);
+      const notificationLog = await readFile(join(cachePluginRoot, '.owx', 'logs', logName), 'utf-8');
+      assert.match(notificationLog, /"attempted_platforms":\["webhook"\]/);
+      assert.match(notificationLog, /"successful_platforms":\[\]/);
+    });
+  });
+
+  it('honors standalone notification profile selection and flat fallback', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      const codexHome = join(cachePluginRoot, '.codex-profiles');
+      await writeJson(join(codexHome, '.owx-config.json'), {
+        notifications: {
+          enabled: true,
+          defaultProfile: 'personal',
+          webhook: { enabled: true, url: 'http://flat.invalid/hook' },
+          profiles: {
+            personal: { enabled: true, discord: { enabled: true, webhookUrl: 'http://personal.invalid/hook' } },
+            work: { enabled: true, webhook: { enabled: true, url: 'http://work.invalid/hook' } },
+          },
+        },
+      });
+      const selected = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: 'sess-plugin-selected-profile',
+        cwd: cachePluginRoot,
+      }), { CODEX_HOME: codexHome, OWX_NOTIFY_PROFILE: 'work' });
+      assert.equal(selected.status, 0, selected.stderr || selected.stdout);
+      let notificationLogName = (await readdir(join(cachePluginRoot, '.owx', 'logs')))
+        .find((name) => name.startsWith('notifications-'));
+      assert.ok(notificationLogName);
+      let notificationLog = await readFile(join(cachePluginRoot, '.owx', 'logs', notificationLogName), 'utf-8');
+      assert.match(notificationLog, /"attempted_platforms":\["webhook"\]/);
+
+      await rm(join(cachePluginRoot, '.owx', 'logs', notificationLogName));
+      const fallback = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: 'sess-plugin-missing-profile',
+        cwd: cachePluginRoot,
+      }), { CODEX_HOME: codexHome, OWX_NOTIFY_PROFILE: 'missing' });
+      assert.equal(fallback.status, 0, fallback.stderr || fallback.stdout);
+      notificationLogName = (await readdir(join(cachePluginRoot, '.owx', 'logs')))
+        .find((name) => name.startsWith('notifications-'));
+      assert.ok(notificationLogName);
+      notificationLog = await readFile(join(cachePluginRoot, '.owx', 'logs', notificationLogName), 'utf-8');
+      assert.match(notificationLog, /"attempted_platforms":\["webhook"\]/);
+    });
+  });
+
+  it('suppresses standalone notifications when persistent config is disabled', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
+      const codexHome = join(cachePluginRoot, '.codex-disabled-notifications');
+      await writeJson(join(codexHome, '.owx-config.json'), {
+        notifications: {
+          enabled: false,
+          webhook: { enabled: true, url: 'https://should-not-send.invalid/hook' },
+        },
+      });
+      const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
+        hook_event_name: 'SessionStart',
+        session_id: 'sess-plugin-notifications-disabled',
+        cwd: cachePluginRoot,
+      }), { CODEX_HOME: codexHome });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const logNames = await readdir(join(cachePluginRoot, '.owx', 'logs'));
+      assert.equal(logNames.some((name) => name.startsWith('notifications-')), false);
+    });
+  });
+
+  it('allows Stop when no authoritative active workflow state exists', async () => {
+    await withPluginCacheCopy(async (cachePluginRoot) => {
       const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
         hook_event_name: 'Stop',
-        session_id: 'sess-plugin-invalid-launcher-stop',
-      }));
+        session_id: 'sess-plugin-no-runtime',
+      }), {
+        PATH: '',
+        OWX_NATIVE_HOOK_COMMAND: join(cachePluginRoot, 'missing-owx'),
+      });
 
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stderr, /invalid plugin hook launcher/);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_launcher_failure');
+      assert.deepEqual(parseSingleJsonStdout(result.stdout), {});
+      assert.equal(result.stderr, '');
     });
   });
 
-  it('emits Stop JSON when the plugin hook command cannot spawn', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot, cacheRoot) => {
-      const result = runPluginNativeHook(
-        cachePluginRoot,
-        JSON.stringify({ hook_event_name: 'Stop', session_id: 'sess-plugin-missing-command-stop' }),
-        {
-          OWX_NATIVE_HOOK_COMMAND: join(cacheRoot, 'bin', 'missing-owx-command'),
-        },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_launcher_spawn_error');
-    });
-  });
-
-  it('emits Stop JSON when the launched plugin hook command exits before producing stdout', async () => {
+  it('blocks Stop only for authoritative current-session active workflow state', async () => {
     await withPluginCacheCopy(async (cachePluginRoot) => {
-      const result = runPluginNativeHook(
-        cachePluginRoot,
-        JSON.stringify({ hook_event_name: 'Stop', session_id: 'sess-plugin-false-command-stop' }),
-        {
-          OWX_NATIVE_HOOK_COMMAND: process.platform === 'win32' ? 'cmd.exe /c exit 1' : '/usr/bin/false',
-        },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.match(String(output.stopReason ?? ''), /plugin_stop_hook_launcher_(?:exit|stdin_error)/);
-    });
-  });
-
-  it('emits Stop JSON when the launched plugin hook command exits successfully without stdout', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot, cacheRoot) => {
-      const commandPath = join(cacheRoot, process.platform === 'win32' ? 'empty-ok.cmd' : 'empty-ok.sh');
-      if (process.platform === 'win32') {
-        await writeFile(commandPath, '@echo off\r\nexit /b 0\r\n', 'utf-8');
-      } else {
-        await writeFile(commandPath, '#!/bin/sh\nexit 0\n', 'utf-8');
-        await chmod(commandPath, 0o755);
-      }
-
-      const result = runPluginNativeHook(
-        cachePluginRoot,
-        JSON.stringify({ hook_event_name: 'Stop', session_id: 'sess-plugin-empty-ok-stop' }),
-        { OWX_NATIVE_HOOK_COMMAND: commandPath },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_launcher_empty_stdout');
-    });
-  });
-
-  it('does not append fallback Stop JSON after partial child stdout', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot, cacheRoot) => {
-      const commandPath = join(cacheRoot, process.platform === 'win32' ? 'partial.cmd' : 'partial.sh');
-      if (process.platform === 'win32') {
-        await writeFile(commandPath, '@echo off\r\n<nul set /p=PARTIAL\r\nexit /b 2\r\n', 'utf-8');
-      } else {
-        await writeFile(commandPath, '#!/bin/sh\nprintf PARTIAL\nexit 2\n', 'utf-8');
-        await chmod(commandPath, 0o755);
-      }
-
-      const result = runPluginNativeHook(
-        cachePluginRoot,
-        JSON.stringify({ hook_event_name: 'Stop', session_id: 'sess-plugin-partial-stop' }),
-        { OWX_NATIVE_HOOK_COMMAND: commandPath },
-      );
-
-      assert.equal(result.status, 2, result.stderr || result.stdout);
-      assert.equal(result.stdout, 'PARTIAL');
-      assert.doesNotMatch(result.stdout, /plugin_stop_hook_launcher/);
-    });
-  });
-
-  it('emits Stop JSON for malformed Stop-looking stdin before invalid launcher failure', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
-
-      const result = runPluginNativeHook(cachePluginRoot, '{"hook_event_name":"Stop",');
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_launcher_failure');
-    });
-  });
-
-  it('emits Stop JSON for the core-supported name alias before invalid launcher failure', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
-
-      const result = runPluginNativeHook(cachePluginRoot, '{"name":"Stop",');
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const output = parseSingleJsonStdout(result.stdout);
-      assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_launcher_failure');
-    });
-  });
-
-  it('keeps non-Stop plugin hook launcher failures fail-closed without Stop JSON', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
-
+      const sessionId = 'sess-plugin-active-workflow';
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'session.json'), {
+        session_id: sessionId,
+        cwd: cachePluginRoot,
+      });
+      await writeJson(join(cachePluginRoot, '.owx', 'state', 'sessions', sessionId, 'run-state.json'), {
+        version: 1,
+        mode: 'ralph',
+        active: true,
+        outcome: 'continue',
+        current_phase: 'executing',
+      });
       const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
-        hook_event_name: 'UserPromptSubmit',
-        prompt: 'hello',
+        hook_event_name: 'Stop',
+        cwd: cachePluginRoot,
+        session_id: sessionId,
       }));
 
-      assert.equal(result.status, 1);
-      assert.equal(result.stdout, '');
-      assert.match(result.stderr, /invalid plugin hook launcher/);
-    });
-  });
-
-  it('does not classify valid non-Stop plugin JSON with nested Stop text as Stop', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
-
-      const result = runPluginNativeHook(cachePluginRoot, JSON.stringify({
-        hook_event_name: 'PreToolUse',
-        tool_input: { name: 'Stop' },
-      }));
-
-      assert.equal(result.status, 1);
-      assert.equal(result.stdout, '');
-      assert.match(result.stderr, /invalid plugin hook launcher/);
-    });
-  });
-
-  it('does not classify malformed non-Stop plugin JSON with nested Stop text as Stop', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot) => {
-      await writeFile(join(cachePluginRoot, 'hooks', 'owx-command.json'), '{"command":', 'utf-8');
-
-      const result = runPluginNativeHook(
-        cachePluginRoot,
-        '{"hook_event_name":"PreToolUse","tool_input":{"name":"Stop"},',
-      );
-
-      assert.equal(result.status, 1);
-      assert.equal(result.stdout, '');
-      assert.match(result.stderr, /invalid plugin hook launcher/);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const output = parseSingleJsonStdout(result.stdout);
+      assert.equal(output.decision, 'block');
+      assert.equal(output.stopReason, 'plugin_stop_active_workflow');
+      assert.match(String(output.reason), /ralph.*executing/);
     });
   });
 
@@ -638,7 +929,7 @@ describe('official Codex plugin layout', () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const output = parseSingleJsonStdout(result.stdout);
       assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_stdin_oversized_active_workflow');
+      assert.equal(output.stopReason, 'plugin_stop_active_workflow');
     });
   });
 
@@ -661,7 +952,7 @@ describe('official Codex plugin layout', () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const output = parseSingleJsonStdout(result.stdout);
       assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_stdin_oversized_active_workflow');
+      assert.equal(output.stopReason, 'plugin_stop_active_workflow');
     });
   });
 
@@ -701,7 +992,7 @@ describe('official Codex plugin layout', () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const output = parseSingleJsonStdout(result.stdout);
       assert.equal(output.decision, 'block');
-      assert.equal(output.stopReason, 'plugin_stop_hook_stdin_oversized_active_workflow');
+      assert.equal(output.stopReason, 'plugin_stop_active_workflow');
     });
   });
 
@@ -772,46 +1063,6 @@ describe('official Codex plugin layout', () => {
     });
   });
 
-  it('forwards under-cap plugin hook stdin bytes unchanged to the delegated command', async () => {
-    await withPluginCacheCopy(async (cachePluginRoot, cacheRoot) => {
-      const capturePath = join(cacheRoot, 'captured-stdin.json');
-      const commandPath = join(cacheRoot, 'capture-hook.mjs');
-      const launcherPath = join(cacheRoot, process.platform === 'win32' ? 'capture-hook.cmd' : 'capture-hook.sh');
-      await writeFile(
-        commandPath,
-        `import { writeFileSync } from 'node:fs';
-const chunks = [];
-process.stdin.on('data', (chunk) => chunks.push(chunk));
-process.stdin.on('end', () => {
-  writeFileSync(process.env.CAPTURE_PATH, Buffer.concat(chunks));
-  process.stdout.write('{}\\n');
-});
-`,
-        'utf-8',
-      );
-      if (process.platform === 'win32') {
-        await writeFile(launcherPath, `@echo off\r\n"${process.execPath}" "${commandPath}" %*\r\n`, 'utf-8');
-      } else {
-        await writeFile(launcherPath, `#!/bin/sh\nexec "${process.execPath}" "${commandPath}" "$@"\n`, 'utf-8');
-        await chmod(launcherPath, 0o755);
-      }
-
-      const input = JSON.stringify({
-        hook_event_name: 'Stop',
-        session_id: 'sess-plugin-forward-stdin',
-        payload: 'keep these bytes unchanged',
-      });
-      const result = runPluginNativeHook(cachePluginRoot, input, {
-        OWX_NATIVE_HOOK_COMMAND: launcherPath,
-        CAPTURE_PATH: capturePath,
-      });
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.deepEqual(parseSingleJsonStdout(result.stdout), {});
-      assert.equal(await readFile(capturePath, 'utf-8'), input);
-    });
-  });
-
   it('keeps plugin MCP metadata aligned with the explicit compat setup-managed MCP roster', async () => {
     const mcpManifest = await readJson<PluginMcpManifest>(pluginMcpPath);
     const defaultConfig = buildMergedConfig('', root, { includeTui: false });
@@ -858,10 +1109,6 @@ process.stdin.on('end', () => {
     await assertPluginHookLaunchesPostCompactFromCache();
   });
 
-  it('delegates PostCompact plugin hook payloads to the pinned launcher command', async () => {
-    await assertPluginHookDelegatesPostCompactToPinnedCommand();
-  });
-
   it('does not stage setup-owned hook or runtime directories inside the plugin', async () => {
     const pluginEntries = await readdir(pluginRoot);
 
@@ -897,12 +1144,10 @@ process.stdin.on('end', () => {
       .sort();
 
     assert.deepEqual(actualSkillNames, expectedSkillNames);
-    assert.ok(actualSkillNames.includes('worker'), 'internal setup-installed worker skill should be mirrored');
     assert.ok(actualSkillNames.includes('performance-goal'), 'performance-goal should be available through setup/plugin skill delivery');
     assert.ok(actualSkillNames.includes('autoresearch-goal'), 'autoresearch-goal should be available through setup/plugin skill delivery');
     assert.ok(actualSkillNames.includes('ultragoal'), 'ultragoal should remain available through setup/plugin skill delivery');
     assert.equal(actualSkillNames.includes('ecomode'), false, 'deprecated skills should not be mirrored');
-    assert.equal(actualSkillNames.includes('swarm'), false, 'deprecated skills should not be mirrored');
     assert.equal(actualSkillNames.includes('configure-discord'), false, 'merged notification aliases should not be mirrored');
 
     for (const skillName of expectedSkillNames) {

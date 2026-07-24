@@ -9,11 +9,7 @@ import { execFileSync } from 'child_process';
 import { join, basename } from 'path';
 import { findGitLayout, readGitLayoutFile } from '../utils/git-layout.js';
 import { resolveOmxDisplayVersionSync } from '../utils/version.js';
-import { getDefaultBridge, isBridgeEnabled } from '../runtime/bridge.js';
-import type { RuntimeSnapshot } from '../runtime/bridge.js';
 import { getBaseStateDir, getStateFilePath, readCurrentSessionId, resolveRuntimeStateScope } from '../mcp/state-paths.js';
-import { teamReadPhase as readTeamPhase } from '../team/team-ops.js';
-
 import { listActiveSkills, readVisibleSkillActiveStateForStateDir } from '../state/skill-active.js';
 import type {
   RalphStateForHud,
@@ -25,7 +21,6 @@ import type {
   AutoresearchStateForHud,
   CodeReviewStateForHud,
   UltraqaStateForHud,
-  TeamStateForHud,
   HudMetrics,
   HudNotifyState,
   HudConfig,
@@ -245,11 +240,6 @@ export async function readUltraqaState(cwd: string): Promise<UltraqaStateForHud 
   return state?.active ? state : null;
 }
 
-export async function readTeamState(cwd: string): Promise<TeamStateForHud | null> {
-  const state = await readAuthoritativeModeState<TeamStateForHud>(cwd, 'team');
-  return state?.active ? state : null;
-}
-
 export async function readMetrics(cwd: string): Promise<HudMetrics | null> {
   return readJsonFile<HudMetrics>(join(cwd, '.owx', 'metrics.json'));
 }
@@ -461,26 +451,6 @@ function mergePhase<T extends { active?: boolean; current_phase?: string }>(
   return { active: true, current_phase: canonicalPhase } as T;
 }
 
-async function readCanonicalTeamPhase(cwd: string, teamDetail: TeamStateForHud | null): Promise<string | undefined> {
-  const teamName = sanitizeOptionalString(teamDetail?.team_name);
-  if (!teamName) return undefined;
-  const phaseState = await readTeamPhase(teamName, cwd).catch(() => null);
-  return sanitizeOptionalString(phaseState?.current_phase);
-}
-
-function mergeTeamPhase(
-  detail: TeamStateForHud | null,
-  canonicalSkillPhase?: string,
-  canonicalTeamPhase?: string,
-): TeamStateForHud | null {
-  const canonicalPhase = canonicalTeamPhase || canonicalSkillPhase;
-  if (detail?.active === true) {
-    return canonicalPhase ? { ...detail, current_phase: canonicalPhase } : detail;
-  }
-  if (!canonicalPhase) return null;
-  return { active: true, current_phase: canonicalPhase };
-}
-
 function activeAutopilotPhase(autopilot: AutopilotStateForHud | null): string | undefined {
   if (autopilot?.active !== true) return undefined;
   return sanitizeOptionalString(autopilot.current_phase)?.toLowerCase().replace(/_/g, '-');
@@ -528,7 +498,6 @@ export async function readAllState(cwd: string, config: ResolvedHudConfig = DEFA
     deepInterviewDetail,
     autoresearchDetail,
     ultraqaDetail,
-    teamDetail,
   ] = await Promise.all([
     readAuthoritativeModeState<RalphStateForHud>(cwd, 'ralph'),
     readUltragoalState(cwd),
@@ -538,7 +507,6 @@ export async function readAllState(cwd: string, config: ResolvedHudConfig = DEFA
     readAuthoritativeModeState<DeepInterviewRawState>(cwd, 'deep-interview'),
     readAuthoritativeModeState<AutoresearchStateForHud>(cwd, 'autoresearch'),
     readAuthoritativeModeState<UltraqaStateForHud>(cwd, 'ultraqa'),
-    readAuthoritativeModeState<TeamStateForHud>(cwd, 'team'),
   ]);
 
   const ralph = shouldSurfaceCanonicalSkill(canonicalSkills, 'ralph', ralphDetail)
@@ -578,28 +546,12 @@ export async function readAllState(cwd: string, config: ResolvedHudConfig = DEFA
       return detail ? merged : withLateGateSource(merged, 'canonical-skill');
     })()
     : supervisedAutopilotStage<UltraqaStateForHud>(autopilot, 'ultraqa');
-  const canonicalTeamPhase = await readCanonicalTeamPhase(cwd, teamDetail?.active === true ? teamDetail : null);
-  const team = shouldSurfaceCanonicalSkill(canonicalSkills, 'team', teamDetail)
-    ? mergeTeamPhase(
-      teamDetail?.active === true ? teamDetail : null,
-      canonicalPhaseForSkill(canonicalSkills, 'team'),
-      canonicalTeamPhase,
-    )
-    : null;
   const autoresearch = shouldSurfaceCanonicalSkill(canonicalSkills, 'autoresearch', autoresearchDetail)
     ? mergePhase(
       autoresearchDetail?.active === true ? autoresearchDetail : null,
       canonicalPhaseForSkill(canonicalSkills, 'autoresearch'),
     )
     : null;
-
-  // When the Rust runtime bridge is enabled, prefer Rust-authored snapshot
-  // for authority/backlog/readiness display over JS-inferred state.
-  let runtimeSnapshot: RuntimeSnapshot | null = null;
-  if (isBridgeEnabled()) {
-    const bridge = getDefaultBridge(stateDir);
-    runtimeSnapshot = bridge.readCompatFile<RuntimeSnapshot>('snapshot.json');
-  }
 
   return {
     version,
@@ -613,10 +565,8 @@ export async function readAllState(cwd: string, config: ResolvedHudConfig = DEFA
     autoresearch,
     codeReview,
     ultraqa,
-    team,
     metrics,
     hudNotify,
     session,
-    runtimeSnapshot,
   };
 }

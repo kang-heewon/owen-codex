@@ -1,6 +1,6 @@
-import { spawn } from "child_process";
-import { dirname } from "path";
-import { homedir } from "os";
+import { spawn } from "node:child_process";
+import { homedir } from "node:os";
+import { dirname } from "node:path";
 import { buildPlatformCommandSpec, classifySpawnError } from "../utils/platform-command.js";
 import { readAuthConfig } from "./config.js";
 import { isQuotaError } from "./quota-detector.js";
@@ -17,25 +17,35 @@ export interface PreparedHotswapCodexHome {
 }
 
 export interface HotswapLifecycle {
-  prepareCodexHomeForLaunch: (cwd: string, sessionId: string, env: NodeJS.ProcessEnv) => Promise<PreparedHotswapCodexHome>;
+  prepareCodexHomeForLaunch: (
+    cwd: string,
+    sessionId: string,
+    env: NodeJS.ProcessEnv,
+  ) => Promise<PreparedHotswapCodexHome>;
   preLaunch: (
     cwd: string,
     sessionId: string,
     notifyTempContract: unknown,
     codexHomeOverride: string | undefined,
-    enableNotifyFallbackAuthority: boolean,
     worktreeDirty: boolean,
   ) => Promise<void>;
   postLaunch: (
     cwd: string,
     sessionId: string,
     codexHomeOverride: string | undefined,
-    enableNotifyFallbackAuthority: boolean,
     projectLocalCodexHomeForCleanup?: string,
   ) => Promise<void>;
-  cleanupRuntimeCodexHome: (runtimeCodexHome?: string, projectCodexHome?: string) => Promise<void>;
+  cleanupRuntimeCodexHome: (
+    runtimeCodexHome?: string,
+    projectCodexHome?: string,
+  ) => Promise<void>;
   normalizeCodexLaunchArgs: (args: string[]) => string[];
-  injectModelInstructionsBypassArgs: (cwd: string, args: string[], env: NodeJS.ProcessEnv, defaultFilePath?: string) => string[];
+  injectModelInstructionsBypassArgs: (
+    cwd: string,
+    args: string[],
+    env: NodeJS.ProcessEnv,
+    defaultFilePath?: string,
+  ) => string[];
   sessionModelInstructionsPath: (cwd: string, sessionId: string) => string;
   resolveOmxRootForLaunch: (cwd: string, env: NodeJS.ProcessEnv) => string | undefined;
   resolveNotifyTempContract: (args: string[], env: NodeJS.ProcessEnv) => {
@@ -97,7 +107,10 @@ async function runCodexDirect(
   });
 }
 
-export function buildResumeArgsWithPreservedFlags(originalArgs: string[], sessionId: string): string[] {
+export function buildResumeArgsWithPreservedFlags(
+  originalArgs: string[],
+  sessionId: string,
+): string[] {
   const preserved: string[] = [];
   for (let index = 0; index < originalArgs.length; index++) {
     const arg = originalArgs[index];
@@ -137,7 +150,13 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
   const lifecycle = options.lifecycle;
   const rawArgs = stripHotswapArg(options.argv);
   const notifyTempResult = lifecycle.resolveNotifyTempContract(rawArgs, env);
-  const normalizedArgs = lifecycle.normalizeCodexLaunchArgs(notifyTempResult.passthroughArgs.filter((arg) => arg !== "--direct" && arg !== "--tmux"));
+  const warnings = (notifyTempResult.contract as { warnings?: unknown }).warnings;
+  if (Array.isArray(warnings)) {
+    for (const warning of warnings) {
+      if (typeof warning === "string") process.stderr.write(`[owx] ${warning}\n`);
+    }
+  }
+  const normalizedArgs = lifecycle.normalizeCodexLaunchArgs(notifyTempResult.passthroughArgs);
   const config = await readAuthConfig(cwd, home);
   const slots = await listSlots(home);
   if (slots.length === 0) {
@@ -161,16 +180,17 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
   let resumeArgs: string[] | null = null;
   try {
     await useSlot(currentSlot, liveAuthPath, home);
-    await lifecycle.preLaunch(cwd, sessionId, notifyTempResult.contract, prepared.codexHomeOverride, true, false);
+    await lifecycle.preLaunch(cwd, sessionId, notifyTempResult.contract, prepared.codexHomeOverride, false);
     const baseEnv: NodeJS.ProcessEnv = {
       ...env,
+      OWX_NOTIFY_TEMP_CONTRACT: JSON.stringify(notifyTempResult.contract),
       ...(prepared.codexHomeOverride ? { CODEX_HOME: prepared.codexHomeOverride } : {}),
       ...(prepared.sqliteHomeOverride ? { CODEX_SQLITE_HOME: prepared.sqliteHomeOverride } : {}),
     };
     const owxRoot = lifecycle.resolveOmxRootForLaunch(cwd, env);
     if (owxRoot) baseEnv.OWX_ROOT = owxRoot;
 
-    for (let attempt = 0; attempt < plan.order.length; attempt++) {
+    for (let attempt = 0; attempt < plan.order.length; attempt += 1) {
       const attemptArgs = lifecycle.injectModelInstructionsBypassArgs(
         cwd,
         resumeArgs ?? normalizedArgs,
@@ -215,7 +235,7 @@ export async function runAuthHotswap(options: HotswapOptions): Promise<number> {
     process.stderr.write(`[owx auth] ${redactAuthSecrets(err)}\n`);
     return 1;
   } finally {
-    await lifecycle.postLaunch(cwd, sessionId, prepared.codexHomeOverride, true, prepared.projectLocalCodexHomeForCleanup).catch((err) => {
+    await lifecycle.postLaunch(cwd, sessionId, prepared.codexHomeOverride, prepared.projectLocalCodexHomeForCleanup).catch((err) => {
       process.stderr.write(`[owx auth] postLaunch warning: ${redactAuthSecrets(err)}\n`);
     });
     await lifecycle.cleanupRuntimeCodexHome(prepared.runtimeCodexHomeForCleanup, prepared.projectLocalCodexHomeForCleanup).catch((err) => {

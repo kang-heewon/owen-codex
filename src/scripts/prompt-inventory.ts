@@ -46,8 +46,6 @@ const PROMPT_SURFACE_DIRS = [
 const MARKERS = [
   '<!-- OWX:RUNTIME:START -->',
   '<!-- OWX:RUNTIME:END -->',
-  '<!-- OWX:TEAM:WORKER:START -->',
-  '<!-- OWX:TEAM:WORKER:END -->',
   '<!-- OWX:MODELS:START -->',
   '<!-- OWX:MODELS:END -->',
   '<!-- owx:generated:agents-md -->',

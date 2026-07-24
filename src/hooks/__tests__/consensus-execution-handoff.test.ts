@@ -136,16 +136,6 @@ describe('Consensus mode execution handoff (plan/SKILL.md)', () => {
     assert.ok(consensusSection.includes('**Follow-ups**'), 'ADR should include Follow-ups');
   });
 
-  it('should require available-agent-types roster and staffing guidance in handoff output', () => {
-    const consensusSection = extractSection(planSkill, 'Consensus Mode');
-    assert.ok(consensusSection, 'Consensus Mode section should exist');
-    assert.match(consensusSection, /available-agent-types roster/i);
-    assert.match(consensusSection, /staffing guidance|role allocation/i);
-    assert.match(consensusSection, /reasoning levels? by lane|suggested reasoning/i);
-    assert.match(consensusSection, /owx team|launch hint/i);
-    assert.match(consensusSection, /team verification path/i);
-  });
-
   it('should include contextual goal-mode follow-up suggestions in consensus handoff output', () => {
     const consensusSection = extractSection(planSkill, 'Consensus Mode');
     assert.ok(consensusSection, 'Consensus Mode section should exist');
@@ -153,7 +143,7 @@ describe('Consensus mode execution handoff (plan/SKILL.md)', () => {
     assert.match(consensusSection, /\$ultragoal[\s\S]*general goal-oriented follow-up/i);
     assert.match(consensusSection, /\$autoresearch-goal[\s\S]*research project/i);
     assert.match(consensusSection, /\$performance-goal[\s\S]*(optimization|performance) project/i);
-    assert.match(consensusSection, /alongside the Team path and any explicit Ralph fallback/i);
+    assert.match(consensusSection, /native Codex subagents with explicit `agent_type` and checkpoint-ready evidence/i);
   });
 
   it('should mention deliberate mode requirements in consensus mode', () => {
@@ -305,18 +295,6 @@ describe('RALPLAN-DR in ralplan/SKILL.md', () => {
     );
   });
 
-  it('should document roster-aware ultragoal, team, and explicit ralph fallback guidance', () => {
-    assert.match(ralplanSkill, /available-agent-types roster/i);
-    assert.match(ralplanSkill, /staffing guidance|role\/staffing allocation/i);
-    assert.match(ralplanSkill, /reasoning levels? by lane|reasoning-by-lane/i);
-    assert.match(ralplanSkill, /owx team|launch hints?/i);
-    assert.match(ralplanSkill, /team verification/i);
-    assert.match(ralplanSkill, /\$ultragoal[\s\S]*general goal-oriented follow-up/i);
-    assert.match(ralplanSkill, /\$autoresearch-goal[\s\S]*research-project follow-up/i);
-    assert.match(ralplanSkill, /\$performance-goal[\s\S]*optimization\/performance follow-up/i);
-    assert.match(ralplanSkill, /Ultragoal as the default durable goal-mode follow-up/i);
-    assert.match(ralplanSkill, /Ralph only for intentionally selected persistent single-owner/i);
-  });
 });
 
 describe('Architect prompt RALPLAN-DR sections', () => {
@@ -350,17 +328,14 @@ describe('Architect prompt RALPLAN-DR sections', () => {
 });
 
 describe('Planner prompt follow-up staffing guidance', () => {
-  it('should require roster-aware staffing guidance for ultragoal, team, and explicit ralph fallback handoff', () => {
+  it('should require roster-aware native staffing guidance for ultragoal and explicit ralph fallback handoff', () => {
     assert.match(plannerPrompt, /available-agent-types roster/i);
-    assert.match(plannerPrompt, /ultragoal and team follow-up paths/i);
+    assert.match(plannerPrompt, /native Codex subagent staffing guidance for Ultragoal follow-up/i);
     assert.match(plannerPrompt, /explicit Ralph fallback guidance/i);
-    assert.match(plannerPrompt, /goal-mode follow-up suggestions/i);
-    assert.match(plannerPrompt, /\$ultragoal[\s\S]*generally/i);
-    assert.match(plannerPrompt, /\$autoresearch-goal[\s\S]*research projects/i);
-    assert.match(plannerPrompt, /\$performance-goal[\s\S]*optimization\/performance projects/i);
-    assert.match(plannerPrompt, /reasoning levels? by lane|suggested reasoning/i);
-    assert.match(plannerPrompt, /launch hints?/i);
-    assert.match(plannerPrompt, /team verification path/i);
+    assert.match(plannerPrompt, /product-facing goal-mode suggestions/i);
+    assert.match(plannerPrompt, /reasoning levels/i);
+    assert.match(plannerPrompt, /bounded lane ownership/i);
+    assert.match(plannerPrompt, /verification expectations/i);
   });
 });
 

@@ -72,29 +72,29 @@ describe('notify-hook state I/O session authority', () => {
     }
   });
 
-  it('resolves current session from authoritative team state root without cwd inference', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-team-root-'));
+  it('resolves the current session from an explicit state root without cwd inference', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-notify-state-io-explicit-root-'));
     try {
-      const teamStateRoot = join(wd, 'team-state-root');
-      await mkdir(join(teamStateRoot, 'sessions', 'sess-team-root'), { recursive: true });
+      const explicitStateRoot = join(wd, 'explicit-state-root');
+      await mkdir(join(explicitStateRoot, 'sessions', 'sess-explicit-root'), { recursive: true });
       await writeFile(
-        join(teamStateRoot, 'session.json'),
-        JSON.stringify({ session_id: 'sess-team-root', cwd: join(wd, 'source-repo') }, null, 2),
+        join(explicitStateRoot, 'session.json'),
+        JSON.stringify({ session_id: 'sess-explicit-root', cwd: join(wd, 'source-repo') }, null, 2),
         'utf-8',
       );
       await writeFile(
-        join(teamStateRoot, 'hud-state.json'),
+        join(explicitStateRoot, 'hud-state.json'),
         JSON.stringify({ turn_count: 99 }, null, 2),
         'utf-8',
       );
       await writeFile(
-        join(teamStateRoot, 'sessions', 'sess-team-root', 'hud-state.json'),
+        join(explicitStateRoot, 'sessions', 'sess-explicit-root', 'hud-state.json'),
         JSON.stringify({ turn_count: 4 }, null, 2),
         'utf-8',
       );
 
-      assert.equal(await resolveScopedStateDir(teamStateRoot), join(teamStateRoot, 'sessions', 'sess-team-root'));
-      const value = await readScopedJsonIfExists(teamStateRoot, 'hud-state.json', undefined, null);
+      assert.equal(await resolveScopedStateDir(explicitStateRoot), join(explicitStateRoot, 'sessions', 'sess-explicit-root'));
+      const value = await readScopedJsonIfExists(explicitStateRoot, 'hud-state.json', undefined, null);
       assert.equal(value?.turn_count, 4);
     } finally {
       await rm(wd, { recursive: true, force: true });

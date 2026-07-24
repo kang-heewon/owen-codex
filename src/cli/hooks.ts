@@ -15,7 +15,7 @@ Usage:
   owx hooks test       Dispatch synthetic turn-complete event to plugins
 
 Notes:
-  - This command is additive. Existing \`owx tmux-hook\` behavior is unchanged.
+  - This command is additive and does not change native hook dispatch behavior.
   - Plugins are enabled by default. Disable with OWX_HOOK_PLUGINS=0.
 `;
 
@@ -200,8 +200,7 @@ async function testHooks(): Promise<void> {
       ...process.env,
       OWX_HOOK_PLUGINS: '1',
     },
-    allowInTeamWorker: false,
-  } as never);
+  });
   const result = normalizeDispatchResult(rawResult);
 
   console.log('hooks test dispatch complete');

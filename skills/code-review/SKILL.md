@@ -265,11 +265,7 @@ The `architect` lane checks:
 
 ## Use with Other Skills
 
-**With Team:**
-```
-/team "review recent auth changes and report findings"
-```
-Includes coordinated review execution across specialized agents.
+**With native Codex subagents:** assign independent `code-reviewer` and `architect` lanes with explicit `agent_type`; keep them read-only and wait for both verdicts.
 
 **With Ralph:**
 ```

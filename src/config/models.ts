@@ -11,8 +11,7 @@
  *     "OWX_DEFAULT_SPARK_MODEL": "your-spark-model"
  *   },
  *   "models": {
- *     "default": "o4-mini",
- *     "team": "gpt-4.1"
+ *     "default": "o4-mini"
  *   },
  *   "agentReasoning": {
  *     "architect": "xhigh"
@@ -53,7 +52,6 @@ export const OWX_DEFAULT_FRONTIER_MODEL_ENV = 'OWX_DEFAULT_FRONTIER_MODEL';
 export const OWX_DEFAULT_STANDARD_MODEL_ENV = 'OWX_DEFAULT_STANDARD_MODEL';
 export const OWX_DEFAULT_SPARK_MODEL_ENV = 'OWX_DEFAULT_SPARK_MODEL';
 export const OWX_SPARK_MODEL_ENV = 'OWX_SPARK_MODEL';
-export const OWX_TEAM_CHILD_MODEL_ENV = 'OWX_TEAM_CHILD_MODEL';
 
 function readOmxConfigFile(codexHomeOverride?: string): OmxConfigFile | null {
   const configPath = join(codexHomeOverride || codexHome(), '.owx-config.json');
@@ -93,7 +91,6 @@ function readModelsBlock(codexHomeOverride?: string): ModelsConfig | null {
 export const DEFAULT_FRONTIER_MODEL = 'gpt-5.5';
 export const DEFAULT_STANDARD_MODEL = 'gpt-5.4-mini';
 export const DEFAULT_SPARK_MODEL = 'gpt-5.3-codex-spark';
-export const DEFAULT_TEAM_CHILD_MODEL = DEFAULT_STANDARD_MODEL;
 
 function normalizeConfiguredValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -125,16 +122,6 @@ function readConfigEnvValue(key: string, codexHomeOverride?: string): string | u
     return undefined;
   }
   return normalizeConfiguredValue(config.env[key]);
-}
-
-function readTeamLowComplexityOverride(codexHomeOverride?: string): string | undefined {
-  const models = readModelsBlock(codexHomeOverride);
-  if (!models) return undefined;
-  for (const key of TEAM_LOW_COMPLEXITY_MODEL_KEYS) {
-    const value = normalizeConfiguredValue(models[key]);
-    if (value) return value;
-  }
-  return undefined;
 }
 
 export function readConfiguredEnvOverrides(codexHomeOverride?: string): NodeJS.ProcessEnv {
@@ -239,12 +226,6 @@ export function getEnvConfiguredSparkDefaultModel(
 }
 
 
-export function getTeamChildModel(codexHomeOverride?: string): string {
-  return normalizeConfiguredValue(process.env[OWX_TEAM_CHILD_MODEL_ENV])
-    ?? readConfigEnvValue(OWX_TEAM_CHILD_MODEL_ENV, codexHomeOverride)
-    ?? DEFAULT_TEAM_CHILD_MODEL;
-}
-
 /**
  * Get the envvar-backed main/default model.
  * Resolution: OWX_DEFAULT_FRONTIER_MODEL > config.toml model > DEFAULT_FRONTIER_MODEL
@@ -285,26 +266,11 @@ export function getModelForMode(mode: string, codexHomeOverride?: string): strin
   return getMainDefaultModel(codexHomeOverride);
 }
 
-const TEAM_LOW_COMPLEXITY_MODEL_KEYS = [
-  'team_low_complexity',
-  'team-low-complexity',
-  'teamLowComplexity',
-];
-
 /**
  * Get the envvar-backed spark/low-complexity default model.
- * Resolution: OWX_DEFAULT_SPARK_MODEL > OWX_SPARK_MODEL > explicit low-complexity key(s) > DEFAULT_SPARK_MODEL
+ * Resolution: OWX_DEFAULT_SPARK_MODEL > OWX_SPARK_MODEL > DEFAULT_SPARK_MODEL
  */
 export function getSparkDefaultModel(codexHomeOverride?: string): string {
   return getEnvConfiguredSparkDefaultModel(process.env, codexHomeOverride)
-    ?? readTeamLowComplexityOverride(codexHomeOverride)
     ?? DEFAULT_SPARK_MODEL;
-}
-
-/**
- * Get the low-complexity team worker model.
- * Resolution: explicit low-complexity key(s) > OWX_DEFAULT_SPARK_MODEL > OWX_SPARK_MODEL > DEFAULT_SPARK_MODEL
- */
-export function getTeamLowComplexityModel(codexHomeOverride?: string): string {
-  return readTeamLowComplexityOverride(codexHomeOverride) ?? getSparkDefaultModel(codexHomeOverride);
 }

@@ -12,7 +12,7 @@ describe('autopilot supervisor FSM helpers', () => {
   it('normalizes only known Autopilot runtime phases', () => {
     assert.equal(normalizeAutopilotPhase('deep_interview'), 'deep-interview');
     assert.equal(normalizeAutopilotPhase('waiting_for_user'), 'waiting-for-user');
-    assert.equal(normalizeAutopilotPhase('team'), 'team');
+    assert.equal(normalizeAutopilotPhase('team'), null);
     assert.equal(normalizeAutopilotPhase('ralph'), 'ralph');
     assert.equal(normalizeAutopilotPhase('completed'), 'complete');
     assert.equal(normalizeAutopilotPhase('planning'), 'ralplan');
@@ -52,12 +52,7 @@ describe('autopilot supervisor FSM helpers', () => {
     assert.equal(deriveAutopilotStageLabel(waitingState), 'autopilot:deep-interview');
   });
 
-  it('recognizes documented conditional and legacy supervised phases', () => {
-    assert.equal(deriveAutopilotStageLabel({
-      mode: 'autopilot',
-      active: true,
-      current_phase: 'team',
-    }), 'autopilot:team');
+  it('recognizes documented retained supervised phases', () => {
     assert.equal(deriveAutopilotStageLabel({
       mode: 'autopilot',
       active: true,

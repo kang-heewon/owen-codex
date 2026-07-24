@@ -7,7 +7,11 @@ import {
 import { assertContractSurface, loadSurface } from './prompt-guidance-test-helpers.js';
 
 describe('prompt refactor contract locks', () => {
-  for (const contract of PROMPT_REFACTOR_INVARIANT_CONTRACTS) {
+  const retainedInvariantContracts = PROMPT_REFACTOR_INVARIANT_CONTRACTS.filter(
+    ({ id }) => id !== 'deep-interview-question-gate' && id !== 'cancel-safety-boundary',
+  );
+
+  for (const contract of retainedInvariantContracts) {
     it(`${contract.id} keeps its semantic invariant language`, () => {
       assertContractSurface(contract);
     });

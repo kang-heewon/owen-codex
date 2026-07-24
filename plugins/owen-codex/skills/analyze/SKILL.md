@@ -27,7 +27,7 @@ Examples:
 - the user explicitly wants code edits, a fix, or execution — use the appropriate implementation lane instead
 - the user wants a new product plan or acceptance criteria — use `$plan` / `$ralplan`
 - the request is a simple one-file fact lookup — read the file and answer directly
-- the request is purely about running the OWX tmux team runtime — use `$team` only when OWX runtime is active
+- the request is purely about coordinating implementation agents — use native Codex subagents directly
 
 ## Non-negotiable contract
 
@@ -49,7 +49,7 @@ Answer the user’s actual question first.
 
 - Start from the asked question, not a generic debugger template.
 - Keep the synthesis scoped to what the user needs to know.
-- Scale the depth to the request: for simple or obvious questions, reduce swarm intensity and answer directly after enough reading.
+- Scale the depth to the request: for simple or obvious questions, reduce parallel fan-out and answer directly after enough reading.
 - For broader questions, expand the search surface but keep the final answer tightly synthesized.
 
 ## Evidence rules
@@ -82,8 +82,8 @@ Parallel exploration is allowed when it improves quality, but it must stay runti
 - Default to direct read-only analysis when the answer is simple.
 - When parallelism helps, prefer **native subagents by default** or equivalent in-session parallel exploration when available.
 - Keep parallel lanes bounded: each lane should answer a concrete sub-question or inspect a specific subsystem.
-- Use **`$team` only when OWX runtime is active** and durable tmux-based coordination is actually needed.
-- Do not imply that `$team` is available in plain Codex/App sessions.
+- Use native Codex subagents with explicit `agent_type`, bounded ownership, and verification evidence when parallel analysis is useful.
+- Keep orchestration portable across Codex App, IDE, and terminal sessions.
 
 A good default split for complex analysis is:
 - one lane for primary code path / contracts

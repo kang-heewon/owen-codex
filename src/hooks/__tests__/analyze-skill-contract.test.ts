@@ -37,7 +37,7 @@ describe('analyze skill contract', () => {
   });
 
   it('requires adaptive native-subagent parallelism and ranked, file-grounded synthesis', () => {
-    assert.match(analyzeSkill, /Scale the depth to the request: for simple or obvious questions, reduce swarm intensity and answer directly after enough reading\./i);
+    assert.match(analyzeSkill, /Scale the depth to the request: for simple or obvious questions, reduce parallel fan-out and answer directly after enough reading\./i);
     assert.match(analyzeSkill, /For broader questions, expand the search surface but keep the final answer tightly synthesized\./i);
     assert.match(analyzeSkill, /When parallelism helps, prefer \*\*native subagents by default\*\*/i);
     assert.match(analyzeSkill, /Keep parallel lanes bounded: each lane should answer a concrete sub-question or inspect a specific subsystem\./i);
