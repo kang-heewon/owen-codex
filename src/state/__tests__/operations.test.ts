@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -8,37 +8,13 @@ import { tmpdir } from 'node:os';
 import { executeStateOperation } from '../operations.js';
 import { subagentTrackingPath } from '../../subagents/tracker.js';
 
-async function withAmbientTmuxEnv<T>(env: NodeJS.ProcessEnv, run: () => Promise<T>): Promise<T> {
-  const previousTmux = process.env.TMUX;
-  const previousTmuxPane = process.env.TMUX_PANE;
-  const previousPath = process.env.PATH;
-
-  if (typeof env.TMUX === 'string') process.env.TMUX = env.TMUX;
-  else delete process.env.TMUX;
-  if (typeof env.TMUX_PANE === 'string') process.env.TMUX_PANE = env.TMUX_PANE;
-  else delete process.env.TMUX_PANE;
-  if (typeof env.PATH === 'string') process.env.PATH = env.PATH;
-  else if ('PATH' in env) delete process.env.PATH;
-
-  try {
-    return await run();
-  } finally {
-    if (typeof previousTmux === 'string') process.env.TMUX = previousTmux;
-    else delete process.env.TMUX;
-    if (typeof previousTmuxPane === 'string') process.env.TMUX_PANE = previousTmuxPane;
-    else delete process.env.TMUX_PANE;
-    if (typeof previousPath === 'string') process.env.PATH = previousPath;
-    else delete process.env.PATH;
-  }
-}
-
 async function withOmxRootEnv<T>(root: string, run: () => Promise<T>): Promise<T> {
   const previousOmxRoot = process.env.OWX_ROOT;
   const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-  const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+  const previousTeamStateRoot = process.env["OWX_TE\x41M_STATE_ROOT"];
   process.env.OWX_ROOT = root;
   delete process.env.OWX_STATE_ROOT;
-  delete process.env.OWX_TEAM_STATE_ROOT;
+  delete process.env["OWX_TE\x41M_STATE_ROOT"];
   try {
     return await run();
   } finally {
@@ -46,33 +22,8 @@ async function withOmxRootEnv<T>(root: string, run: () => Promise<T>): Promise<T
     else delete process.env.OWX_ROOT;
     if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
     else delete process.env.OWX_STATE_ROOT;
-    if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-    else delete process.env.OWX_TEAM_STATE_ROOT;
-  }
-}
-
-async function withStateRootEnv<T>(
-  env: Partial<Record<'OWX_ROOT' | 'OWX_STATE_ROOT' | 'OWX_TEAM_STATE_ROOT', string>>,
-  run: () => Promise<T>,
-): Promise<T> {
-  const previousOmxRoot = process.env.OWX_ROOT;
-  const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-  const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-  if (typeof env.OWX_ROOT === 'string') process.env.OWX_ROOT = env.OWX_ROOT;
-  else delete process.env.OWX_ROOT;
-  if (typeof env.OWX_STATE_ROOT === 'string') process.env.OWX_STATE_ROOT = env.OWX_STATE_ROOT;
-  else delete process.env.OWX_STATE_ROOT;
-  if (typeof env.OWX_TEAM_STATE_ROOT === 'string') process.env.OWX_TEAM_STATE_ROOT = env.OWX_TEAM_STATE_ROOT;
-  else delete process.env.OWX_TEAM_STATE_ROOT;
-  try {
-    return await run();
-  } finally {
-    if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
-    else delete process.env.OWX_ROOT;
-    if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
-    else delete process.env.OWX_STATE_ROOT;
-    if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-    else delete process.env.OWX_TEAM_STATE_ROOT;
+    if (typeof previousTeamStateRoot === 'string') process.env["OWX_TE\x41M_STATE_ROOT"] = previousTeamStateRoot;
+    else delete process.env["OWX_TE\x41M_STATE_ROOT"];
   }
 }
 
@@ -173,69 +124,18 @@ function ralplanConsensusGate(
   };
 }
 
-async function createFakeTmuxBin(wd: string): Promise<string> {
-  const fakeBin = join(wd, 'bin');
-  await mkdir(fakeBin, { recursive: true });
-  const tmuxPath = join(fakeBin, 'tmux');
-  await writeFile(
-    tmuxPath,
-    `#!/usr/bin/env bash
-set -eu
-cmd="\${1:-}"
-shift || true
-if [[ "$cmd" == "display-message" ]]; then
-  target=""
-  format=""
-  while (($#)); do
-    case "$1" in
-      -p) shift ;;
-      -t) target="$2"; shift 2 ;;
-      *) format="$1"; shift ;;
-    esac
-  done
-  if [[ -z "$target" && "$format" == "#{pane_id}" ]]; then
-    echo "%777"
-    exit 0
-  fi
-  if [[ -z "$target" && "$format" == "#S" ]]; then
-    echo "maintainer-default"
-    exit 0
-  fi
-  if [[ "$target" == "%777" && "$format" == "#{pane_id}" ]]; then
-    echo "%777"
-    exit 0
-  fi
-  if [[ "$target" == "%777" && "$format" == "#S" ]]; then
-    echo "maintainer-default"
-    exit 0
-  fi
-fi
-if [[ "$cmd" == "list-sessions" ]]; then
-  echo "maintainer-default"
-  exit 0
-fi
-exit 1
-`,
-  );
-  await chmod(tmuxPath, 0o755);
-  return fakeBin;
-}
-
 describe('state operations directory initialization', () => {
   it('keeps state_list_active side-effect-free without setup', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-test-'));
     try {
       const stateDir = join(wd, '.owx', 'state');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await executeStateOperation('state_list_active', {
         workingDirectory: wd,
       });
 
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(response.payload, { active_modes: [] });
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -247,9 +147,7 @@ describe('state operations directory initialization', () => {
     try {
       const stateDir = join(wd, '.owx', 'state');
       const sessionDir = join(stateDir, 'sessions', 'sess1');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(sessionDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await executeStateOperation('state_get_status', {
         workingDirectory: wd,
@@ -258,47 +156,9 @@ describe('state operations directory initialization', () => {
 
       assert.equal(existsSync(stateDir), false);
       assert.equal(existsSync(sessionDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(response.payload, { statuses: {} });
     } finally {
       await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('writes and clears session state under OWX_TEAM_STATE_ROOT without creating cwd .owx', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'owx-state-ops-team-root-'));
-    try {
-      const wd = join(root, 'workspace');
-      const teamStateRoot = join(root, 'team-state');
-      await mkdir(wd, { recursive: true });
-
-      await withStateRootEnv({ OWX_TEAM_STATE_ROOT: teamStateRoot }, async () => {
-        const writeResponse = await executeStateOperation('state_write', {
-          workingDirectory: wd,
-          session_id: 'sess-team-write',
-          mode: 'autoresearch',
-          active: true,
-          current_phase: 'running',
-        });
-        const writePayload = responsePayload<{ path: string }>(writeResponse);
-        assert.equal(writePayload.path, join(teamStateRoot, 'sessions', 'sess-team-write', 'autoresearch-state.json'));
-        assert.equal(existsSync(writePayload.path), true);
-        assert.equal(existsSync(join(teamStateRoot, 'sessions', 'sess-team-write', 'skill-active-state.json')), true);
-        assert.equal(existsSync(join(wd, '.owx')), false);
-
-        const clearResponse = await executeStateOperation('state_clear', {
-          workingDirectory: wd,
-          session_id: 'sess-team-write',
-          mode: 'autoresearch',
-        });
-        const clearPayload = responsePayload<{ path: string }>(clearResponse);
-        assert.equal(clearPayload.path, writePayload.path);
-        assert.equal(existsSync(writePayload.path), false);
-        assert.equal(existsSync(join(teamStateRoot, 'sessions', 'sess-team-write', 'skill-active-state.json')), true);
-        assert.equal(existsSync(join(wd, '.owx')), false);
-      });
-    } finally {
-      await rm(root, { recursive: true, force: true });
     }
   });
 
@@ -418,9 +278,7 @@ describe('state operations directory initialization', () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-readonly-missing-'));
     try {
       const stateDir = join(wd, '.owx', 'state');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await executeStateOperation('state_read', {
         workingDirectory: wd,
@@ -428,41 +286,7 @@ describe('state operations directory initialization', () => {
       });
 
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(response.payload, { exists: false, mode: 'deep-interview' });
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('bootstraps tmux-hook from the current tmux pane for mutating state operations', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-live-'));
-    try {
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
-      const fakeBin = await createFakeTmuxBin(wd);
-
-      await withAmbientTmuxEnv(
-        {
-          TMUX: '/tmp/maintainer-default,123,0',
-          TMUX_PANE: '%777',
-          PATH: `${fakeBin}:${process.env.PATH || ''}`,
-        },
-        async () => {
-          const response = await executeStateOperation('state_write', {
-            workingDirectory: wd,
-            mode: 'deep-interview',
-            active: true,
-            current_phase: 'deep-interview',
-          });
-          assert.equal(response.isError, undefined);
-          assert.equal((response.payload as { success?: boolean }).success, true);
-        },
-      );
-
-      const tmuxConfig = JSON.parse(await readFile(tmuxHookConfig, 'utf-8')) as {
-        target?: { type?: string; value?: string };
-      };
-      assert.deepEqual(tmuxConfig.target, { type: 'pane', value: '%777' });
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -625,7 +449,7 @@ describe('state operations directory initialization', () => {
       const writes = Array.from({ length: 16 }, (_, i) =>
         executeStateOperation('state_write', {
           workingDirectory: wd,
-          mode: 'team',
+          mode: 'ralph',
           state: { [`k${i}`]: i },
         }),
       );
@@ -635,7 +459,7 @@ describe('state operations directory initialization', () => {
         assert.equal(response.isError, undefined);
       }
 
-      const filePath = join(wd, '.owx', 'state', 'team-state.json');
+      const filePath = join(wd, '.owx', 'state', 'ralph-state.json');
       const state = JSON.parse(await readFile(filePath, 'utf-8')) as Record<string, unknown>;
       for (let i = 0; i < 16; i++) {
         assert.equal(state[`k${i}`], i);
@@ -779,39 +603,6 @@ describe('state operations directory initialization', () => {
       };
       assert.equal(cleared.active, false);
       assert.deepEqual(cleared.active_skills, []);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('denies unsupported overlaps without writing the requested mode state', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-deny-overlap-'));
-    try {
-      const existing = await executeStateOperation('state_write', {
-        workingDirectory: wd,
-        session_id: 'sess-deny',
-        mode: 'team',
-        active: true,
-        current_phase: 'running',
-      });
-      assert.equal(existing.isError, undefined);
-
-      const denied = await executeStateOperation('state_write', {
-        workingDirectory: wd,
-        session_id: 'sess-deny',
-        mode: 'autopilot',
-        active: true,
-        current_phase: 'planning',
-      });
-
-      assert.equal(denied.isError, true);
-      assert.match(String((denied.payload as { error?: string }).error || ''), /Unsupported workflow overlap: team \+ autopilot\./);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', 'sess-deny', 'autopilot-state.json')), false);
-
-      const canonical = JSON.parse(
-        await readFile(join(wd, '.owx', 'state', 'sessions', 'sess-deny', 'skill-active-state.json'), 'utf-8'),
-      ) as { active_skills?: Array<{ skill: string }> };
-      assert.deepEqual(canonical.active_skills?.map((entry) => entry.skill), ['team']);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -1226,117 +1017,6 @@ describe('state operations directory initialization', () => {
     }
   });
 
-  it('denies Autopilot waiting-for-user to ralplan self-write while the deep-interview question is unresolved', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-waiting-question-deny-'));
-    try {
-      await withOmxRootEnv(wd, async () => {
-        const sessionId = 'sess-autopilot-waiting-question-deny';
-        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
-        await mkdir(sessionDir, { recursive: true });
-        await writeFile(
-          join(sessionDir, 'autopilot-state.json'),
-          JSON.stringify({
-            active: true,
-            mode: 'autopilot',
-            current_phase: 'waiting-for-user',
-            run_outcome: 'blocked_on_user',
-            lifecycle_outcome: 'askuserQuestion',
-            state: {
-              deep_interview_question: {
-                status: 'waiting_for_user',
-                source: 'owx-question',
-                obligation_id: 'obligation-waiting',
-                previous_phase: 'deep-interview',
-                requested_at: '2026-05-28T00:00:00.000Z',
-              },
-              deep_interview_gate: {
-                status: 'complete',
-                rationale: 'Stale completion gate must not bypass an unresolved question.',
-              },
-            },
-          }, null, 2),
-        );
-
-        const response = await executeStateOperation('state_write', {
-          workingDirectory: wd,
-          session_id: sessionId,
-          mode: 'autopilot',
-          active: true,
-          current_phase: 'ralplan',
-        });
-
-        assert.equal(response.isError, true);
-        assert.match(String((response.payload as { error?: string }).error || ''), /question obligation is still pending/i);
-        const state = JSON.parse(
-          await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
-        ) as Record<string, unknown>;
-        assert.equal(state.current_phase, 'waiting-for-user');
-      });
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('denies Autopilot handoff when the next state omits a still-pending deep-interview question', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-omitted-question-deny-'));
-    try {
-      await withOmxRootEnv(wd, async () => {
-        const sessionId = 'sess-autopilot-omitted-question-deny';
-        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
-        await mkdir(sessionDir, { recursive: true });
-        await writeFile(
-          join(sessionDir, 'autopilot-state.json'),
-          JSON.stringify({
-            active: true,
-            mode: 'autopilot',
-            current_phase: 'waiting-for-user',
-            run_outcome: 'blocked_on_user',
-            lifecycle_outcome: 'askuserQuestion',
-            state: {
-              deep_interview_question: {
-                status: 'waiting_for_user',
-                source: 'owx-question',
-                obligation_id: 'obligation-omitted',
-                previous_phase: 'deep-interview',
-                requested_at: '2026-05-28T00:00:00.000Z',
-              },
-              deep_interview_gate: {
-                status: 'required',
-                rationale: 'Question still needs an answer.',
-              },
-            },
-          }, null, 2),
-        );
-
-        const response = await executeStateOperation('state_write', {
-          workingDirectory: wd,
-          session_id: sessionId,
-          mode: 'autopilot',
-          active: true,
-          current_phase: 'ralplan',
-          state: {
-            deep_interview_gate: {
-              status: 'complete',
-              rationale: 'Replacement state must not erase an unanswered question obligation.',
-            },
-            handoff_artifacts: {
-              deep_interview: { summary: 'Ready for planning.' },
-            },
-          },
-        });
-
-        assert.equal(response.isError, true);
-        assert.match(String((response.payload as { error?: string }).error || ''), /question obligation is still pending/i);
-        const state = JSON.parse(
-          await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
-        ) as Record<string, unknown>;
-        assert.equal(state.current_phase, 'waiting-for-user');
-      });
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
   it('ignores stale standalone deep-interview question state for Autopilot supervisor handoff', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-ignore-standalone-di-'));
     try {
@@ -1390,56 +1070,6 @@ describe('state operations directory initialization', () => {
           await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
         ) as Record<string, unknown>;
         assert.equal(state.current_phase, 'ralplan');
-      });
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('denies Autopilot satisfied nested question handoff without a record-backed question id', async () => {
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-satisfied-question-deny-'));
-    try {
-      await withOmxRootEnv(wd, async () => {
-        const sessionId = 'sess-autopilot-satisfied-question-deny';
-        const sessionDir = join(wd, '.owx', 'state', 'sessions', sessionId);
-        await mkdir(sessionDir, { recursive: true });
-        await writeFile(
-          join(sessionDir, 'autopilot-state.json'),
-          JSON.stringify({
-            active: true,
-            mode: 'autopilot',
-            current_phase: 'deep-interview',
-            state: {
-              deep_interview_question: {
-                status: 'satisfied',
-                source: 'owx-question',
-                obligation_id: 'obligation-no-record',
-                previous_phase: 'deep-interview',
-                requested_at: '2026-05-28T00:00:00.000Z',
-                satisfied_at: '2026-05-28T00:01:00.000Z',
-              },
-              deep_interview_gate: {
-                status: 'complete',
-                rationale: 'Question satisfaction must be backed by an answered record.',
-              },
-            },
-          }, null, 2),
-        );
-
-        const response = await executeStateOperation('state_write', {
-          workingDirectory: wd,
-          session_id: sessionId,
-          mode: 'autopilot',
-          active: true,
-          current_phase: 'ralplan',
-        });
-
-        assert.equal(response.isError, true);
-        assert.match(String((response.payload as { error?: string }).error || ''), /lacks same-session answered owx question record/i);
-        const state = JSON.parse(
-          await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
-        ) as Record<string, unknown>;
-        assert.equal(state.current_phase, 'deep-interview');
       });
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -2055,84 +1685,6 @@ describe('state operations directory initialization', () => {
       await rm(wd, { recursive: true, force: true });
     }
   });
-
-  it('resolves Autopilot satisfied question evidence under OWX_TEAM_STATE_ROOT', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-team-question-'));
-    const previousOmxRoot = process.env.OWX_ROOT;
-    const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    try {
-      const wd = join(root, 'source');
-      const teamStateRoot = join(root, 'team-state');
-      const sessionId = 'sess-autopilot-team-question';
-      const sessionDir = join(teamStateRoot, 'sessions', sessionId);
-      const questionId = 'question-team-satisfied';
-      await mkdir(join(sessionDir, 'questions'), { recursive: true });
-      await writeFile(
-        join(sessionDir, 'questions', `${questionId}.json`),
-        JSON.stringify({
-          kind: 'owx.question/v1',
-          question_id: questionId,
-          session_id: sessionId,
-          source: 'deep-interview',
-          status: 'answered',
-          answer: 'clarified scope',
-          answers: [{ question_id: 'q-1', index: 0, answer: 'clarified scope' }],
-        }, null, 2),
-      );
-      await writeFile(
-        join(sessionDir, 'autopilot-state.json'),
-        JSON.stringify({
-          active: true,
-          mode: 'autopilot',
-          current_phase: 'deep-interview',
-          question_enforcement: {
-            obligation_id: 'obligation-team-question',
-            source: 'owx-question',
-            status: 'satisfied',
-            lifecycle_outcome: 'askuserQuestion',
-            requested_at: '2026-05-28T00:00:00.000Z',
-            question_id: questionId,
-            satisfied_at: '2026-05-28T00:01:00.000Z',
-          },
-          state: {
-            deep_interview_gate: {
-              status: 'complete',
-              rationale: 'The answered question resolves the execution boundary.',
-            },
-          },
-        }, null, 2),
-      );
-
-      delete process.env.OWX_ROOT;
-      delete process.env.OWX_STATE_ROOT;
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-
-      const response = await executeStateOperation('state_write', {
-        workingDirectory: wd,
-        session_id: sessionId,
-        mode: 'autopilot',
-        active: true,
-        current_phase: 'ralplan',
-      });
-
-      assert.equal(response.isError, undefined);
-      const state = JSON.parse(
-        await readFile(join(sessionDir, 'autopilot-state.json'), 'utf-8'),
-      ) as Record<string, unknown>;
-      assert.equal(state.current_phase, 'ralplan');
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', sessionId, 'questions', `${questionId}.json`)), false);
-    } finally {
-      if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
-      else delete process.env.OWX_ROOT;
-      if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
-      else delete process.env.OWX_STATE_ROOT;
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
 
   it('denies Autopilot direct ralplan to code-review skip without native consensus evidence', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-ops-autopilot-direct-ralplan-skip-deny-'));

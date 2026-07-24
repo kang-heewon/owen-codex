@@ -27,8 +27,6 @@ export interface SessionState {
   platform?: NodeJS.Platform;
   pid_start_ticks?: number;
   pid_cmdline?: string;
-  tmux_session_name?: string;
-  tmux_pane_id?: string;
 }
 
 const SESSION_FILE = 'session.json';
@@ -170,8 +168,6 @@ interface SessionStartOptions {
   previousNativeSessionId?: string;
   nativeSessionSwitchedAt?: string;
   ownerOmxSessionId?: string;
-  tmuxSessionName?: string;
-  tmuxPaneId?: string;
 }
 
 function defaultIsPidAlive(pid: number): boolean {
@@ -238,19 +234,11 @@ function createSessionState(
     nativeSessionSwitchedAt?: string;
     ownerOmxSessionId?: string;
     startedAt?: string;
-    tmuxSessionName?: string;
-    tmuxPaneId?: string;
   } = {},
 ): SessionState {
   const nowIso = options.nowIso ?? new Date().toISOString();
   const nativeSessionId = typeof options.nativeSessionId === 'string' && options.nativeSessionId.trim()
     ? options.nativeSessionId.trim()
-    : undefined;
-  const tmuxSessionName = typeof options.tmuxSessionName === 'string' && options.tmuxSessionName.trim()
-    ? options.tmuxSessionName.trim()
-    : undefined;
-  const tmuxPaneId = typeof options.tmuxPaneId === 'string' && options.tmuxPaneId.trim()
-    ? options.tmuxPaneId.trim()
     : undefined;
   const previousNativeSessionId =
     typeof options.previousNativeSessionId === 'string' && options.previousNativeSessionId.trim()
@@ -277,8 +265,6 @@ function createSessionState(
     platform,
     pid_start_ticks: linuxIdentity?.startTicks,
     pid_cmdline: linuxIdentity?.cmdline ?? undefined,
-    ...(tmuxSessionName ? { tmux_session_name: tmuxSessionName } : {}),
-    ...(tmuxPaneId ? { tmux_pane_id: tmuxPaneId } : {}),
   };
 }
 
@@ -340,8 +326,6 @@ export async function writeSessionStart(
     previousNativeSessionId: options.previousNativeSessionId ?? (sameSession ? existing?.previous_native_session_id : undefined),
     nativeSessionSwitchedAt: options.nativeSessionSwitchedAt ?? (sameSession ? existing?.native_session_switched_at : undefined),
     ownerOmxSessionId: options.ownerOmxSessionId ?? (sameSession ? existing?.owner_owx_session_id : undefined),
-    tmuxSessionName: options.tmuxSessionName ?? (sameSession ? existing?.tmux_session_name : undefined),
-    tmuxPaneId: options.tmuxPaneId ?? (sameSession ? existing?.tmux_pane_id : undefined),
   });
 
   await writeFile(sessionPath(cwd), JSON.stringify(state, null, 2));
@@ -436,8 +420,6 @@ export async function reconcileNativeSessionStart(
     nativeSessionSwitchedAt: existing.native_session_switched_at,
     ownerOmxSessionId: existing.owner_owx_session_id,
     startedAt: existing.started_at,
-    tmuxSessionName: existing.tmux_session_name,
-    tmuxPaneId: existing.tmux_pane_id,
   });
 
   await writeFile(sessionPath(cwd), JSON.stringify(state, null, 2));

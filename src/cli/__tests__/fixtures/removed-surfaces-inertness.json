@@ -1,0 +1,33 @@
+{
+  "environment": {
+    "OWX_TEAM_STATE_ROOT": "/tmp/ignored-owx-team-state",
+    "TMUX": "/tmp/tmux-1000/default,1,0",
+    "TMUX_PANE": "%17"
+  },
+  "stateFiles": [
+    {
+      "path": ".owx/state/team-state.json",
+      "content": {
+        "active": true,
+        "skill": "team",
+        "current_phase": "team-exec"
+      }
+    },
+    {
+      "path": ".owx/state/team/legacy/config.json",
+      "content": {
+        "name": "legacy",
+        "tmux_session": "owx-team-legacy"
+      }
+    }
+  ],
+  "unsupportedCommands": [
+    ["team", "status", "legacy"],
+    ["question", "list"]
+  ],
+  "expected": {
+    "workflowActivation": false,
+    "hudProjection": false,
+    "stateCreated": false
+  }
+}

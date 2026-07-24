@@ -12,7 +12,7 @@ Deep Interview is an intent-first Socratic clarification loop before planning or
 - The request is broad, ambiguous, or missing concrete acceptance criteria
 - The user says "deep interview", "interview me", "ask me everything", "don't assume", or "ouroboros"
 - The user wants to avoid misaligned implementation from underspecified requirements
-- You need a requirements artifact before handing off to `ralplan`, `autopilot`, `ralph`, or `team`
+- You need a requirements artifact before handing off to `ralplan`, `autopilot`, `ralph`, or native Codex subagents
 </Use_When>
 
 <Do_Not_Use_When>
@@ -64,18 +64,16 @@ If no flag is provided, use **Standard**.
 - For brownfield work, prefer evidence-backed confirmation questions such as "I found X in Y. Should this change follow that pattern?"
 - Route facts before judgment in the Ouroboros style: before presenting a user-facing interview round, classify whether the needed information is a discoverable fact, a fact needing confirmation, or a human decision. The interview is with the human for judgment, not for facts the agent can inspect.
 - When unresolved ambiguity depends on current external best practices, official/upstream guidance, standards, or version-aware behavior, use `$best-practice-research` as the bounded evidence wrapper before crystallizing requirements or handing off to planning/execution.
-- Use these transcript/spec labels only; never use them as `owx question` `source` values, and never replace the runtime `source: "deep-interview"` contract for user-facing deep-interview questions:
+- Use these transcript/spec labels only; do not expose them as user-facing question metadata:
   - `[from-code][auto-confirmed]` — exact, high-confidence codebase facts from manifests/configs or direct source evidence, with no prescription attached.
   - `[from-code]` — codebase findings that are useful but inferred, pattern-based, or low/medium confidence and therefore need a confirmation-style user-facing round before being treated as settled.
   - `[from-research]` — externally sourced facts such as API limits, compatibility, or public documentation; facts only, not decisions.
   - `[from-user]` — goals, preferences, business logic, scope, non-goals, acceptance criteria, tradeoffs, and any decision-bearing interpretation.
-- Treat `[from-code][auto-confirmed]` and other non-user fact discoveries as context/transcript updates, not interview rounds: do not call `owx question`, do not create a pending deep-interview question obligation, and do not increment the user-facing round number for facts the agent can safely establish.
+- Treat `[from-code][auto-confirmed]` and other non-user fact discoveries as context/transcript updates, not interview rounds: do not create a pending question obligation or increment the user-facing round number for facts the agent can safely establish.
 - Auto-confirm only descriptive facts. If a finding implies what the new feature should do, which pattern it should follow, which tradeoff to accept, or what should stay in/out of scope, route the entire decision-bearing question to the user as `[from-user]` even when code or research facts are available.
-- In attached-tmux Codex CLI, deep-interview uses `owx question` as the required OWX-owned structured questioning path for every interview round
-- When invoking `owx question` through attached-tmux Bash/tool paths, preserve the leader-pane return target by prefixing the command with `OWX_QUESTION_RETURN_PANE=$TMUX_PANE` (or a concrete `%pane` value)
-- If you launch `owx question` in a background terminal, immediately wait for that background terminal to finish and read its JSON answer before scoring ambiguity, asking another round, or handing off
-- Treat `answers[]` as the primary `owx question` success contract. For a single interview round, read `answers[0].answer`; use legacy top-level `answer` only as a compatibility fallback when needed.
-- If the current runtime is outside tmux and cannot render `owx question`, use the native structured question tool when available; otherwise ask exactly one concise plain-text question and wait for the answer
+- Use the native structured user-input tool for each interview round when available.
+- Otherwise ask exactly one concise plain-text question and wait for the answer.
+- After every answer, update the transcript before scoring ambiguity, asking another round, or handing off.
 - Re-score ambiguity after each answer and show progress transparently
 - Once ambiguity is at or below the active profile threshold, stop ordinary questioning. Run the practical closure audit: crystallize/handoff when readiness gates pass; otherwise ask only the final closure question needed to satisfy a named gate.
 - Treat `max_rounds` as a stop cap, not evidence that more rounds are needed.
@@ -148,7 +146,7 @@ If no flag is provided, use **Standard**.
 Repeat until ambiguity `<= threshold`, the pressure pass is complete, the readiness gates are explicit, the user exits with warning, or max rounds are reached. This is a stop condition: below threshold, do not open a new ordinary interview branch.
 
 ### 2a) Generate next question
-If the initial context is oversized and no prompt-safe summary has been recorded yet, the next question must be only a summary request. Do not score ambiguity, do not run readiness gates, and do not hand off to `$ultragoal`, `$ralplan`, `$autopilot`, `$ralph`, or `$team` until that summary answer is captured.
+If the initial context is oversized and no prompt-safe summary has been recorded yet, the next question must be only a summary request. Do not score ambiguity, run readiness gates, or hand off downstream until that summary answer is captured.
 
 Use:
 - Original idea
@@ -193,7 +191,7 @@ Detailed dimensions:
 `Non-goals` and `Decision Boundaries` are mandatory readiness gates. Ask about them early and keep revisiting them until they are explicit.
 
 ### 2b) Ask the question
-Use the surface-appropriate structured questioning path for every interview round. In attached-tmux sessions, use OWX-owned structured questioning via `owx question` (this is the required structured-question equivalent and required `AskUserQuestion` equivalent for deep-interview). Outside tmux, use native structured input when available; otherwise ask exactly one concise plain-text question and wait for the answer. Present:
+Use native structured user input for every interview round when available; otherwise ask exactly one concise plain-text question and wait for the answer. Present:
 
 ```
 Round {n} | Target: {weakest_dimension} | Ambiguity: {score}%
@@ -201,8 +199,8 @@ Round {n} | Target: {weakest_dimension} | Ambiguity: {score}%
 {question}
 ```
 
-`owx question` payload guidance for interview rounds:
-- Deep-interview is Socratic: ask one focused round at a time. Do not use batch `questions[]` to combine multiple interview rounds, even though `owx question` supports batch forms for other workflows.
+Structured-input guidance for interview rounds:
+- Deep-interview is Socratic: ask one focused round at a time. Do not combine multiple interview rounds into a batch.
 - Use canonical `type` values instead of authoring raw `multi_select` flags by hand. `type: "single-answerable"` is the default for one-path decisions; `type: "multi-answerable"` is the canonical shape for bounded multi-select rounds. The runtime will keep `multi_select` aligned with `type`.
 - Use `single-answerable` when exactly one answer should drive the next branch, the options are mutually exclusive, or selecting more than one answer would blur the decision boundary. Typical cases: handoff lane selection, choosing the primary failure mode, or confirming which of several competing interpretations is correct.
 - Use `multi-answerable` when multiple options may all be true at once and you need to capture a bounded set of coexisting constraints, non-goals, risks, or acceptance checks in one round. Typical cases: selecting all out-of-scope items, all success metrics that must hold, or all deployment constraints that apply together.
@@ -345,7 +343,7 @@ When threshold is met (or user exits with warning / hard cap):
 
 Spec should include:
 - Metadata (profile, rounds, final ambiguity, threshold, context type)
-- Context snapshot reference/path (for ralplan/team reuse)
+- Context snapshot reference/path (for planning and native-subagent reuse)
 - Prompt-safe initial-context summary when oversized context was provided, plus references to any full source documents
 - Clarity breakdown table
 - Intent (why the user wants this)
@@ -385,7 +383,7 @@ When the clarified task is specifically about `$autoresearch`, or the skill is i
   - `result.json`
 - **Launch-readiness rule:** mark the draft as **not launch-ready** while the evaluator command still contains placeholder markers such as `<...>`, `TODO`, `TBD`, `REPLACE_ME`, `CHANGEME`, or `your-command-here`
 - **Structured result contract:** `result.json` should point to the draft + mission/sandbox artifacts and carry the finalized `topic`, `evaluatorCommand`, `keepPolicy`, `slug`, `launchReady`, and `blockedReasons` fields so `$autoresearch` can consume it directly
-- **Confirmation bridge:** after artifact generation, offer at least `refine further` and `launch`; do not run direct CLI launch or detached/split tmux launch, and only hand off to `$autoresearch` after explicit confirmation
+- **Confirmation bridge:** after artifact generation, offer at least `refine further` and `launch`; do not launch another workflow without explicit confirmation
 - **Handoff rule:** downstream execution must preserve the clarified mission intent, evaluator expectations, decision boundaries, and launch-readiness status from this artifact rather than bypassing the draft review step
 
 ## Phase 5: Execution Bridge
@@ -428,13 +426,13 @@ Only set `execution_contract_required:true` when the selected downstream workflo
 
 ### Goal-mode follow-ups
 
-Include these product-facing suggestions when they fit the clarified spec, without removing the existing `$ultragoal`, `$ralplan`, `$autopilot`, `$ralph`, and `$team` handoff options:
+Include these product-facing suggestions when they fit the clarified spec, alongside `$ultragoal`, `$ralplan`, `$autopilot`, and explicit `$ralph` fallback options:
 
 - **`$ultragoal`** — default goal-mode follow-up for implementation or general goal-oriented follow-up specs that should be converted into durable Codex/OWX goals with sequential completion tracking.
 - **`$autoresearch-goal`** — use when the clarified context is a research project: a research question, reference/literature gathering, evaluator-backed analysis, or professor/critic-style deliverable.
 - **`$performance-goal`** — use when the clarified context is an optimization or performance project with measurable speed, latency, throughput, memory, benchmark, or evaluator criteria.
 
-Recommend `$ultragoal` as the default durable goal-mode follow-up because it supersedes Ralph for goal tracking. Preserve `$team` for coordinated parallel implementation and keep `$ralph` only as an explicit fallback for persistent single-owner execution/verification when the user specifically selects it.
+Recommend `$ultragoal` as the default durable goal-mode follow-up. Use native Codex subagents with explicit `agent_type` and bounded ownership for independent parallel implementation, and keep `$ralph` only as an explicit fallback.
 
 ### 1. **`$ultragoal` (Default durable execution follow-up)**
 - **Input Artifact:** `.owx/specs/deep-interview-{slug}.md` (optionally accompanied by the transcript/context snapshot for traceability)
@@ -443,7 +441,7 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 - **Skipped / Already-Satisfied Stages:** Requirement interview, ambiguity clarification, doc/context preflight, and early intent-boundary elicitation
 - **Expected Output:** `.owx/ultragoal/brief.md`, `.owx/ultragoal/goals.json`, `.owx/ultragoal/ledger.jsonl`, implementation evidence, verification evidence, and final cleanup/review-gate evidence
 - **Best When:** The clarified spec is execution-ready or the user explicitly wants durable goal tracking as the next step
-- **Next Recommended Step:** Run the Ultragoal completion loop; launch `$team` only inside an active Ultragoal story when parallel lanes are warranted, and use `$ralph` only as an explicit fallback when the user asks for that legacy persistence mode
+- **Next Recommended Step:** Run the Ultragoal completion loop; assign independent lanes to native Codex subagents when warranted, and use `$ralph` only as an explicit fallback
 
 ### 2. **`$ralplan` (Recommended when architecture/test-shape review is still needed)**
 - **Input Artifact:** `.owx/specs/deep-interview-{slug}.md` (optionally accompanied by the transcript/context snapshot for traceability)
@@ -452,7 +450,7 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 - **Skipped / Already-Satisfied Stages:** Requirements discovery, ambiguity clarification, and early intent-boundary elicitation
 - **Expected Output:** Canonical planning artifacts under `.owx/plans/`, especially `prd-*.md` and `test-spec-*.md`
 - **Best When:** Requirements are clear enough to stop interviewing, but architectural validation / consensus planning is still desirable
-- **Next Recommended Step:** Use the approved planning artifacts with `$ultragoal` as the default durable goal-mode follow-up (optionally with `$team` for parallel lanes); choose `$autoresearch-goal` for research validation or `$performance-goal` for measurable optimization, and use `$ralph` only as an explicit fallback when a narrow single-owner persistence loop is requested
+- **Next Recommended Step:** Use the approved planning artifacts with `$ultragoal` as the default durable follow-up and native Codex subagents for independent lanes; choose a specialized goal workflow only when its evaluator fits
 
 ### 3. **`$autopilot`**
 - **Input Artifact:** `.owx/specs/deep-interview-{slug}.md`
@@ -461,7 +459,7 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 - **Skipped / Already-Satisfied Stages:** Initial requirement discovery and ambiguity reduction
 - **Expected Output:** Planning/execution progress, QA evidence, and validation artifacts produced by autopilot
 - **Best When:** The clarified spec is already strong enough for direct planning + execution without an additional consensus gate
-- **Next Recommended Step:** Continue through autopilot's execution/QA/validation flow; if coordination-heavy execution emerges, prefer `$team` under a leader-owned `$ultragoal` ledger, using `$ralph` only as an explicit fallback when a narrow single-owner persistence loop is requested
+- **Next Recommended Step:** Continue through autopilot's execution/QA/validation flow; use native Codex subagents under leader-owned Ultragoal checkpointing for independent lanes
 
 ### 4. **`$ralph` (Explicit fallback only)**
 - **Input Artifact:** `.owx/specs/deep-interview-{slug}.md`
@@ -470,18 +468,9 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 - **Skipped / Already-Satisfied Stages:** Requirement interview, ambiguity clarification, and initial scope-definition work
 - **Expected Output:** Iterative execution progress and verification evidence tracked against the clarified criteria
 - **Best When:** The user explicitly asks for Ralph's persistent sequential completion pressure; otherwise use `$ultragoal` for durable goal tracking and completion checkpoints
-- **Next Recommended Step:** If this explicit fallback is selected, continue Ralph's persistence loop; if work expands into coordination-heavy lanes, hand off to `$team` under `$ultragoal` checkpointing rather than promoting Ralph as the next default
+- **Next Recommended Step:** If this explicit fallback is selected, continue Ralph's persistence loop; if work expands into independent lanes, use native Codex subagents under `$ultragoal` checkpointing
 
-### 5. **`$team`**
-- **Input Artifact:** `.owx/specs/deep-interview-{slug}.md`
-- **Invocation:** `$team <spec-path>`
-- **Consumer Behavior:** Treat the spec as shared execution context for coordinated parallel work. Preserve the clarified intent, non-goals, decision boundaries, and acceptance criteria as common lane constraints.
-- **Skipped / Already-Satisfied Stages:** Requirement clarification and early ambiguity reduction
-- **Expected Output:** Coordinated multi-agent execution against the shared spec, with evidence that can later feed Ultragoal checkpoints by default, or an explicit Ralph verification pass only when requested
-- **Best When:** The task is large, multi-lane, or blocker-sensitive enough to justify coordinated parallel execution instead of a single persistent loop
-- **Next Recommended Step:** Follow the team verification path when the coordinated execution phase finishes; checkpoint completion through `$ultragoal` by default, escalating to a separate Ralph loop only when the user explicitly asks for that persistent verification/fix owner
-
-### 6. **Refine further**
+### 5. **Refine further**
 - **Input Artifact:** Existing transcript, context snapshot, and current spec draft
 - **Invocation:** Continue the interview loop
 - **Consumer Behavior:** Re-enter questioning to resolve the highest-leverage remaining uncertainty
@@ -498,12 +487,9 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 
 <Tool_Usage>
 - Use `explore` for codebase fact gathering
-- Use `owx question` as the OWX-native structured user-input tool for each interview round when an attached tmux renderer is available
-- From attached-tmux Bash/tool paths, call it as `OWX_QUESTION_RETURN_PANE=$TMUX_PANE owx question ...` unless an explicit `%pane` return target is already known
-- If the current runtime is outside tmux and cannot render `owx question`, use native structured input when available; otherwise ask exactly one concise plain-text question and wait for the answer
-- After `owx question` returns JSON, prefer `answers[0].answer` / `answers[]`; use legacy `answer` only as a fallback for older records
+- Use native structured user input for each interview round when available; otherwise ask exactly one concise plain-text question and wait for the answer.
 - Use `owx state write/read --input '<json>' --json` for resumable mode state; `state_write` / `state_read` are explicit MCP compatibility fallbacks only
-- If the interview cannot ask a required `owx question` round, persist the blocker as terminal state with `active: false` and `current_phase: "blocked"`; do not write a terminal blocked phase with `active: true`
+- If the interview cannot ask a required round, persist the blocker as terminal state with `active: false` and `current_phase: "blocked"`; do not write a terminal blocked phase with `active: true`
 - Read/write context snapshots under `.owx/context/`
 - Read applicable repo rules/context during preflight; write durable glossary, ADR, or memory updates only when the user explicitly opts in and the content is public-safe
 - Record whether the oversized-context summary gate is not needed, pending, or satisfied before any scoring or handoff step
@@ -533,7 +519,7 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up because it sup
 - [ ] Fuzzy or conflicting terminology was challenged against repo language/current code behavior when applicable
 - [ ] Scenario-based edge-case grilling was used when boundary ambiguity would materially affect implementation
 - [ ] Durable ADR/memory updates, if any, were explicitly opted into and public-safe
-- [ ] Handoff options provided (`$ultragoal`, `$ralplan`, `$autopilot`, `$ralph`, `$team`) plus context-sensitive goal-mode suggestions (`$autoresearch-goal`, `$performance-goal`) when applicable
+- [ ] Handoff options provided (`$ultragoal`, `$ralplan`, `$autopilot`, explicit `$ralph` fallback) plus context-sensitive goal-mode suggestions when applicable
 - [ ] No direct implementation performed in this mode
 </Final_Checklist>
 

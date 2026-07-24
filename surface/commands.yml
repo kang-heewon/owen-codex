@@ -13,6 +13,19 @@ commands:
     nested_help:
       required: true
       expected_heading: "Usage: owx"
+  - name: "owx launch"
+    tier: core
+    status: stable
+    hidden: false
+    visibility: default
+    owner: surface-owner
+    purpose: "Launch Codex CLI directly in the current terminal."
+    docs:
+      canonical: "COMMANDS.md#owx"
+      troubleshooting: "TROUBLESHOOTING.md#owx"
+    nested_help:
+      required: false
+      expected_heading: "Usage: owx"
   - name: "owx exec"
     tier: advanced
     status: stable
@@ -144,19 +157,6 @@ commands:
     nested_help:
       required: true
       expected_heading: "Usage: owx auth"
-  - name: "owx question"
-    tier: internal
-    status: stable
-    hidden: false
-    visibility: internal
-    owner: surface-owner
-    purpose: "Run the OWX-owned blocking question UI."
-    docs:
-      canonical: "docs/internal/COMMANDS.md#owx-question"
-      troubleshooting: "TROUBLESHOOTING.md#owx-question"
-    nested_help:
-      required: false
-      expected_heading: "Usage: owx question"
   - name: "owx adapt"
     tier: advanced
     status: beta
@@ -261,19 +261,6 @@ commands:
     nested_help:
       required: false
       expected_heading: "Usage: owx deepinit"
-  - name: "owx team"
-    tier: advanced
-    status: stable
-    hidden: false
-    visibility: advanced
-    owner: surface-owner
-    purpose: "Spawn parallel worker panes and bootstrap team state."
-    docs:
-      canonical: "COMMANDS.md#owx-team"
-      troubleshooting: "TROUBLESHOOTING.md#owx-team"
-    nested_help:
-      required: true
-      expected_heading: "Usage: owx team"
   - name: "owx ralph"
     tier: advanced
     status: legacy
@@ -352,19 +339,6 @@ commands:
     nested_help:
       required: true
       expected_heading: "Usage: owx version"
-  - name: "owx tmux-hook"
-    tier: advanced
-    status: stable
-    hidden: false
-    visibility: advanced
-    owner: surface-owner
-    purpose: "Manage tmux prompt injection workaround."
-    docs:
-      canonical: "COMMANDS.md#owx-tmux-hook"
-      troubleshooting: "TROUBLESHOOTING.md#owx-tmux-hook"
-    nested_help:
-      required: true
-      expected_heading: "Usage: owx tmux-hook"
   - name: "owx hooks"
     tier: advanced
     status: beta
@@ -392,20 +366,6 @@ commands:
       required: true
       expected_heading: "Usage: owx hud"
     output_contract: "schemas/outputs/hud-status.schema.json"
-  - name: "owx sidecar"
-    tier: advanced
-    status: stable
-    hidden: false
-    visibility: advanced
-    owner: surface-owner
-    purpose: "Show read-only team and multi-agent visualization."
-    docs:
-      canonical: "COMMANDS.md#owx-sidecar"
-      troubleshooting: "TROUBLESHOOTING.md#owx-sidecar"
-    nested_help:
-      required: true
-      expected_heading: "Usage: owx sidecar"
-    output_contract: "schemas/outputs/sidecar-status.schema.json"
   - name: "owx state"
     tier: internal
     status: stable
@@ -504,7 +464,7 @@ commands:
     hidden: false
     visibility: advanced
     owner: surface-owner
-    purpose: "Run native sparkshell command execution or tmux-pane summarization."
+    purpose: "Run native SparkShell command execution and summarization."
     docs:
       canonical: "COMMANDS.md#owx-sparkshell"
       troubleshooting: "TROUBLESHOOTING.md#owx-sparkshell"

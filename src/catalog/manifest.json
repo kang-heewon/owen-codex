@@ -21,12 +21,6 @@
       "core": true
     },
     {
-      "name": "team",
-      "category": "execution",
-      "status": "active",
-      "core": true
-    },
-    {
       "name": "ecomode",
       "category": "execution",
       "status": "deprecated",
@@ -65,12 +59,6 @@
       "category": "execution",
       "status": "active",
       "core": true
-    },
-    {
-      "name": "swarm",
-      "category": "execution",
-      "status": "deprecated",
-      "description": "Deprecated standalone swarm skill."
     },
     {
       "name": "plan",
@@ -291,12 +279,6 @@
       "category": "utility",
       "status": "deprecated",
       "description": "Deprecated standalone Ralph initialization skill."
-    },
-    {
-      "name": "worker",
-      "category": "utility",
-      "status": "internal",
-      "internalRequired": true
     }
   ],
   "agents": [
@@ -329,11 +311,6 @@
       "name": "executor",
       "category": "build",
       "status": "active"
-    },
-    {
-      "name": "team-executor",
-      "category": "build",
-      "status": "internal"
     },
     {
       "name": "verifier",

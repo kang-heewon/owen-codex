@@ -48,8 +48,8 @@ The consensus workflow:
    - Viable Options (>=2) with bounded pros/cons
    - If only one viable option remains, explicit invalidation rationale for alternatives
    - Deliberate mode only: pre-mortem (3 scenarios) + expanded test plan (unit/integration/e2e/observability)
-2. **User feedback** *(--interactive only)*: If `--interactive` is set, use the structured question UI (`owx question` in attached tmux; native structured input outside tmux when available) to present the draft plan **plus the Principles / Drivers / Options summary** before review (Proceed to review / Request changes / Skip review). Otherwise, automatically proceed to review.
-**Native role-routing rule:** When the surface exposes `agent_type`, set it to the installed OMX role. On Codex App surfaces exposing only `task_name`, `message`, and `fork_turns`, first run `owx ralplan role-intent write --role <role> --parent-thread <leader-thread-id> --json`, then use the receipt's exact `spawn_task_name` as `task_name`. Never infer or claim a role from the prompt label or child path.
+2. **User feedback** *(--interactive only)*: If `--interactive` is set, use the native structured question UI when available, otherwise ask one concise plain-text question, to present the draft plan **plus the Principles / Drivers / Options summary** before review (Proceed to review / Request changes / Skip review). Otherwise, automatically proceed to review.
+**Native role-routing rule:** Native `agent_type` is the sole authority for role identity. Set it to the required installed role. If the surface cannot select that role, stop the role-specific lane with a visible `role_identity_unavailable` blocker. Never infer or claim a role from a task name, prompt label, or child path.
 
 3. **Architect** reviews for architectural soundness and must provide the strongest steelman antithesis, at least one real tradeoff tension, and (when possible) synthesis — **await completion before step 4**. Launch this as a subsequent role-specific `Architect` subagent and pass the full task statement, context snapshot, PRD/test-spec paths, and relevant prior findings; do not use a default subagent with only a short improvised reviewer prompt. In deliberate mode, Architect should explicitly flag principle violations.
 4. **Critic** evaluates against quality criteria — run only after step 3 completes. Launch this as a subsequent role-specific `Critic` subagent with the full task statement, context snapshot, PRD/test-spec paths, and the completed Architect review; do not ask the Architect subagent to perform the Critic gate and do not substitute an unvalidated reviewer identity for the packaged Critic role. Critic must enforce principle-option consistency, fair alternatives, risk mitigation clarity, testable acceptance criteria, and concrete verification steps. In deliberate mode, Critic must reject missing/weak pre-mortem or expanded test plan.
@@ -60,9 +60,9 @@ The consensus workflow:
    d. Return to Critic evaluation
    e. Repeat this loop until Critic returns `APPROVE` or 5 iterations are reached
    f. If 5 iterations are reached without `APPROVE`, present the best version to the user
-6. On Critic approval *(--interactive only)*: If `--interactive` is set, use the structured question UI to present the plan with approval options (Approve durable goal execution via ultragoal / Approve and implement via team / Explicit Ralph fallback / Start specialized goal-mode follow-up / Request changes / Reject). Final plan must include ADR (Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups), an explicit available-agent-types roster, concrete follow-up staffing guidance for `$ultragoal` and `$team`, plus an explicit `$ralph` fallback note when persistent single-owner verification is intentionally selected, suggested reasoning levels by lane, explicit `owx team` / `$team` launch hints, a concrete **team verification** path, and a product-facing **Goal-Mode Follow-up Suggestions** section. Recommend `$ultragoal` by default for goal-mode follow-up, use `$autoresearch-goal` instead when the context is a research project, and use `$performance-goal` instead when the context is an optimization or performance project. Otherwise, output the final plan and stop.
-7. *(--interactive only)* User chooses: Approve (`$ultragoal` durable goal execution, `$team`, explicit `$ralph` fallback, or a specialized goal-mode follow-up), Request changes, or Reject
-8. *(--interactive only)* On approval: invoke `$ultragoal` for default durable sequential execution, `$team` for parallel team execution, the selected specialized goal-mode follow-up (`$autoresearch-goal` or `$performance-goal`), or `$ralph` only when the user explicitly selects that fallback with the approved plan and matching success/evaluator context -- never implement directly. Preserve the explicit available-agent-types roster, reasoning-by-lane guidance, role/staffing allocation guidance, launch hints, and verification-path guidance from the approved plan for Ultragoal/team paths and any explicit Ralph fallback.
+6. On Critic approval *(--interactive only)*: If `--interactive` is set, use the structured question UI to present the plan with approval options (Approve durable goal execution via Ultragoal / Explicit Ralph fallback / Start specialized goal-mode follow-up / Request changes / Reject). Final plans must include an ADR, an explicit available-agent-types roster, bounded native-subagent ownership guidance, an integration and verification path owned by the leader, an explicit `$ralph` fallback note when intentionally selected, suggested reasoning levels by lane, and product-facing Goal-Mode Follow-up Suggestions. Recommend `$ultragoal` by default, `$autoresearch-goal` for research projects, and `$performance-goal` for optimization projects. Otherwise, output the final plan and stop.
+7. *(--interactive only)* User chooses: Approve (`$ultragoal`, explicit `$ralph` fallback, or a specialized goal-mode follow-up), Request changes, or Reject.
+8. *(--interactive only)* On approval, invoke the selected execution workflow and never implement directly. For parallelizable work, the execution leader may use native subagents with explicit bounded ownership and retain integration and final verification. Sequential retry is the degraded path when delegation is unavailable, not a replacement coordination runtime.
 
 > **Important:** Steps 3 and 4 MUST run sequentially as role-specific subagents. Do NOT issue both agent calls in the same parallel batch. Always await the subsequent `Architect` result before invoking the subsequent `Critic`; only a completed, role-specific `Critic` approval can satisfy the durable gate.
 
@@ -73,7 +73,7 @@ The consensus workflow:
 The canonical flow is:
 
 ```
-$ralplan -> durable consensus artifact -> explicit execution lane -> $ultragoal | $team | $ralph
+$ralplan -> durable consensus artifact -> explicit execution lane -> $ultragoal | $ralph
 ```
 
 Before any execution lane begins, ralplan must emit terminal planning state (complete, paused, failed, or waiting for input) and the durable handoff record below. Do not continue from consensus planning into direct code edits in the same ralplan session.
@@ -82,7 +82,7 @@ Before any execution lane begins, ralplan must emit terminal planning state (com
 
 Ralplan is not complete, skippable, or ready for execution merely because `.owx/plans/prd-*.md` and `.owx/plans/test-spec-*.md` exist. Those files are planning artifacts, not consensus evidence.
 
-Before any Autopilot, Pipeline, Ultragoal, Team, Ralph, or implementation handoff, persist a durable handoff record that distinguishes:
+Before any Autopilot, Pipeline, Ultragoal, Ralph, or implementation handoff, persist a durable handoff record that distinguishes:
 
 - `planning_artifacts`: PRD/test-spec paths.
 - `ralplan_architect_review`: the completed Architect review with an approving verdict.
@@ -95,13 +95,13 @@ Follow the Plan skill's full documentation for consensus mode details.
 
 ## Goal-Mode Follow-up Suggestions
 
-When ralplan outputs a final handoff or asks the user to choose a next lane, include product-facing goal-mode suggestions alongside the existing Ralph and team options:
+When ralplan outputs a final handoff or asks the user to choose a next lane, include product-facing goal-mode suggestions alongside the explicit Ralph fallback:
 
 - `$ultragoal` — **default goal-mode follow-up** for implementation or general goal-oriented follow-up plans that should become durable Codex/OWX goals with sequential completion tracking.
 - `$autoresearch-goal` — research-project follow-up when the plan centers on a question, literature/reference gathering, evaluator-backed research, or a professor/critic-style research deliverable.
 - `$performance-goal` — optimization/performance follow-up when the plan centers on speed, latency, throughput, memory, benchmark, or other measurable performance work.
 
-Keep `$team` as a first-class execution option and keep `$ralph` available only as an explicit fallback where appropriate: use Ultragoal as the default durable goal-mode follow-up, Team for coordinated parallel implementation, and Ralph only for intentionally selected persistent single-owner completion/verification pressure. For parallelizable durable-goal delivery, recommend `$ultragoal` + `$team` together: Ultragoal remains the leader-owned `.owx/ultragoal` ledger/Codex-goal wrapper while Team runs parallel lanes and returns checkpoint-ready evidence. Do not present Ralph as the recommended follow-up when durable goal tracking is needed; present Ultragoal as the superseding default, with Team for parallel delivery and Ralph only as an explicit fallback when its narrow persistence loop is specifically desired.
+Use Ultragoal as the default durable goal-mode follow-up and keep Ralph only as an explicit fallback. For parallelizable delivery, the Ultragoal leader may delegate bounded, non-overlapping lanes directly to native subagents and integrate their evidence before checkpointing. If a required `agent_type` is unavailable, surface `role_identity_unavailable`; do not synthesize role authority. Sequential retry is an explicit degraded path, not a replacement coordination runtime.
 
 ## Pre-context Intake
 
@@ -126,7 +126,7 @@ Do not hand off to execution modes until this intake is complete; if urgency for
 
 ### Why the Gate Exists
 
-Execution modes (ralph, autopilot, team, ultrawork) spin up heavy multi-agent orchestration. When launched on a vague request like "ralph improve the app", agents have no clear target — they waste cycles on scope discovery that should happen during planning, often delivering partial or misaligned work that requires rework.
+Execution modes such as Ralph, Autopilot, Ultragoal, and Ultrawork can involve substantial agent orchestration. Vague requests leave agents without a clear target and should be clarified during planning.
 
 The ralplan-first gate intercepts underspecified execution requests and redirects them through the ralplan consensus planning workflow. This ensures:
 - **Explicit scope**: A PRD defines exactly what will be built
@@ -139,14 +139,14 @@ The ralplan-first gate intercepts underspecified execution requests and redirect
 **Passes the gate** (specific enough for direct execution):
 - `ralph fix the null check in src/hooks/bridge.ts:326`
 - `autopilot implement issue #42`
-- `team add validation to function processKeywordDetector`
+- `add validation to function processKeywordDetector`
 - `ralph do:\n1. Add input validation\n2. Write tests\n3. Update README`
 - `ultrawork add the user model in src/models/user.ts`
 
 **Gated — redirected to ralplan** (needs scoping first):
 - `ralph fix this`
 - `autopilot build the app`
-- `team improve performance`
+- `improve performance`
 - `ralph add authentication`
 - `ultrawork make it better`
 
@@ -164,7 +164,7 @@ The gate auto-passes when it detects **any** concrete signal. You do not need al
 | Issue/PR number | `ralph implement #42` | Has a concrete work item |
 | camelCase symbol | `ralph fix processKeywordDetector` | Names a specific function |
 | PascalCase symbol | `ralph update UserModel` | Names a specific class |
-| snake_case symbol | `team fix user_model` | Names a specific identifier |
+| snake_case symbol | `fix user_model` | Names a specific identifier |
 | Test runner | `ralph npm test && fix failures` | Has an explicit test target |
 | Numbered steps | `ralph do:\n1. Add X\n2. Test Y` | Structured deliverables |
 | Acceptance criteria | `ralph add login - acceptance criteria: ...` | Explicit success definition |
@@ -183,7 +183,7 @@ The gate auto-passes when it detects **any** concrete signal. You do not need al
    - **Critic** validates quality and testability
 5. On consensus approval, user chooses execution path:
    - **ultragoal**: default durable follow-up for sequential goal execution with ledger checkpoints
-   - **team**: coordinated parallel execution for stories that need multiple lanes, with evidence ready for Ultragoal checkpoints
+   - **native Codex subagents**: bounded parallel lanes with explicit `agent_type`, ownership, and checkpoint-ready evidence
    - **ralph**: explicit single-owner fallback only when the user intentionally wants a persistent verification/completion loop instead of the default durable goal ledger
 6. Execution begins with a clear, bounded plan through the selected handoff path
 

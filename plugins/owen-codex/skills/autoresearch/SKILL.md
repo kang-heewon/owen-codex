@@ -6,7 +6,7 @@ description: Stateful validator-gated research loop with native-hook persistence
 # Autoresearch
 
 Autoresearch is the skill-first replacement for the deprecated `owx autoresearch` command.
-It keeps the useful measured-research loop, but it now runs as a native-hook stateful workflow instead of a direct CLI or tmux launch surface.
+It keeps the useful measured-research loop as a native-hook stateful workflow.
 
 ## Boundary with planning research
 
@@ -19,7 +19,7 @@ Use `$autoresearch` when the research output itself is a bounded deliverable tha
 
 ## Do not use when
 - You want the old `owx autoresearch` command surface (hard-deprecated)
-- You want detached tmux or split-pane launch parity
+- You want a detached launcher instead of an in-session workflow
 - You have not decided the validation regime yet
 
 ## Core contract
@@ -68,5 +68,5 @@ The completion artifact must include both an architect approval verdict and an o
 ## Migration note
 - `owx autoresearch` is hard-deprecated.
 - No direct CLI launch.
-- No tmux split-pane launch.
+- No detached or split-pane launcher.
 - No noop-count completion gate.

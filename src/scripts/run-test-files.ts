@@ -82,9 +82,7 @@ function shouldScrubRuntimeEnvKey(key: string): boolean {
     key.startsWith('OWXBOX_') ||
     key.startsWith('CODEX_') ||
     key === 'USE_OWX_EXPLORE_CMD' ||
-    key === 'SESSION_ID' ||
-    key === 'TMUX' ||
-    key === 'TMUX_PANE'
+    key === 'SESSION_ID'
   );
 }
 
@@ -98,7 +96,6 @@ function buildChildEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
       }
     }
   }
-  childEnv.OWX_TEST_RELAX_TMUX_TIMEOUT = '1';
   return childEnv;
 }
 

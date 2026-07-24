@@ -37,56 +37,6 @@ describe('prometheus-strict clean-room contract', () => {
     }
   });
 
-  it('keeps the skill planning-only, OWX-native, and clean-room credited', () => {
-    assert.ok(existsSync(skillPath), 'prometheus-strict skill must exist');
-    assert.ok(existsSync(readmePath), 'prometheus-strict README must exist');
-
-    const skill = readRepoFile(skillPath);
-    const readme = readRepoFile(readmePath);
-
-    for (const [label, content] of [
-      ['skill', skill],
-      ['readme', readme],
-    ] as const) {
-      assert.match(content, /clean-room/i, `${label} must state the clean-room boundary`);
-      assert.match(
-        content,
-        /OMO Prometheus[\s\S]*`code-yeongyu\/oh-my-openagent`[\s\S]*reimplemented from concept under MIT/i,
-        `${label} must preserve concept-only credit`,
-      );
-      assert.match(content, /Metis/i, `${label} must include the Metis interview role`);
-      assert.match(content, /Momus/i, `${label} must include the Momus critique role`);
-      assert.match(content, /Oracle/i, `${label} must include the Oracle synthesis role`);
-      assert.match(content, /\$ultragoal/i, `${label} must hand off through OWX ultragoal`);
-      assert.match(content, /\$team/i, `${label} must mention team only as a warranted handoff`);
-      assert.match(content, /No hook implementation/i, `${label} must keep hook work out of scope`);
-      assert.match(content, /No Sisyphus|No Sisyphus\/start-work port/i, `${label} must reject Sisyphus ports`);
-      assert.match(content, /start-work/i, `${label} must explicitly reject start-work ports`);
-      assert.match(content, /planning-only|Planning and interview only|planning skill/i, `${label} must stay planning-only`);
-      assert.match(content, /\.owx\/plans\/prometheus-strict\//i, `${label} must document the durable prometheus-strict plan path`);
-      assert.doesNotMatch(content, /@opencode-ai\/plugin|bun:sqlite|\.sisyphus/i, `${label} must not leak OMO runtime details`);
-    }
-
-    for (const section of [
-      'Purpose',
-      'Use_When',
-      'Do_Not_Use_When',
-      'Why_This_Exists',
-      'Execution_Policy',
-      'Turn_Termination_Rules',
-      'Steps',
-      'Tool_Usage',
-      'Final_Checklist',
-      'Advanced',
-    ]) {
-      assert.match(skill, new RegExp(`<${section}>`), `skill must include <${section}>`);
-      assert.match(skill, new RegExp(`</${section}>`), `skill must close </${section}>`);
-    }
-
-    assert.match(skill, /## State Management/, 'skill must include state management section');
-    assert.match(skill, /Original task:\n\{\{PROMPT\}\}\s*$/, 'skill must end with the canonical prompt footer');
-  });
-
   it('ships the Metis, Momus, and Oracle prompts with distinct planning contracts', () => {
     assert.ok(existsSync(skillPath), 'prometheus-strict skill must exist');
 
@@ -126,57 +76,6 @@ describe('prometheus-strict clean-room contract', () => {
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-metis.md')), /Metis Clarification/i);
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-momus.md')), /Momus Critique/i);
     assert.match(readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-oracle.md')), /Prometheus Strict Plan/i);
-  });
-
-  it('routes interview questions through the OWX structured question surface with documented fallbacks', () => {
-    const skill = readRepoFile(skillPath);
-
-    assert.match(skill, /owx question/, 'skill must name `owx question` as the structured question surface');
-    assert.match(
-      skill,
-      /native structured input/i,
-      'skill must document the outside-tmux native structured input fallback',
-    );
-    assert.match(
-      skill,
-      /plain[-\s]?text|numbered prose/i,
-      'skill must document the plain-text/numbered-prose last-resort fallback',
-    );
-    assert.match(
-      skill,
-      /attached[-\s]?tmux/i,
-      'skill must name the attached-tmux precondition for `owx question`',
-    );
-    assert.match(
-      skill,
-      /batch[\s\S]{0,80}independent[\s\S]{0,200}questions\[\]/i,
-      'skill must require batching independent questions into a single questions[] call',
-    );
-    assert.match(
-      skill,
-      /Codex CLI|non-tmux|piped runs|CI/i,
-      'skill must call out the non-tmux Codex CLI / piped / CI fallback path',
-    );
-
-    for (const promptName of promptNames) {
-      const promptPath = join(repoRoot, 'prompts', `${promptName}.md`);
-      const content = readRepoFile(promptPath);
-      assert.match(
-        content,
-        /owx question/,
-        `${promptName} must reference the OWX structured question surface (owx question)`,
-      );
-      assert.match(
-        content,
-        /native structured input|plain[-\s]?text|numbered prose/i,
-        `${promptName} must reference at least one documented question fallback`,
-      );
-      assert.match(
-        content,
-        /batch[\s\S]{0,120}independent|independent[\s\S]{0,80}batch/i,
-        `${promptName} must require batching independent questions through questions[]`,
-      );
-    }
   });
 
   it('enforces the Metis background research fan-out contract', () => {
@@ -260,41 +159,6 @@ describe('prometheus-strict clean-room contract', () => {
     assert.match(metis, /(?:explicit[\s\S]{0,20}(?:new feature|from scratch|greenfield)|name a new module|require[\s\S]{0,40}explicit)/i, 'metis <intent_classification> must require explicit greenfield keywords before classifying as build-from-scratch');
   });
 
-
-  it('enforces checklist clearance and turn termination quality gates', () => {
-    const skill = readRepoFile(skillPath);
-    const metis = readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-metis.md'));
-    const momus = readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-momus.md'));
-    const oracle = readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-oracle.md'));
-
-    assert.match(skill, /<Turn_Termination_Rules>[\s\S]+<\/Turn_Termination_Rules>/, 'skill must include turn termination block');
-    assert.match(skill, /EXACTLY ONE of/i, 'termination must choose exactly one path');
-    assert.match(skill, /\(a\)[\s\S]{0,120}owx question[\s\S]{0,80}batch/i, 'option a must name owx question batch');
-    assert.match(skill, /\(b\)[\s\S]{0,120}explicit handoff/i, 'option b must name explicit handoff');
-    assert.match(skill, /\(c\)[\s\S]{0,120}stop-blocker/i, 'option c must name stop-blocker');
-    assert.doesNotMatch(skill, /answered_high_leverage_question_count\s*>=\s*3/i, 'count rule removed from skill');
-    assert.doesNotMatch(metis, /answered_high_leverage_question_count\s*>=\s*3/i, 'count rule removed from metis');
-    assert.match(metis, /6[- ]item checklist|six[- ]item checklist/i, 'metis must name 6-item checklist');
-    assert.match(metis, /objective[\s\S]{0,300}scope IN\+OUT[\s\S]{0,300}acceptance[\s\S]{0,300}test strategy[\s\S]{0,300}handoff target[\s\S]{0,300}no outstanding CRITICAL/i, 'metis must list checklist items in order');
-    assert.match(metis, /ALL[\s\S]{0,120}YES[\s\S]{0,180}ANY[\s\S]{0,120}(?:NO|UNKNOWN)[\s\S]{0,180}(?:ask|question)/i, 'metis must lock YES/NO transition');
-    assert.match(metis, /two-pass gap-fill minimum|two gap-fill passes|BOTH gap-fill passes/i, 'metis must require at least two gap-fill passes after answers before handoff or another question');
-    assert.match(metis, /Pass 1[\s\S]{0,120}answer assimilation[\s\S]{0,240}Pass 2[\s\S]{0,160}residual adversarial scan/i, 'metis must name gap-fill Pass 1 and Pass 2 responsibilities');
-    assert.match(metis, /do not hand off after only one gap-fill pass|mandatory even when Pass 1 appears/i, 'metis must forbid single-pass handoff after receiving answers');
-    assert.match(metis, /minimum two emitted question rounds|two emitted rounds|Round 2 has been emitted and processed/i, 'metis must forbid one-round handoff when any user-question round was emitted');
-    assert.match(metis, /zero-question(?:s)?[- ]but[- ]complete|zero-question handoff|no questions were emitted[\s\S]{0,160}(?:handoff|allowed|option \(b\))/i, 'metis must preserve zero-question handoff for trivial/spec-complete cases');
-    assert.match(metis, /Between Round 1 and Round 2|between-round planning[\s\S]{0,260}(?:research_fan_out|researcher|explore)/i, 'metis must require researcher/explore-assisted planning between emitted rounds');
-    assert.match(metis, /Round 2[\s\S]{0,220}residual CRITICAL|residual CRITICAL[\s\S]{0,220}Round 2/i, 'metis Round 2 must be limited to residual CRITICAL gaps, not filler');
-    assert.match(skill, /minimum two emitted question rounds|two emitted rounds|Round 2 has been emitted and processed/i, 'skill must expose the minimum two emitted rounds contract');
-    assert.match(skill, /between-round planning[\s\S]{0,240}(?:research_fan_out|researcher|explore)/i, 'skill must expose researcher-assisted between-round planning');
-    assert.match(skill, /at least \*\*two gap-fill passes\*\*|BOTH gap-fill passes/i, 'skill must expose the mandatory two-pass gap-fill contract');
-    assert.match(metis, /Plan-A[\s\S]{0,200}Plan-B[\s\S]{0,240}(?:identical|same)[\s\S]{0,120}(?:DROP|absorb)/i, 'metis must drop identical Plan-A Plan-B');
-    assert.match(metis, /WHEN IN DOUBT|DO NOT ask unless[\s\S]{0,120}structurally different plans/i, 'metis must default to absorb');
-    assert.match(metis, /MUST[\s\S]{0,80}absorbed[\s\S]{0,80}(?:exceed|>=|≥)/i, 'metis absorbed ratio must be MUST');
-    assert.match(`${skill}
-${metis}`, /USER_ANSWERED[\s\S]+ABSORBED_WITH_CITATION[\s\S]+INFERRED_FROM_SPEC/, 'tri-state checklist YES must be named');
-    assert.match(`${momus}
-${oracle}`, /Default-absorb prior[\s\S]+Plan-A-vs-Plan-B[\s\S]+scope boundary[\s\S]+acceptance criterion[\s\S]+rollback contract[\s\S]+lane assignment[\s\S]+handoff target/i, 'momus and oracle must share default absorb prior');
-  });
 
   it('imports the OMO Prometheus judge-absorption pattern: gap triage, silent absorption, and single-decision test-strategy', () => {
     const metis = readRepoFile(join(repoRoot, 'prompts', 'prometheus-strict-metis.md'));

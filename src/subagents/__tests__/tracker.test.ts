@@ -250,7 +250,7 @@ describe('subagents/tracker', () => {
       timestamp: '2026-03-17T00:00:45.000Z',
       mode: 'architect',
       completed: true,
-      completionSource: 'notify-fallback-watcher',
+      completionSource: 'native-stop-hook',
     });
 
     const summary = summarizeSubagentSession(state, 'sess-1', {
@@ -260,13 +260,10 @@ describe('subagents/tracker', () => {
 
     assert.deepEqual(summary?.allSubagentThreadIds, ['sub-thread-1']);
     assert.deepEqual(summary?.activeSubagentThreadIds, []);
-    assert.equal(
-      state.sessions['sess-1']?.threads['sub-thread-1']?.completion_source,
-      'notify-fallback-watcher',
-    );
+    assert.equal(state.sessions['sess-1']?.threads['sub-thread-1']?.completion_source, 'native-stop-hook');
   });
 
-  it('reactivates a notify-fallback-completed subagent thread after a later non-complete turn', () => {
+  it('reactivates a completed subagent thread after a later non-complete turn', () => {
     let state = createSubagentTrackingState();
     state = recordSubagentTurn(state, {
       sessionId: 'sess-1',
@@ -282,7 +279,7 @@ describe('subagents/tracker', () => {
       timestamp: '2026-03-17T00:00:30.000Z',
       mode: 'architect',
       completed: true,
-      completionSource: 'notify-fallback-watcher',
+      completionSource: 'native-stop-hook',
     });
     state = recordSubagentTurn(state, {
       sessionId: 'sess-1',
@@ -353,14 +350,20 @@ describe('subagents/tracker', () => {
 
     assert.equal(evidence.status, 'unsupported');
     assert.equal(evidence.source, 'persisted_support_blocker');
-    assert.equal(isUnsupportedNativeSubagentEvidenceForScope(evidence, {
-      cwd: '/repo',
-      sessionId: 'sess-unsupported',
-    }), true);
-    assert.equal(isUnsupportedNativeSubagentEvidenceForScope(evidence, {
-      cwd: '/repo',
-      sessionId: 'other-session',
-    }), false);
+    assert.equal(
+      isUnsupportedNativeSubagentEvidenceForScope(evidence, {
+        cwd: '/repo',
+        sessionId: 'sess-unsupported',
+      }),
+      true,
+    );
+    assert.equal(
+      isUnsupportedNativeSubagentEvidenceForScope(evidence, {
+        cwd: '/repo',
+        sessionId: 'other-session',
+      }),
+      false,
+    );
   });
 
   it('treats capacity exhaustion as temporary unknown support, never unsupported', () => {
@@ -413,29 +416,44 @@ describe('subagents/tracker', () => {
   });
 
   it('rejects forged or unscoped unsupported evidence', () => {
-    assert.equal(isUnsupportedNativeSubagentEvidenceForScope({
-      status: 'unsupported',
-      reason: 'native_subagents_unsupported',
-      source: 'hook_payload_capability',
-      cwd: '/repo',
-      session_id: 'sess-forged',
-    }, { cwd: '/repo', sessionId: 'sess-forged' }), false);
-    assert.equal(isUnsupportedNativeSubagentEvidenceForScope({
-      status: 'unsupported',
-      reason: 'native_subagents_unsupported',
-      source: 'persisted_support_blocker',
-    }, { cwd: '/repo', sessionId: 'sess-forged' }), false);
-    assert.equal(resolveNativeSubagentSupportStatus({
-      cwd: '/repo',
-      sessionId: 'sess-forged',
-      persistedSupportBlocker: {
-        status: 'unsupported',
-        reason: 'native_subagents_unsupported',
-        source: 'hook_payload_capability',
+    assert.equal(
+      isUnsupportedNativeSubagentEvidenceForScope(
+        {
+          status: 'unsupported',
+          reason: 'native_subagents_unsupported',
+          source: 'hook_payload_capability',
+          cwd: '/repo',
+          session_id: 'sess-forged',
+        },
+        { cwd: '/repo', sessionId: 'sess-forged' },
+      ),
+      false,
+    );
+    assert.equal(
+      isUnsupportedNativeSubagentEvidenceForScope(
+        {
+          status: 'unsupported',
+          reason: 'native_subagents_unsupported',
+          source: 'persisted_support_blocker',
+        },
+        { cwd: '/repo', sessionId: 'sess-forged' },
+      ),
+      false,
+    );
+    assert.equal(
+      resolveNativeSubagentSupportStatus({
         cwd: '/repo',
-        session_id: 'sess-forged',
-      },
-    }).status, 'unknown');
+        sessionId: 'sess-forged',
+        persistedSupportBlocker: {
+          status: 'unsupported',
+          reason: 'native_subagents_unsupported',
+          source: 'hook_payload_capability',
+          cwd: '/repo',
+          session_id: 'sess-forged',
+        },
+      }).status,
+      'unknown',
+    );
   });
 
   it('enforces the closed native recovery outcome matrix', () => {
@@ -448,5 +466,4 @@ describe('subagents/tracker', () => {
     assert.equal(evaluateNativeSubagentRecovery('unknown_native', 'blocked').allowed, false);
     assert.equal(evaluateNativeSubagentRecovery('unknown_native', 'explicit_recovery_nonclean').allowed, false);
   });
-
 });

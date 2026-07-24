@@ -216,12 +216,22 @@ function normalizeReviewForLane<Role extends 'architect' | 'critic'>(
 ): RalplanReviewResult & { agent_role: Role } {
   if (review.agent_role !== undefined && review.agent_role !== laneRole) {
     throw new Error(
-      `ralplan_${laneRole}_review_role_mismatch: expected agent_role=${laneRole}, received ${String(review.agent_role)}`,
+      `role_identity_unavailable: expected agent_role=${laneRole}, received ${String(review.agent_role)}`,
     );
   }
   if (review.agent_role === undefined && (options.requireNativeSubagents || hasNativeOrThreadEvidence(review))) {
     throw new Error(
-      `ralplan_${laneRole}_review_role_missing: native or thread-backed ${laneRole} review must declare agent_role=${laneRole}`,
+      `role_identity_unavailable: ${laneRole} review must declare native agent_role=${laneRole}`,
+    );
+  }
+  if (review.provenance_kind === 'omx_adapted') {
+    throw new Error(
+      `role_identity_unavailable: ${laneRole} review cannot derive authority from omx_adapted provenance`,
+    );
+  }
+  if (options.requireNativeSubagents && review.provenance_kind !== 'native_subagent') {
+    throw new Error(
+      `role_identity_unavailable: ${laneRole} review has provenance_kind=${String(review.provenance_kind || 'missing')}`,
     );
   }
   return { ...review, agent_role: laneRole };
@@ -371,6 +381,35 @@ export async function runRalplanConsensus(
         review_history: reviewHistory,
       });
 
+      if (consensusGate.blocked_reason === 'role_identity_unavailable') {
+        const error = 'role_identity_unavailable';
+        await updateRalplanState(cwd, {
+          active: false,
+          iteration,
+          current_phase: 'failed',
+          completed_at: new Date().toISOString(),
+          planning_complete: false,
+          latest_plan_path: latestPlanPath,
+          ralplan_consensus_gate: consensusGate,
+          review_history: reviewHistory,
+          status_message: 'Status: failed — role_identity_unavailable; required native Architect or Critic identity could not be established. Planning artifacts were preserved.',
+          error,
+        });
+        return {
+          status: 'failed',
+          iteration,
+          phase: 'failed',
+          planningComplete: false,
+          drafts,
+          architectReviews,
+          criticReviews,
+          ralplanConsensusGate: consensusGate,
+          latestPlanPath,
+          artifacts: aggregatedArtifacts,
+          error,
+        };
+      }
+
       if (consensusGate.complete) {
         const planningArtifacts = readPlanningArtifacts(cwd);
         const planningComplete = isPlanningComplete(planningArtifacts);
@@ -463,6 +502,8 @@ export async function runRalplanConsensus(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const roleIdentityUnavailable = message.startsWith('role_identity_unavailable');
+    const terminalError = roleIdentityUnavailable ? 'role_identity_unavailable' : message;
     await updateRalplanState(cwd, {
       active: false,
       iteration,
@@ -472,8 +513,11 @@ export async function runRalplanConsensus(
       latest_plan_path: latestPlanPath,
       ralplan_consensus_gate: buildRalplanConsensusGate(architectReviews, criticReviews, gateOptions),
       review_history: buildReviewHistory(drafts, architectReviews, criticReviews),
-      status_message: 'Status: failed — ralplan encountered an error and cannot continue without inspecting the failure.',
-      error: message,
+      status_message: roleIdentityUnavailable
+        ? `Status: failed — ${message}. Planning artifacts were preserved.`
+        : 'Status: failed — ralplan encountered an error and cannot continue without inspecting the failure.',
+      error: terminalError,
+      ...(roleIdentityUnavailable ? { role_identity_details: message } : {}),
     });
     return {
       status: 'failed',
@@ -486,7 +530,7 @@ export async function runRalplanConsensus(
       ralplanConsensusGate: buildRalplanConsensusGate(architectReviews, criticReviews, gateOptions),
       latestPlanPath,
       artifacts: aggregatedArtifacts,
-      error: message,
+      error: terminalError,
     };
   }
 

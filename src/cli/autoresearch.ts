@@ -5,7 +5,7 @@ export const AUTORESEARCH_DEPRECATION_MESSAGE = [
   'owx autoresearch is hard-deprecated.',
   'Use the `$autoresearch` skill for the hook-native persistent loop.',
   'Use `$deep-interview --autoresearch` to create or refine mission artifacts before execution.',
-  'Direct CLI launch, resume, run, bare mission-dir aliases, and tmux split-pane launch are no longer supported.',
+  'Direct CLI launch, resume, run, and bare mission-dir aliases are no longer supported.',
 ].join(' ');
 
 export const AUTORESEARCH_HELP = `owx autoresearch - Hard-deprecated legacy command surface
@@ -27,7 +27,7 @@ Migration:
   - Choose validation mode at init:
       1. mission-validator-script
       2. prompt-architect-artifact
-  - Completion now depends on validator evidence, not repeated no-ops or detached tmux launch parity
+  - Completion now depends on validator evidence, not repeated no-ops or detached launch parity
 `;
 
 export interface ParsedAutoresearchArgs {

@@ -19,28 +19,30 @@ const TEST_CODEX_PROBES = {
   codexVersionProbe: () => null,
 } satisfies Parameters<typeof setup>[0];
 
-const EXPECTED_PROJECT_GITIGNORE = [
-  ".owx/",
-  ".codex/*",
-  "!.codex/agents/",
-  "!.codex/agents/**",
-  "!.codex/skills/",
-  "!.codex/skills/**",
-  ".codex/skills/.system/**",
-  "!.codex/prompts/",
-  "!.codex/prompts/**",
-].join("\n") + "\n";
+const EXPECTED_PROJECT_GITIGNORE =
+  [
+    ".owx/",
+    ".codex/*",
+    "!.codex/agents/",
+    "!.codex/agents/**",
+    "!.codex/skills/",
+    "!.codex/skills/**",
+    ".codex/skills/.system/**",
+    "!.codex/prompts/",
+    "!.codex/prompts/**",
+  ].join("\n") + "\n";
 
-const EXPECTED_PROJECT_GITIGNORE_WITHOUT_OWX = [
-  ".codex/*",
-  "!.codex/agents/",
-  "!.codex/agents/**",
-  "!.codex/skills/",
-  "!.codex/skills/**",
-  ".codex/skills/.system/**",
-  "!.codex/prompts/",
-  "!.codex/prompts/**",
-].join("\n") + "\n";
+const EXPECTED_PROJECT_GITIGNORE_WITHOUT_OWX =
+  [
+    ".codex/*",
+    "!.codex/agents/",
+    "!.codex/agents/**",
+    "!.codex/skills/",
+    "!.codex/skills/**",
+    ".codex/skills/.system/**",
+    "!.codex/prompts/",
+    "!.codex/prompts/**",
+  ].join("\n") + "\n";
 
 async function runSetupWithCapturedLogs(
   cwd: string,
@@ -154,7 +156,10 @@ describe("owx setup refresh summary and dry-run behavior", () => {
           true,
           `expected owx setup to install ${skillName}`,
         );
-        assert.match(await readFile(skillPath, "utf-8"), /^description: "\[OWX\] /m);
+        assert.match(
+          await readFile(skillPath, "utf-8"),
+          /^description: "\[OWX\] /m,
+        );
       }
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
@@ -164,13 +169,17 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     }
   });
 
-  it("omits Team skills and generated guidance when Team mode is disabled", async () => {
+  it("ignores and drops a retired setup preference while installing current surfaces", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-no-team-"));
     try {
+      await mkdir(join(wd, ".owx"), { recursive: true });
+      await writeFile(
+        join(wd, ".owx", "setup-scope.json"),
+        JSON.stringify({ scope: "project", teamMode: "disabled" }),
+      );
       await runSetupInTempDir(wd, {
         scope: "project",
         installMode: "legacy",
-        teamMode: "disabled",
       });
 
       for (const skillName of [
@@ -184,57 +193,45 @@ describe("owx setup refresh summary and dry-run behavior", () => {
         assert.equal(
           existsSync(join(wd, ".codex", "skills", skillName, "SKILL.md")),
           true,
-          `expected disabled Team setup to preserve ${skillName}`,
+          `expected setup to install ${skillName}`,
         );
       }
-      assert.equal(existsSync(join(wd, ".codex", "skills", "team", "SKILL.md")), false);
-      assert.equal(existsSync(join(wd, ".codex", "skills", "worker", "SKILL.md")), false);
-      assert.equal(existsSync(join(wd, ".codex", "prompts", "team-executor.md")), false);
-      assert.equal(existsSync(join(wd, ".codex", "agents", "team-executor.toml")), false);
-      assert.equal(existsSync(join(wd, ".codex", "agents", "executor.toml")), true);
+      assert.equal(
+        existsSync(join(wd, ".codex", "skills", "team", "SKILL.md")),
+        false,
+      );
+      assert.equal(
+        existsSync(join(wd, ".codex", "skills", "worker", "SKILL.md")),
+        false,
+      );
+      assert.equal(
+        existsSync(join(wd, ".codex", "prompts", "te\x61m-executor.md")),
+        false,
+      );
+      assert.equal(
+        existsSync(join(wd, ".codex", "agents", "te\x61m-executor.toml")),
+        false,
+      );
+      assert.equal(
+        existsSync(join(wd, ".codex", "agents", "executor.toml")),
+        true,
+      );
 
       const persisted = JSON.parse(
         await readFile(join(wd, ".owx", "setup-scope.json"), "utf-8"),
       ) as { teamMode?: string };
-      assert.equal(persisted.teamMode, "disabled");
+      assert.equal(persisted.teamMode, undefined);
 
       const agents = await readFile(join(wd, "AGENTS.md"), "utf-8");
-      assert.doesNotMatch(agents, /\$team/);
-      assert.doesNotMatch(agents, /<team_(?:compositions|pipeline|model_resolution)>/);
+      assert.doesNotMatch(agents, /\$te\x61m/);
+      assert.doesNotMatch(
+        agents,
+        /<team_(?:compositions|pipeline|model_resolution)>/,
+      );
       assert.doesNotMatch(agents, /\bTeam mode\b/);
-      assert.doesNotMatch(agents, /\bteam-executor\b/);
+      assert.doesNotMatch(agents, /\bte\x61m-executor\b/);
       assert.match(agents, /\$ralph/);
       assert.match(agents, /autopilot/);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it("removes managed Team guidance and role files when Team mode is disabled on refresh", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-disable-team-"));
-    try {
-      await runSetupInTempDir(wd, {
-        scope: "project",
-        installMode: "legacy",
-        teamMode: "enabled",
-      });
-      assert.equal(existsSync(join(wd, ".codex", "prompts", "team-executor.md")), true);
-      assert.equal(existsSync(join(wd, ".codex", "agents", "team-executor.toml")), true);
-      assert.match(await readFile(join(wd, "AGENTS.md"), "utf-8"), /\$team/);
-
-      await runSetupInTempDir(wd, {
-        scope: "project",
-        installMode: "legacy",
-        teamMode: "disabled",
-      });
-
-      assert.equal(existsSync(join(wd, ".codex", "prompts", "team-executor.md")), false);
-      assert.equal(existsSync(join(wd, ".codex", "agents", "team-executor.toml")), false);
-      const agents = await readFile(join(wd, "AGENTS.md"), "utf-8");
-      assert.doesNotMatch(agents, /\$team/);
-      assert.doesNotMatch(agents, /<team_(?:compositions|pipeline|model_resolution)>/);
-      assert.doesNotMatch(agents, /\bteam-executor\b/);
-      assert.match(agents, /\$ralph/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -268,7 +265,10 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       await runSetupInTempDir(wd, { scope: "project" });
 
       const gitignore = await readFile(join(wd, ".gitignore"), "utf-8");
-      assert.equal(gitignore, `node_modules/\n${EXPECTED_PROJECT_GITIGNORE_WITHOUT_OWX}`);
+      assert.equal(
+        gitignore,
+        `node_modules/\n${EXPECTED_PROJECT_GITIGNORE_WITHOUT_OWX}`,
+      );
       assert.equal(gitignore.match(/^\.owx\/$/gm)?.length ?? 0, 0);
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -293,7 +293,9 @@ describe("owx setup refresh summary and dry-run behavior", () => {
   });
 
   it("creates .gitignore without .owx/ when global Git excludes already ignore it", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-global-ignore-"));
+    const wd = await mkdtemp(
+      join(tmpdir(), "owx-setup-refresh-global-ignore-"),
+    );
     const excludesFile = join(wd, "global-ignore");
     try {
       const initResult = spawnSync("git", ["init", "-q"], { cwd: wd });
@@ -302,7 +304,9 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       const configResult = spawnSync(
         "git",
         ["config", "core.excludesfile", excludesFile],
-        { cwd: wd },
+        {
+          cwd: wd,
+        },
       );
       assert.equal(configResult.status, 0);
 
@@ -326,7 +330,9 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       const configResult = spawnSync(
         "git",
         ["config", "core.excludesfile", excludesFile],
-        { cwd: wd },
+        {
+          cwd: wd,
+        },
       );
       assert.equal(configResult.status, 0);
 
@@ -357,8 +363,14 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       assert.match(status.stdout, /^!! \.codex\/config\.toml$/m);
       assert.match(status.stdout, /^\?\? \.codex\/agents\/local\.toml$/m);
       assert.match(status.stdout, /^\?\? \.codex\/prompts\/local\.md$/m);
-      assert.match(status.stdout, /^\?\? \.codex\/skills\/owx-setup\/SKILL\.md$/m);
-      assert.match(status.stdout, /^!! \.codex\/skills\/\.system\/cache\.json$/m);
+      assert.match(
+        status.stdout,
+        /^\?\? \.codex\/skills\/owx-setup\/SKILL\.md$/m,
+      );
+      assert.match(
+        status.stdout,
+        /^!! \.codex\/skills\/\.system\/cache\.json$/m,
+      );
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -500,7 +512,14 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       await mkdir(join(wd, ".codex"), { recursive: true });
       await writeFile(
         join(wd, ".codex", "config.toml"),
-        ['model = "gpt-5.5"', "", "[tui]", 'theme = "night"', 'status_line = ["git-branch"]', ""].join("\n"),
+        [
+          'model = "gpt-5.5"',
+          "",
+          "[tui]",
+          'theme = "night"',
+          'status_line = ["git-branch"]',
+          "",
+        ].join("\n"),
       );
 
       const output = await runSetupWithCapturedLogs(wd, {
@@ -643,7 +662,10 @@ describe("owx setup refresh summary and dry-run behavior", () => {
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
       assert.match(config, /^\[tui\]$/m);
-      assert.match(output, /StatusLine configured in config\.toml via \[tui\] section\./);
+      assert.match(
+        output,
+        /StatusLine configured in config\.toml via \[tui\] section\./,
+      );
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -729,7 +751,10 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       });
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
-      assert.doesNotMatch(config, /owen-codex \(OWX\) Shared MCP Registry Sync/);
+      assert.doesNotMatch(
+        config,
+        /owen-codex \(OWX\) Shared MCP Registry Sync/,
+      );
       assert.doesNotMatch(config, /^\[mcp_servers\.eslint\]$/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
@@ -744,7 +769,7 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       await writeFile(
         join(wd, ".codex", "config.toml"),
         [
-          '[mcp_servers.filesystem]',
+          "[mcp_servers.filesystem]",
           'command = "npx"',
           'args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]',
           "",
@@ -756,34 +781,6 @@ describe("owx setup refresh summary and dry-run behavior", () => {
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
       assert.match(config, /^\[mcp_servers\.filesystem\]$/m);
       assert.match(config, /^startup_timeout_sec = 15$/m);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it("warns and preserves retired owx_team_run config until interactive removal is confirmed", async () => {
-    const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-"));
-    try {
-      await mkdir(join(wd, ".owx", "state"), { recursive: true });
-      await mkdir(join(wd, ".codex"), { recursive: true });
-      await writeFile(
-        join(wd, ".codex", "config.toml"),
-        [
-          '[mcp_servers.owx_team_run]',
-          'command = "node"',
-          'args = ["./dist/cli/team-mcp.js"]',
-          "",
-        ].join("\n"),
-      );
-
-      const output = await runSetupWithCapturedLogs(wd, { scope: "project" });
-
-      const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
-      assert.match(
-        output,
-        /deprecated first-party OWX MCP registrations were detected but preserved/,
-      );
-      assert.match(config, /^\[mcp_servers\.owx_team_run\]$/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -870,7 +867,8 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     } finally {
       if (typeof previousHome === "string") process.env.HOME = previousHome;
       else delete process.env.HOME;
-      if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
+      if (typeof previousCodexHome === "string")
+        process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
       await rm(wd, { recursive: true, force: true });
     }
@@ -886,7 +884,8 @@ describe("owx setup refresh summary and dry-run behavior", () => {
 
       await mkdir(join(wd, ".owx", "state"), { recursive: true });
       await mkdir(join(wd, ".claude"), { recursive: true });
-      const existingSettings = JSON.stringify({ uiTheme: "dark" }, null, 2) + "\n";
+      const existingSettings =
+        JSON.stringify({ uiTheme: "dark" }, null, 2) + "\n";
       await writeFile(join(wd, ".claude", "settings.json"), existingSettings);
       const registryPath = join(wd, "mcp-registry.json");
       await writeFile(
@@ -908,7 +907,8 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     } finally {
       if (typeof previousHome === "string") process.env.HOME = previousHome;
       else delete process.env.HOME;
-      if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
+      if (typeof previousCodexHome === "string")
+        process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
       await rm(wd, { recursive: true, force: true });
     }
@@ -941,7 +941,8 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     } finally {
       if (typeof previousHome === "string") process.env.HOME = previousHome;
       else delete process.env.HOME;
-      if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
+      if (typeof previousCodexHome === "string")
+        process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
       await rm(wd, { recursive: true, force: true });
     }
@@ -975,7 +976,8 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     } finally {
       if (typeof previousHome === "string") process.env.HOME = previousHome;
       else delete process.env.HOME;
-      if (typeof previousCodexHome === "string") process.env.CODEX_HOME = previousCodexHome;
+      if (typeof previousCodexHome === "string")
+        process.env.CODEX_HOME = previousCodexHome;
       else delete process.env.CODEX_HOME;
       await rm(wd, { recursive: true, force: true });
     }

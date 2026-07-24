@@ -2,9 +2,6 @@
 members = [
   "crates/owx-api",
   "crates/owx-explore",
-  "crates/owx-mux",
-  "crates/owx-runtime-core",
-  "crates/owx-runtime",
   "crates/owx-sparkshell",
 ]
 resolver = "2"

@@ -16,7 +16,6 @@ function runOmx(cwd: string, argv: string[]) {
     env: {
       ...process.env,
       OWX_AUTO_UPDATE: '0',
-      OWX_NOTIFY_FALLBACK: '0',
       OWX_HOOK_DERIVED_SIGNALS: '0',
     },
   });
@@ -26,7 +25,6 @@ describe('nested help routing', () => {
   for (const [argv, expectedUsage] of [
     [['adapt', '--help'], /Usage:\s*owx adapt <target> <probe\|status\|init\|envelope\|doctor>/i],
     [['ask', '--help'], /Usage:\s*owx ask <claude\|gemini> <question or task>/i],
-    [['question', '--help'], /owx question - OWX-owned blocking user question entrypoint/i],
     [['autoresearch', '--help'], /hard-deprecated legacy command surface[\s\S]*\$autoresearch/i],
     [['explore', '--help'], /hard-deprecated legacy command surface[\s\S]*owx sparkshell/i],
     [['hud', '--help'], /Usage:\s*\n\s*owx hud\s+Show current HUD state/i],
@@ -34,7 +32,6 @@ describe('nested help routing', () => {
     [['state', '--help'], /Usage:\s*owx state <read\|write\|clear\|list-active\|get-status>/i],
     [['surface', '--help'], /Usage:\s*owx surface check \[--json\]/i],
     [['mcp-serve', '--help'], /Usage:\s*owx mcp-serve <target>/i],
-    [['tmux-hook', '--help'], /Usage:\s*\n\s*owx tmux-hook init/i],
     [['ralph', '--help'], /owx ralph - Launch Codex with ralph persistence mode active/i],
   ] satisfies Array<[string[], RegExp]>) {
     it(`routes ${argv.join(' ')} to command-local help`, async () => {

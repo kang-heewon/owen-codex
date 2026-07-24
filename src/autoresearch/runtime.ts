@@ -12,7 +12,7 @@ import {
   renderCodeGraphInstructions,
   resolveWorktreeToolContext,
   type WorktreeToolContext,
-} from '../team/worktree.js';
+} from './worktree-context.js';
 
 export type AutoresearchCandidateStatus = 'candidate' | 'noop' | 'abort' | 'interrupted';
 export type AutoresearchDecisionStatus = 'baseline' | 'keep' | 'discard' | 'ambiguous' | 'noop' | 'abort' | 'interrupted' | 'error';
@@ -788,7 +788,6 @@ async function writeInstructionsFile(contract: AutoresearchMissionContract, mani
       recentLedgerSummary: instructionContext.recentLedgerSummary,
       toolContext: resolveWorktreeToolContext({
         cwd: manifest.worktree_path,
-        scope: 'autoresearch',
       }),
     })}\n`,
     'utf-8',

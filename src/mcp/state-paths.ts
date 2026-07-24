@@ -14,9 +14,8 @@ const STATE_FILE_NAME_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 const WORKDIR_ALLOWLIST_ENV = 'OWX_MCP_WORKDIR_ROOTS';
 const OWX_ROOT_ENV = 'OWX_ROOT';
 const OWX_STATE_ROOT_ENV = 'OWX_STATE_ROOT';
-const OWX_TEAM_STATE_ROOT_ENV = 'OWX_TEAM_STATE_ROOT';
 
-export type StateRootSource = 'team-env' | 'owx-root-env' | 'owx-state-root-env' | 'cwd-default';
+export type StateRootSource = 'owx-root-env' | 'owx-state-root-env' | 'cwd-default';
 export type SessionScopeSource = 'explicit' | 'env' | 'session-json' | 'native-alias' | 'root';
 
 export interface ResolvedSessionMetadata {
@@ -26,8 +25,6 @@ export interface ResolvedSessionMetadata {
   ownerOmxSessionId?: string;
   ownerCodexSessionId?: string;
   ownerCodexThreadId?: string;
-  leaderPaneId?: string;
-  tmuxSessionName?: string;
   displayName?: string;
   raw?: SessionState;
   sourcePath?: string;
@@ -227,11 +224,6 @@ function enforceWorkingDirectoryPolicy(resolvedWorkingDirectory: string): string
 }
 
 export function getBaseStateDirWithSource(workingDirectory?: string): { baseStateDir: string; rootSource: StateRootSource } {
-  const teamStateRootOverride = process.env[OWX_TEAM_STATE_ROOT_ENV]?.trim();
-  if (typeof teamStateRootOverride === 'string' && teamStateRootOverride !== '') {
-    return { baseStateDir: resolveWorkingDirectoryForState(teamStateRootOverride), rootSource: 'team-env' };
-  }
-
   const owxRootOverride = process.env[OWX_ROOT_ENV]?.trim();
   if (typeof owxRootOverride === 'string' && owxRootOverride !== '') {
     return { baseStateDir: join(resolveWorkingDirectoryForState(owxRootOverride), '.owx', 'state'), rootSource: 'owx-root-env' };
@@ -320,8 +312,6 @@ function normalizeSessionMetadata(state: SessionState | null, sourcePath?: strin
     ...(typeof raw.owner_owx_session_id === 'string' && raw.owner_owx_session_id.trim() ? { ownerOmxSessionId: raw.owner_owx_session_id.trim() } : {}),
     ...(typeof raw.owner_codex_session_id === 'string' && raw.owner_codex_session_id.trim() ? { ownerCodexSessionId: raw.owner_codex_session_id.trim() } : {}),
     ...(typeof raw.owner_codex_thread_id === 'string' && raw.owner_codex_thread_id.trim() ? { ownerCodexThreadId: raw.owner_codex_thread_id.trim() } : {}),
-    ...(typeof raw.tmux_pane_id === 'string' && raw.tmux_pane_id.trim() ? { leaderPaneId: raw.tmux_pane_id.trim() } : {}),
-    ...(typeof raw.tmux_session_name === 'string' && raw.tmux_session_name.trim() ? { tmuxSessionName: raw.tmux_session_name.trim() } : {}),
     ...(typeof raw.display_name === 'string' && raw.display_name.trim() ? { displayName: raw.display_name.trim() } : {}),
     raw: state,
     ...(sourcePath ? { sourcePath } : {}),

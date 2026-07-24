@@ -275,30 +275,16 @@ describe('session lifecycle manager', () => {
     }
   });
 
-  it('preserves existing native and tmux bindings on same-session start updates', async () => {
+  it('preserves an existing native binding on same-session start updates', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'owx-session-binding-preserve-'));
     try {
       await writeSessionStart(cwd, 'owx-launch-1', {
         nativeSessionId: 'codex-native-1',
-        tmuxSessionName: 'owx-detached-demo',
       });
 
-      const withPane = await writeSessionStart(cwd, 'owx-launch-1', {
-        tmuxSessionName: 'owx-detached-demo',
-        tmuxPaneId: '%42',
-      });
+      const updated = await writeSessionStart(cwd, 'owx-launch-1');
 
-      assert.equal(withPane.native_session_id, 'codex-native-1');
-      assert.equal(withPane.tmux_session_name, 'owx-detached-demo');
-      assert.equal(withPane.tmux_pane_id, '%42');
-
-      const withoutPane = await writeSessionStart(cwd, 'owx-launch-1', {
-        tmuxSessionName: 'owx-detached-demo',
-      });
-
-      assert.equal(withoutPane.native_session_id, 'codex-native-1');
-      assert.equal(withoutPane.tmux_session_name, 'owx-detached-demo');
-      assert.equal(withoutPane.tmux_pane_id, '%42');
+      assert.equal(updated.native_session_id, 'codex-native-1');
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

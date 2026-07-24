@@ -170,9 +170,9 @@ describe('interpolateInstruction', () => {
     assert.equal(result, '');
   });
 
-  it('replaces undefined tmuxSession with empty string', () => {
-    const result = interpolateInstruction('tmux:{{tmuxSession}}', { tmuxSession: undefined });
-    assert.equal(result, 'tmux:');
+  it('replaces an undefined optional variable with empty string', () => {
+    const result = interpolateInstruction('reason:{{reason}}', { reason: undefined });
+    assert.equal(result, 'reason:');
   });
 
   it('replaces multiple variables', () => {

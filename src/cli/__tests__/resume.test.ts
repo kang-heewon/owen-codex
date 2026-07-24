@@ -68,14 +68,13 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
         OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
         OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
       assert.equal(result.status, 0, result.error || result.stderr || result.stdout);
       assert.match(result.stdout, /fake-codex:resume\b/);
-      assert.match(result.stdout, new RegExp(`sqlite-home:${canonicalProjectCodexHome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-      assert.match(result.stdout, /codex-home:.*\.owx\/runtime\/codex-home\//);
+      assert.match(result.stdout, /sqlite-home:\s*\n/);
+      assert.match(result.stdout, new RegExp(`codex-home:${canonicalProjectCodexHome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
       assert.match(result.stdout, /state-present=yes/);
       assert.match(result.stdout, /wal-present=yes/);
       assert.match(result.stdout, /rollout-present=yes/);
@@ -103,7 +102,6 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
         OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
         OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 
@@ -133,7 +131,6 @@ if [ -f "$CODEX_HOME/sessions/2026/06/03/rollout-session-2712.jsonl" ]; then ech
         HOME: home,
         PATH: `${fakeBin}:/usr/bin:/bin`,
         OWX_AUTO_UPDATE: '0',
-        OWX_NOTIFY_FALLBACK: '0',
         OWX_HOOK_DERIVED_SIGNALS: '0',
       });
 

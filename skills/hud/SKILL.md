@@ -11,7 +11,7 @@ The OWX HUD uses a two-layer architecture:
 
 1. **Layer 1 - Codex built-in statusLine**: Real-time TUI footer showing model, git branch, and context usage. Configured via `[tui] status_line` in `~/.codex/config.toml`. Zero code required.
 
-2. **Layer 2 - `owx hud` CLI command**: Shows OWX-specific orchestration state (ralph, ultrawork, autopilot, team, pipeline, ecomode, turns). Reads `.owx/state/` files.
+2. **Layer 2 - `owx hud` CLI command**: Shows OWX-specific orchestration state (ralph, ultrawork, autopilot, pipeline, ecomode, turns). Reads `.owx/state/` files.
 
 ## Quick Commands
 
@@ -33,12 +33,12 @@ The OWX HUD uses a two-layer architecture:
 
 ### focused (default)
 ```
-[OWX] ralph:3/10 | ultrawork | team:3 workers | turns:42 | last:5s ago
+[OWX] ralph:3/10 | ultrawork | turns:42 | last:5s ago
 ```
 
 ### full
 ```
-[OWX] ralph:3/10 | ultrawork | autopilot:execution | team:3 workers | pipeline:exec | turns:42 | last:5s ago | total-turns:156
+[OWX] ralph:3/10 | ultrawork | autopilot:execution | pipeline:exec | turns:42 | last:5s ago | total-turns:156
 ```
 
 ## Setup
@@ -65,7 +65,6 @@ The `owx hud` command reads these state files:
 - `.owx/state/ralph-state.json` - Ralph loop iteration
 - `.owx/state/ultrawork-state.json` - Ultrawork mode
 - `.owx/state/autopilot-state.json` - Autopilot phase
-- `.owx/state/team-state.json` - Team workers
 - `.owx/state/pipeline-state.json` - Pipeline stage
 - `.owx/state/ecomode-state.json` - Ecomode active
 - `.owx/state/hud-state.json` - Last activity (from notify hook)

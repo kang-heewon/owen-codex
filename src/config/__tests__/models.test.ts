@@ -6,15 +6,12 @@ import { tmpdir } from 'os';
 import {
   DEFAULT_FRONTIER_MODEL,
   DEFAULT_SPARK_MODEL,
-  DEFAULT_TEAM_CHILD_MODEL,
   getAgentReasoningOverride,
   getEnvConfiguredStandardDefaultModel,
   getMainDefaultModel,
   getModelForMode,
   getSparkDefaultModel,
   getStandardDefaultModel,
-  getTeamChildModel,
-  getTeamLowComplexityModel,
   readAgentReasoningOverrides,
   readConfiguredEnvOverrides,
 } from '../models.js';
@@ -25,7 +22,6 @@ describe('getModelForMode', () => {
   let originalDefaultFrontierModel: string | undefined;
   let originalDefaultStandardModel: string | undefined;
   let originalDefaultSparkModel: string | undefined;
-  let originalTeamChildModel: string | undefined;
   let originalSparkModel: string | undefined;
 
   beforeEach(async () => {
@@ -34,13 +30,11 @@ describe('getModelForMode', () => {
     originalDefaultFrontierModel = process.env.OWX_DEFAULT_FRONTIER_MODEL;
     originalDefaultStandardModel = process.env.OWX_DEFAULT_STANDARD_MODEL;
     originalDefaultSparkModel = process.env.OWX_DEFAULT_SPARK_MODEL;
-    originalTeamChildModel = process.env.OWX_TEAM_CHILD_MODEL;
     originalSparkModel = process.env.OWX_SPARK_MODEL;
     process.env.CODEX_HOME = tempDir;
     delete process.env.OWX_DEFAULT_FRONTIER_MODEL;
     delete process.env.OWX_DEFAULT_STANDARD_MODEL;
     delete process.env.OWX_DEFAULT_SPARK_MODEL;
-    delete process.env.OWX_TEAM_CHILD_MODEL;
     delete process.env.OWX_SPARK_MODEL;
   });
 
@@ -65,11 +59,6 @@ describe('getModelForMode', () => {
     } else {
       delete process.env.OWX_DEFAULT_SPARK_MODEL;
     }
-    if (typeof originalTeamChildModel === 'string') {
-      process.env.OWX_TEAM_CHILD_MODEL = originalTeamChildModel;
-    } else {
-      delete process.env.OWX_TEAM_CHILD_MODEL;
-    }
     if (typeof originalSparkModel === 'string') {
       process.env.OWX_SPARK_MODEL = originalSparkModel;
     } else {
@@ -83,66 +72,66 @@ describe('getModelForMode', () => {
   }
 
   it('returns frontier default when config file does not exist', () => {
-    assert.equal(getModelForMode('team'), DEFAULT_FRONTIER_MODEL);
+    assert.equal(getModelForMode('ralph'), DEFAULT_FRONTIER_MODEL);
   });
 
   it('returns frontier default when config has no models section', async () => {
     await writeConfig({ notifications: { enabled: false } });
-    assert.equal(getModelForMode('team'), DEFAULT_FRONTIER_MODEL);
+    assert.equal(getModelForMode('ralph'), DEFAULT_FRONTIER_MODEL);
   });
 
   it('returns mode-specific model when configured', async () => {
-    await writeConfig({ models: { team: 'gpt-4.1', default: 'o4-mini' } });
-    assert.equal(getModelForMode('team'), 'gpt-4.1');
+    await writeConfig({ models: { ralph: 'gpt-4.1', default: 'o4-mini' } });
+    assert.equal(getModelForMode('ralph'), 'gpt-4.1');
   });
 
   it('falls back to default when mode-specific model is not set', async () => {
     await writeConfig({ models: { default: 'o4-mini' } });
-    assert.equal(getModelForMode('team'), 'o4-mini');
+    assert.equal(getModelForMode('ralph'), 'o4-mini');
   });
 
   it('returns frontier default when models section is empty', async () => {
     await writeConfig({ models: {} });
-    assert.equal(getModelForMode('team'), DEFAULT_FRONTIER_MODEL);
+    assert.equal(getModelForMode('autoresearch'), DEFAULT_FRONTIER_MODEL);
   });
 
   it('ignores empty string values and falls back to default', async () => {
-    await writeConfig({ models: { team: '', default: 'o4-mini' } });
-    assert.equal(getModelForMode('team'), 'o4-mini');
+    await writeConfig({ models: { autoresearch: '', default: 'o4-mini' } });
+    assert.equal(getModelForMode('autoresearch'), 'o4-mini');
   });
 
   it('trims whitespace from model values', async () => {
-    await writeConfig({ models: { team: '  gpt-4.1  ' } });
-    assert.equal(getModelForMode('team'), 'gpt-4.1');
+    await writeConfig({ models: { autoresearch: '  gpt-4.1  ' } });
+    assert.equal(getModelForMode('autoresearch'), 'gpt-4.1');
   });
 
   it('resolves different modes independently', async () => {
-    await writeConfig({ models: { team: 'gpt-4.1', autopilot: 'o4-mini', ralph: 'gpt-5' } });
-    assert.equal(getModelForMode('team'), 'gpt-4.1');
+    await writeConfig({ models: { autoresearch: 'gpt-4.1', autopilot: 'o4-mini', ralph: 'gpt-5' } });
+    assert.equal(getModelForMode('autoresearch'), 'gpt-4.1');
     assert.equal(getModelForMode('autopilot'), 'o4-mini');
     assert.equal(getModelForMode('ralph'), 'gpt-5');
   });
 
   it('returns frontier default for invalid models section (array)', async () => {
     await writeConfig({ models: ['not', 'valid'] });
-    assert.equal(getModelForMode('team'), DEFAULT_FRONTIER_MODEL);
+    assert.equal(getModelForMode('autoresearch'), DEFAULT_FRONTIER_MODEL);
   });
 
   it('returns frontier default for malformed JSON', async () => {
     await writeFile(join(tempDir, '.owx-config.json'), 'not-json');
-    assert.equal(getModelForMode('team'), DEFAULT_FRONTIER_MODEL);
+    assert.equal(getModelForMode('autoresearch'), DEFAULT_FRONTIER_MODEL);
   });
 
   it('uses OWX_DEFAULT_FRONTIER_MODEL when config does not provide a value', () => {
     process.env.OWX_DEFAULT_FRONTIER_MODEL = 'gpt-5.4-mini';
     assert.equal(getMainDefaultModel(), 'gpt-5.4-mini');
-    assert.equal(getModelForMode('team'), 'gpt-5.4-mini');
+    assert.equal(getModelForMode('autoresearch'), 'gpt-5.4-mini');
   });
 
   it('uses .owx-config.json env.OWX_DEFAULT_FRONTIER_MODEL when shell env is absent', async () => {
     await writeConfig({ env: { OWX_DEFAULT_FRONTIER_MODEL: 'frontier-local' } });
     assert.equal(getMainDefaultModel(), 'frontier-local');
-    assert.equal(getModelForMode('team'), 'frontier-local');
+    assert.equal(getModelForMode('autoresearch'), 'frontier-local');
   });
 
   it('uses config.toml root model as the main and standard default when env overrides are absent', async () => {
@@ -150,7 +139,7 @@ describe('getModelForMode', () => {
 
     assert.equal(getMainDefaultModel(), 'frontier-config');
     assert.equal(getStandardDefaultModel(), 'frontier-config');
-    assert.equal(getModelForMode('team'), 'frontier-config');
+    assert.equal(getModelForMode('autoresearch'), 'frontier-config');
   });
 
   it('uses OWX_DEFAULT_STANDARD_MODEL when configured in shell env', () => {
@@ -174,55 +163,28 @@ describe('getModelForMode', () => {
   it('keeps explicit config default ahead of OWX_DEFAULT_FRONTIER_MODEL', async () => {
     process.env.OWX_DEFAULT_FRONTIER_MODEL = 'gpt-5.4-mini';
     await writeConfig({ models: { default: 'o4-mini' } });
-    assert.equal(getModelForMode('team'), 'o4-mini');
+    assert.equal(getModelForMode('autoresearch'), 'o4-mini');
   });
 
   it('keeps explicit mode config ahead of OWX_DEFAULT_FRONTIER_MODEL', async () => {
     process.env.OWX_DEFAULT_FRONTIER_MODEL = 'gpt-5.4-mini';
-    await writeConfig({ models: { team: 'gpt-4.1', default: 'o4-mini' } });
-    assert.equal(getModelForMode('team'), 'gpt-4.1');
-  });
-
-
-
-  it('defaults team child model to standard mini independent of frontier defaults', () => {
-    process.env.OWX_DEFAULT_FRONTIER_MODEL = 'frontier-expensive';
-    assert.equal(DEFAULT_TEAM_CHILD_MODEL, 'gpt-5.4-mini');
-    assert.equal(getTeamChildModel(), 'gpt-5.4-mini');
-  });
-
-  it('uses OWX_TEAM_CHILD_MODEL shell override for team child model', () => {
-    process.env.OWX_TEAM_CHILD_MODEL = 'team-child-custom';
-    assert.equal(getTeamChildModel(), 'team-child-custom');
-  });
-
-  it('uses .owx-config.json env.OWX_TEAM_CHILD_MODEL when shell env is absent', async () => {
-    await writeConfig({ env: { OWX_TEAM_CHILD_MODEL: 'team-child-local' } });
-    assert.equal(getTeamChildModel(), 'team-child-local');
-  });
-
-  it('returns low-complexity team model when configured', async () => {
-    await writeConfig({ models: { team_low_complexity: 'gpt-4.1-mini' } });
-    assert.equal(getTeamLowComplexityModel(), 'gpt-4.1-mini');
+    await writeConfig({ models: { ralph: 'gpt-4.1', default: 'o4-mini' } });
+    assert.equal(getModelForMode('ralph'), 'gpt-4.1');
   });
 
   it('uses OWX_DEFAULT_SPARK_MODEL when low-complexity config is absent', async () => {
     process.env.OWX_DEFAULT_SPARK_MODEL = 'gpt-5.3-codex-spark-fast';
-    await writeConfig({ models: { team: 'gpt-4.1' } });
     assert.equal(getSparkDefaultModel(), 'gpt-5.3-codex-spark-fast');
-    assert.equal(getTeamLowComplexityModel(), 'gpt-5.3-codex-spark-fast');
   });
 
   it('uses .owx-config.json env.OWX_DEFAULT_SPARK_MODEL when shell env is absent', async () => {
-    await writeConfig({ env: { OWX_DEFAULT_SPARK_MODEL: 'spark-local' }, models: { team: 'gpt-4.1' } });
+    await writeConfig({ env: { OWX_DEFAULT_SPARK_MODEL: 'spark-local' } });
     assert.equal(getSparkDefaultModel(), 'spark-local');
   });
 
   it('falls back to legacy OWX_SPARK_MODEL when canonical spark env is absent', async () => {
     process.env.OWX_SPARK_MODEL = 'gpt-5.3-codex-spark-fast';
-    await writeConfig({ models: { team: 'gpt-4.1' } });
     assert.equal(getSparkDefaultModel(), 'gpt-5.3-codex-spark-fast');
-    assert.equal(getTeamLowComplexityModel(), 'gpt-5.3-codex-spark-fast');
   });
 
   it('prefers OWX_DEFAULT_SPARK_MODEL over legacy OWX_SPARK_MODEL', () => {
@@ -266,22 +228,15 @@ describe('getModelForMode', () => {
     assert.equal(getAgentReasoningOverride('executor'), undefined);
   });
 
-  it('keeps explicit low-complexity config ahead of OWX_DEFAULT_SPARK_MODEL', async () => {
-    process.env.OWX_DEFAULT_SPARK_MODEL = 'gpt-5.3-codex-spark-fast';
-    await writeConfig({ models: { team_low_complexity: 'gpt-4.1-mini' } });
-    assert.equal(getTeamLowComplexityModel(), 'gpt-4.1-mini');
-  });
-
   it('inherits the main default for standard agents when no standard override is configured', async () => {
     process.env.OWX_DEFAULT_FRONTIER_MODEL = 'gpt-5.5-custom';
-    await writeConfig({ models: { team: 'gpt-4.1' } });
+    await writeConfig({});
     assert.equal(getStandardDefaultModel(), 'gpt-5.5-custom');
   });
 
   it('returns canonical spark fallback when not configured', async () => {
-    await writeConfig({ models: { team: 'gpt-4.1' } });
+    await writeConfig({});
     assert.equal(getStandardDefaultModel(), DEFAULT_FRONTIER_MODEL);
     assert.equal(getSparkDefaultModel(), DEFAULT_SPARK_MODEL);
-    assert.equal(getTeamLowComplexityModel(), DEFAULT_SPARK_MODEL);
   });
 });

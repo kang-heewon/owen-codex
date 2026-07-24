@@ -1,11 +1,10 @@
 /**
  * Base mode lifecycle management for owen-codex
- * All execution modes (autopilot, autoresearch, deep-interview, ralph, ultrawork, team, ultraqa, ralplan) share this base.
+ * All execution modes (autopilot, autoresearch, deep-interview, ralph, ultrawork, ultraqa, ralplan) share this base.
  */
 
-import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { withModeRuntimeContext } from '../state/mode-state-context.js';
 import {
   assertWorkflowTransitionAllowed,
   isTrackedWorkflowMode,
@@ -19,7 +18,6 @@ import { syncRunStateFromModeState } from '../runtime/run-state.js';
 import {
   getAuthoritativeActiveStatePaths,
   getBaseStateDir,
-  getReadScopedStateDirs,
   getReadScopedStatePaths,
   getStatePath,
   resolveStateScope,
@@ -40,14 +38,24 @@ export interface ModeState {
   [key: string]: unknown;
 }
 
-export type ModeName = 'autopilot' | 'autoresearch' | 'deep-interview' | 'ralph' | 'ultrawork' | 'team' | 'ultraqa' | 'ralplan';
+export const MODE_NAMES = [
+  'autopilot',
+  'autoresearch',
+  'deep-interview',
+  'ralph',
+  'ultrawork',
+  'ultraqa',
+  'ralplan',
+] as const;
+
+export type ModeName = (typeof MODE_NAMES)[number];
 
 /** @deprecated These mode names were removed in v4.6. Use the canonical modes instead. */
 export type DeprecatedModeName = 'ultrapilot' | 'pipeline' | 'ecomode';
 
 const DEPRECATED_MODES: Record<DeprecatedModeName, string> = {
-  ultrapilot: 'Use "team" instead. ultrapilot has been merged into team mode.',
-  pipeline: 'Use "team" instead. pipeline has been merged into team mode.',
+  ultrapilot: 'Use Codex native subagents from a retained workflow instead.',
+  pipeline: 'Use "autopilot" instead.',
   ecomode: 'Use "ultrawork" instead. ecomode has been merged into ultrawork mode.',
 };
 
@@ -145,8 +153,7 @@ export async function startMode(
     ...(mode === 'ralph' && scope.sessionId ? { owner_owx_session_id: scope.sessionId } : {}),
   };
 
-  const withContext = withModeRuntimeContext({}, stateBase) as ModeState;
-  const state = normalizeModeStateOrThrow(mode, withContext);
+  const state = normalizeModeStateOrThrow(mode, stateBase);
   await writeFile(getStatePath(mode, projectRoot, scope.sessionId), JSON.stringify(state, null, 2));
   await syncRunStateFromModeState(state, projectRoot, scope.sessionId);
   if (isTrackedWorkflowMode(mode)) {
@@ -259,7 +266,7 @@ export async function updateModeState(
     updatedBase.owner_owx_session_id = scope.sessionId;
   }
   const normalizedBase = normalizeModeStateOrThrow(mode, updatedBase as ModeState);
-  const updated = withModeRuntimeContext(current, normalizedBase) as ModeState;
+  const updated = normalizedBase;
   await writeFile(getStatePath(mode, projectRoot, scope.sessionId), JSON.stringify(updated, null, 2));
   await syncRunStateFromModeState(updated, projectRoot, scope.sessionId);
   if (isTrackedWorkflowMode(mode)) {
@@ -294,23 +301,12 @@ export async function cancelMode(mode: string, projectRoot?: string): Promise<vo
  * Cancel all active modes
  */
 export async function cancelAllModes(projectRoot?: string): Promise<string[]> {
-  const dirs = await getReadScopedStateDirs(projectRoot);
   const cancelled: string[] = [];
-  const seenModes = new Set<string>();
-
-  for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    const files = await readdir(dir);
-    for (const f of files) {
-      if (!f.endsWith('-state.json')) continue;
-      const mode = f.replace('-state.json', '');
-      if (seenModes.has(mode)) continue;
-      seenModes.add(mode);
-      const state = await readModeState(mode, projectRoot);
-      if (state?.active) {
-        await cancelMode(mode, projectRoot);
-        cancelled.push(mode);
-      }
+  for (const mode of MODE_NAMES) {
+    const state = await readModeState(mode, projectRoot);
+    if (state?.active) {
+      await cancelMode(mode, projectRoot);
+      cancelled.push(mode);
     }
   }
   return cancelled;
@@ -320,22 +316,11 @@ export async function cancelAllModes(projectRoot?: string): Promise<string[]> {
  * List all active modes
  */
 export async function listActiveModes(projectRoot?: string): Promise<Array<{ mode: string; state: ModeState }>> {
-  const dirs = await getReadScopedStateDirs(projectRoot);
   const active: Array<{ mode: string; state: ModeState }> = [];
-  const seenModes = new Set<string>();
-
-  for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    const files = await readdir(dir);
-    for (const f of files) {
-      if (!f.endsWith('-state.json')) continue;
-      const mode = f.replace('-state.json', '');
-      if (seenModes.has(mode)) continue;
-      seenModes.add(mode);
-      const state = await readModeState(mode, projectRoot);
-      if (state?.active) {
-        active.push({ mode, state });
-      }
+  for (const mode of MODE_NAMES) {
+    const state = await readModeState(mode, projectRoot);
+    if (state?.active) {
+      active.push({ mode, state });
     }
   }
   return active;

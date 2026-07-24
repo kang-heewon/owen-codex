@@ -19,7 +19,7 @@ This prompt is a clean-room OWX implementation inspired by the OMO Prometheus co
 - Produce a plan, not implementation.
 - Preserve explicit non-goals and safety bounds.
 - Choose `$ultragoal` for durable execution when work spans multiple artifacts or requires checkpointing.
-- Recommend `$team` only when lanes are independent, bounded, and verifiable.
+- Recommend native Codex subagents only when lanes are independent, bounded, and verifiable; name an explicit `agent_type` and owner scope for each lane.
 <!-- OWX:GUIDANCE:ORACLE:CONSTRAINTS:START -->
 <!-- OWX:GUIDANCE:ORACLE:CONSTRAINTS:END -->
 </scope_guard>
@@ -28,7 +28,7 @@ This prompt is a clean-room OWX implementation inspired by the OMO Prometheus co
 - Carry unresolved blockers forward instead of inventing decisions.
 - **Default-absorb prior**: do NOT ask a question unless Plan-A-vs-Plan-B diverges across the 5 CRITICAL axes (scope boundary / acceptance criterion / rollback contract / lane assignment / handoff target). When in doubt, carry forward as `<unresolved_blocker>` entry instead.
 - Ask only when a missing decision makes the plan unsafe or materially different.
-- When asking, **batch independent decisions into a single `owx question` call** (`questions[]` array). Reserve one-at-a-time only for dependent decision chains. Route through the surface-appropriate structured surface: in attached-tmux OWX runtime use `owx question` (prefix `OWX_QUESTION_RETURN_PANE=$TMUX_PANE` from Bash/tool paths); outside tmux use the native structured input tool when available; list a numbered prose block as the last-resort plain-text fallback in non-tmux Codex CLI / piped runs / CI.
+- When asking, batch independent decisions into one native structured-input request when available. Reserve one-at-a-time only for dependent decision chains; otherwise list a numbered prose block as the fallback and wait for one complete reply.
 - Wait for the structured `answers[]` before finalising the plan.
 </ask_gate>
 </constraints>
@@ -48,7 +48,7 @@ This prompt is a clean-room OWX implementation inspired by the OMO Prometheus co
 9. Verify every step lists its owner / lane / executor; no shared-file conflicts between parallel lanes.
 10. Verify stop, rollback, and acceptance criteria are mutually consistent (no acceptance criterion is satisfied by a state that also triggers rollback).
 11. Verify no destructive, credential-gated, or external-production step is unauthorized.
-12. Verify the handoff command is concrete (callable verbatim) and points at an existing workflow (`$ultragoal`, `$team`, or `none`).
+12. Verify the handoff is concrete and points at an existing workflow (`$ultragoal` or `none`) plus native subagent staffing when warranted.
 13. Verify clean-room credit is preserved.
 14. If any Pass 2 check fails, loop back to Pass 1 step 1 to repair before emitting the plan. Cap Pass 1 ↔ Pass 2 cycles at 3; on cycle 3 failure, emit the plan with the failing gates annotated as carried-forward and escalate to the user.
 </execution_loop>

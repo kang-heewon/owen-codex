@@ -3,11 +3,9 @@ import assert from 'node:assert/strict';
 import {
   getVerbosity,
   isEventAllowedByVerbosity,
-  shouldIncludeTmuxTail,
   isEventEnabled,
 } from '../config.js';
-import { formatSessionEnd, formatSessionIdle, formatSessionStop } from '../formatter.js';
-import type { FullNotificationConfig, FullNotificationPayload, VerbosityLevel } from '../types.js';
+import type { FullNotificationConfig, VerbosityLevel } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,15 +18,6 @@ function makeConfig(overrides: Partial<FullNotificationConfig> = {}): FullNotifi
     ...overrides,
   };
 }
-
-const basePayload: FullNotificationPayload = {
-  event: 'session-end',
-  sessionId: 'test-session-1',
-  message: '',
-  timestamp: '2026-02-19T12:00:00.000Z',
-  projectPath: '/home/user/my-project',
-  projectName: 'my-project',
-};
 
 // ---------------------------------------------------------------------------
 // getVerbosity
@@ -121,25 +110,6 @@ describe('isEventAllowedByVerbosity', () => {
     assert.equal(isEventAllowedByVerbosity('verbose', 'session-end'), true);
     assert.equal(isEventAllowedByVerbosity('verbose', 'session-idle'), true);
     assert.equal(isEventAllowedByVerbosity('verbose', 'ask-user-question'), true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// shouldIncludeTmuxTail
-// ---------------------------------------------------------------------------
-
-describe('shouldIncludeTmuxTail', () => {
-  it('returns false for minimal', () => {
-    assert.equal(shouldIncludeTmuxTail('minimal'), false);
-  });
-  it('returns true for session', () => {
-    assert.equal(shouldIncludeTmuxTail('session'), true);
-  });
-  it('returns true for agent', () => {
-    assert.equal(shouldIncludeTmuxTail('agent'), true);
-  });
-  it('returns true for verbose', () => {
-    assert.equal(shouldIncludeTmuxTail('verbose'), true);
   });
 });
 
@@ -253,48 +223,3 @@ describe('isEventEnabled with verbosity', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Formatter tmux tail inclusion
-// ---------------------------------------------------------------------------
-
-describe('formatter tmux tail inclusion', () => {
-  it('formatSessionEnd includes tmux tail when present', () => {
-    const msg = formatSessionEnd({
-      ...basePayload,
-      durationMs: 60000,
-      reason: 'session_exit',
-      tmuxTail: '$ npm test\nAll tests passed\n$',
-    });
-    assert.ok(msg.includes('Recent output:'));
-    assert.ok(msg.includes('npm test'));
-    assert.ok(msg.includes('All tests passed'));
-  });
-
-  it('formatSessionEnd omits tmux tail when absent', () => {
-    const msg = formatSessionEnd({
-      ...basePayload,
-      durationMs: 60000,
-      reason: 'session_exit',
-    });
-    assert.ok(!msg.includes('Recent output:'));
-  });
-
-  it('formatSessionIdle includes tmux tail when present', () => {
-    const msg = formatSessionIdle({
-      ...basePayload,
-      event: 'session-idle',
-      tmuxTail: 'waiting for input...',
-    });
-    assert.ok(msg.includes('Recent output:'));
-    assert.ok(msg.includes('waiting for input...'));
-  });
-
-  it('formatSessionStop includes tmux tail when present', () => {
-    const msg = formatSessionStop({
-      ...basePayload,
-      event: 'session-stop',
-      tmuxTail: 'iteration 3/10 complete',
-    });
-    assert.ok(msg.includes('Recent output:'));
-    assert.ok(msg.includes('iteration 3/10 complete'));
-  });
-});

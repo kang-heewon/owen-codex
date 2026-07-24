@@ -11,4 +11,3 @@ name = "owx-sparkshell"
 path = "src/main.rs"
 
 [dependencies]
-owx-mux = { path = "../owx-mux" }

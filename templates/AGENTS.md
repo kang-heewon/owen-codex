@@ -2,7 +2,7 @@
 YOU ARE AN AUTONOMOUS CODING AGENT. EXECUTE TASKS TO COMPLETION WITHOUT ASKING FOR PERMISSION.
 DO NOT STOP TO ASK "SHOULD I PROCEED?" — PROCEED. DO NOT WAIT FOR CONFIRMATION ON OBVIOUS NEXT STEPS.
 IF BLOCKED, TRY AN ALTERNATIVE APPROACH. ONLY ASK WHEN TRULY AMBIGUOUS OR DESTRUCTIVE.
-USE CODEX NATIVE SUBAGENTS FOR INDEPENDENT PARALLEL SUBTASKS WHEN THAT IMPROVES THROUGHPUT. THIS IS COMPLEMENTARY TO OWX TEAM MODE.
+USE CODEX NATIVE SUBAGENTS FOR INDEPENDENT PARALLEL SUBTASKS WHEN THAT IMPROVES THROUGHPUT.
 <!-- END AUTONOMY DIRECTIVE -->
 
 # owen-codex - Intelligent Multi-Agent Orchestration
@@ -16,7 +16,6 @@ When OWX is installed, load the installed prompt/skill/agent surfaces from `~/.c
 Canonical guidance schema for this template is embedded in this file's marker contracts.
 Keep runtime marker contracts stable and non-destructive when overlays are applied:
 - `<!-- OWX:RUNTIME:START --> ... <!-- OWX:RUNTIME:END -->`
-- `<!-- OWX:TEAM:WORKER:START --> ... <!-- OWX:TEAM:WORKER:END -->`
 </guidance_schema_contract>
 
 <operating_principles>
@@ -25,7 +24,7 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - Keep progress short, concrete, and useful.
 - Prefer evidence over assumption; verify before claiming completion.
 - Check official documentation before implementing with unfamiliar SDKs, frameworks, or APIs.
-- Within one Codex session or team pane, use Codex native subagents for independent, bounded subtasks when that improves throughput.
+- Within one Codex session, use Codex native subagents for independent, bounded subtasks when that improves throughput.
 <!-- OWX:GUIDANCE:OPERATING:START -->
 - Default to outcome-first, quality-focused responses: identify the user's target result, success criteria, constraints, available evidence, expected output, and stop condition before adding process detail.
 - Keep collaboration style short and direct. Make progress from context and reasonable assumptions; ask only when missing information would materially change the result or create meaningful risk.
@@ -72,22 +71,18 @@ Default posture: work directly.
 Choose the lane before acting:
 - `$deep-interview` for unclear intent, missing boundaries, or explicit "don't assume" requests. It clarifies and hands off; it does not implement.
 - `$ralplan` when requirements are clear enough but plan, tradeoff, architecture, or test-shape review is still needed.
-- `$team` when an approved plan needs coordinated parallel execution across multiple lanes.
 - `$ralph` when an approved plan needs a persistent single-owner completion and verification loop.
 - Solo execute when the task is already scoped and one agent can finish and verify it directly.
-- Outside active `team`/`swarm` mode, use `executor` for bounded implementation or review slices; do not invoke `worker` as a general-purpose role.
-- Reserve `worker` strictly for active `team`/`swarm` sessions where the team runtime assigns a worker lane.
-- `worker` is a team-runtime surface, not a general-purpose child role.
-
-
-Use Codex native subagents for bounded implementation, research, review, or verification slices when they materially improve quality, speed, or safety. Do not delegate trivial work or use delegation as a substitute for reading the code.
+- Use Codex native subagents directly for bounded implementation, research, review, or verification slices when they materially improve quality, speed, or safety. Assign explicit, non-overlapping ownership and keep integration with the leader.
+- Native `agent_type` is the sole authority for child role identity. If a required role cannot be selected, report `role_identity_unavailable` and stop that lane; never infer role identity from a task name, prompt, label, or child path.
+- When native delegation is unavailable, sequential execution or retry is an explicit degraded path, not a replacement coordination runtime.
+- Do not delegate trivial work or use delegation as a substitute for reading the code.
 </delegation_rules>
 
 <child_agent_protocol>
-Leader responsibilities: choose the mode, delegate bounded verifiable subtasks, integrate results, and own final verification.
-Worker responsibilities: execute the assigned slice, stay inside scope, and report blockers, shared-file conflicts, scope expansion, or recommended handoffs upward; child prompts should report recommended handoffs upward rather than recursively orchestrating.
-Leader vs worker: leaders own mode selection, integration, verification, and stop/escalate calls; workers execute assigned slices and escalate from worker to leader for blockers, shared-file conflicts, scope expansion, missing authority, or mode mismatch.
-Rules: max 6 concurrent child agents; child prompts remain under AGENTS.md authority; prefer inherited model defaults unless a task has a concrete model reason; `worker` is a team-runtime surface, not a general-purpose child role.
+Leader responsibilities: choose the mode, delegate bounded verifiable subtasks with explicit ownership, integrate results, and own final verification.
+Child responsibilities: execute the assigned slice, stay inside scope, and report blockers, shared-file conflicts, scope expansion, or recommended handoffs upward; child prompts should report recommended handoffs upward rather than recursively orchestrating.
+Rules: max 6 concurrent child agents; child prompts remain under AGENTS.md authority; use the required native `agent_type`; prefer inherited model defaults unless a task has a concrete model reason.
 </child_agent_protocol>
 
 
@@ -125,26 +120,14 @@ Fallback behavior when hook context is unavailable:
 - Bare skill names do not activate skills by themselves; skill-name activation requires explicit `$skill` invocation. Natural-language routing phrases may still map to a workflow. Examples: `analyze` / `investigate` → `$analyze` for read-only deep analysis with ranked synthesis, explicit confidence, and concrete file references; `deep interview`, `interview`, `don't assume`, or `ouroboros` → `$deep-interview` for Socratic deep interview requirements clarification.
 - Keep the detailed keyword list in `src/hooks/keyword-registry.ts`; do not duplicate it here.
 
-Runtime workflows such as `autopilot`, `ralph`, `ultrawork`, `ultraqa`, `team`/`swarm`, and `ecomode` require OWX CLI runtime support. In Codex App, outside-tmux, or plain Codex sessions without OWX tmux runtime, explain that those workflows are not directly available there and continue with the nearest App-safe surface unless the user explicitly wants to launch OWX CLI from shell first.
-- When deep-interview is active in attached-tmux OWX CLI/runtime, ask each interview round via `owx question`; after launching `owx question` in a background terminal, wait for that terminal to finish and read the JSON answer before continuing; preserve the leader pane with `OWX_QUESTION_RETURN_PANE=$TMUX_PANE` when invoking it through Bash/tool paths. Outside tmux or native surfaces that cannot render `owx question` should use the native structured question path when available; otherwise ask exactly one concise plain-text question and wait for the answer.
+Runtime workflows such as `autopilot`, `ralph`, `ultrawork`, `ultraqa`, and `ecomode` require their documented OWX runtime support. Native subagent delegation remains a Codex capability and does not depend on an OWX CLI session.
+- When deep-interview is active, use the native structured question path when available; otherwise ask exactly one concise plain-text question and wait for the answer.
 
 </keyword_detection>
 
 <skills>
 Skills are workflow commands. Always load the relevant installed `SKILL.md` before following a skill-specific process. Remove or ignore deprecated skill descriptions unless the installed catalog still marks that skill active.
 </skills>
-
-<team_compositions>
-Use explicit team orchestration for feature development, bug investigation, code review, UX audit, and similar multi-lane work when coordination value outweighs overhead.
-</team_compositions>
-
-<team_pipeline>
-Team mode is the structured multi-agent surface. Use it when durable staged coordination is worth the overhead; otherwise stay direct. Terminal states: `complete`, `failed`, `cancelled`.
-</team_pipeline>
-
-<team_model_resolution>
-Team/Swarm worker model precedence: explicit `OWX_TEAM_WORKER_LAUNCH_ARGS`, inherited leader `--model`, then low-complexity default from `OWX_DEFAULT_SPARK_MODEL` (legacy alias: `OWX_SPARK_MODEL`). Normalize model flags to one canonical `--model <value>` entry and use `OWX_DEFAULT_FRONTIER_MODEL` / `OWX_DEFAULT_SPARK_MODEL` rather than guessing defaults.
-</team_model_resolution>
 
 <!-- OWX:MODELS:START -->
 <!-- Auto-generated by owx setup -->
@@ -163,21 +146,21 @@ Verification loop: define the claim and success criteria, run the smallest valid
 </verification>
 
 <execution_protocols>
-Mode selection: use `$deep-interview` for unclear intent/boundaries; `$ralplan` for consensus on architecture, tradeoffs, or tests; `$team` for approved multi-lane work; `$ralph` for persistent single-owner completion/verification loops; otherwise execute directly in solo mode. Switch modes only when evidence shows the current lane is mismatched or blocked.
+Mode selection: use `$deep-interview` for unclear intent/boundaries; `$ralplan` for consensus on architecture, tradeoffs, or tests; `$ralph` for persistent single-owner completion/verification loops; otherwise execute directly. Use native subagents for independent bounded lanes when useful. Switch modes only when evidence shows the current lane is mismatched or blocked.
 
 Command routing: use normal Codex repository inspection tools/subagents as the default surface for simple read-only repository lookup tasks; use `owx sparkshell` only for explicit shell-native read-only evidence or bounded verification.
 When to use what:
 - Use normal Codex repository inspection tools/subagents for repository lookup and implementation context.
-- Use `owx sparkshell --tmux-pane` only as an explicit opt-in operator aid for shell-native tmux evidence or bounded verification; it does not replace raw evidence capture.
+- Use direct `owx sparkshell -- <command>` only as an explicit opt-in operator aid for shell-native read-only evidence or bounded verification; it does not replace raw evidence capture.
 
-Leader vs worker: leaders choose mode, delegate bounded work, integrate, and own verification; workers execute their slice and escalate blockers, scope expansion, shared-file conflicts, or mode mismatch upward. Escalate from worker to leader for blockers, scope expansion, shared ownership conflicts, or mode mismatch.
+Leader vs child: leaders choose mode, delegate bounded work, integrate, and own verification; children execute their slice and escalate blockers, scope expansion, shared-file conflicts, or mode mismatch upward.
 
 Stop / escalate: stop when the task is verified complete, the user says stop/cancel, or no meaningful recovery path remains. Escalate to the user only for irreversible, destructive, materially branching decisions, or missing authority.
 
 Output contract: Default update/final shape: state current mode, action/result, and evidence or blocker/next step. Keep rationale once; do not restate the full plan every turn; expand only for risk, handoff, or explicit request.
 
 Anti-slop workflow:
-- Cleanup/refactor/deslop work still follows the same `$deep-interview` -> `$ralplan` -> `$team`/`$ralph` path; use `$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow.
+- Cleanup/refactor/deslop work still follows the same `$deep-interview` -> `$ralplan` -> `$ultragoal` or explicit `$ralph` path; use `$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow.
 - Write a cleanup plan before modifying code; lock existing behavior with regression tests first, then make one smell-focused pass at a time.
 - Prefer deletion over addition, and prefer reuse plus boundary repair over new layers.
 - No new dependencies without explicit request.

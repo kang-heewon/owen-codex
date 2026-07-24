@@ -18,7 +18,7 @@ Options:
 Examples:
   owx session search "worker inbox path"
   owx session search all_workers_idle --since 7d --limit 5
-  owx session search "team api" --project current --json
+  owx session search "gateway api" --project current --json
 `;
 
 const HELP_TOKENS = new Set(['--help', '-h', 'help']);

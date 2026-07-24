@@ -63,22 +63,4 @@ describe('MCP state/team tools path traversal prevention', () => {
     }
   });
 
-  it('team_* tools return hard-deprecated CLI-only errors even for traversal payloads', async () => {
-    const { handleStateToolCall } = await import('../state-server.js');
-    const wd = await mkdtemp(join(tmpdir(), 'owx-traversal-'));
-    try {
-      const resp = await handleStateToolCall({
-        params: {
-          name: 'team_read_config',
-          arguments: { team_name: '../../../etc/passwd', workingDirectory: wd },
-        },
-      });
-      assert.equal(resp.isError, true);
-      const body = JSON.parse(resp.content[0]?.text ?? '{}') as { code?: string; hint?: string };
-      assert.equal(body.code, 'deprecated_cli_only');
-      assert.match(body.hint ?? '', /owx team api read-config/);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
 });

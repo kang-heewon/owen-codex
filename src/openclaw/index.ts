@@ -37,7 +37,6 @@ import type { OpenClawHookEvent, OpenClawContext, OpenClawResult } from "./types
 import { getOpenClawConfig, resolveGateway } from "./config.js";
 import { wakeGateway, wakeCommandGateway, interpolateInstruction, isCommandGateway } from "./dispatcher.js";
 import { basename } from "path";
-import { getCurrentTmuxSession, sanitizeTmuxAlertText } from "../notifications/tmux.js";
 
 /** Whether debug logging is enabled */
 const DEBUG = process.env.OWX_OPENCLAW_DEBUG === "1";
@@ -50,12 +49,10 @@ function buildWhitelistedContext(context: OpenClawContext): OpenClawContext {
   const result: OpenClawContext = {};
   if (context.sessionId !== undefined) result.sessionId = context.sessionId;
   if (context.projectPath !== undefined) result.projectPath = context.projectPath;
-  if (context.tmuxSession !== undefined) result.tmuxSession = context.tmuxSession;
   if (context.prompt !== undefined) result.prompt = context.prompt;
   if (context.contextSummary !== undefined) result.contextSummary = context.contextSummary;
   if (context.reason !== undefined) result.reason = context.reason;
   if (context.question !== undefined) result.question = context.question;
-  if (context.tmuxTail !== undefined) result.tmuxTail = context.tmuxTail;
   if (context.replyChannel !== undefined) result.replyChannel = context.replyChannel;
   if (context.replyTarget !== undefined) result.replyTarget = context.replyTarget;
   if (context.replyThread !== undefined) result.replyThread = context.replyThread;
@@ -94,36 +91,23 @@ export async function wakeOpenClaw(
     const replyTarget = context.replyTarget ?? process.env.OPENCLAW_REPLY_TARGET ?? undefined;
     const replyThread = context.replyThread ?? process.env.OPENCLAW_REPLY_THREAD ?? undefined;
 
-    const sanitizedContextTmuxTail = sanitizeTmuxAlertText(context.tmuxTail);
-
     // Merge reply context into the context object for whitelisting
     const enrichedContext: OpenClawContext = {
       ...context,
-      tmuxTail: sanitizedContextTmuxTail,
       ...(replyChannel !== undefined && { replyChannel }),
       ...(replyTarget !== undefined && { replyTarget }),
       ...(replyThread !== undefined && { replyThread }),
     };
-
-    // Auto-detect tmux session if not provided in context
-    const tmuxSession = enrichedContext.tmuxSession ?? getCurrentTmuxSession() ?? undefined;
-
-    // Preserve only explicitly supplied tmux tails. Auto-capturing stop/session-end
-    // pane history here can replay historical pane lines after a session has been
-    // stopped or completed, which creates false follow-up alerts downstream.
-    const tmuxTail = enrichedContext.tmuxTail;
 
     // Build template variables from whitelisted context fields
     const variables: Record<string, string | undefined> = {
       sessionId: enrichedContext.sessionId,
       projectPath: enrichedContext.projectPath,
       projectName: enrichedContext.projectPath ? basename(enrichedContext.projectPath) : undefined,
-      tmuxSession,
       prompt: enrichedContext.prompt,
       contextSummary: enrichedContext.contextSummary,
       reason: enrichedContext.reason,
       question: enrichedContext.question,
-      tmuxTail,
       event,
       timestamp: now,
       replyChannel,
@@ -150,8 +134,6 @@ export async function wakeOpenClaw(
         sessionId: enrichedContext.sessionId,
         projectPath: enrichedContext.projectPath,
         projectName: enrichedContext.projectPath ? basename(enrichedContext.projectPath) : undefined,
-        tmuxSession,
-        tmuxTail,
         ...(replyChannel !== undefined && { channel: replyChannel }),
         ...(replyTarget !== undefined && { to: replyTarget }),
         ...(replyThread !== undefined && { threadId: replyThread }),

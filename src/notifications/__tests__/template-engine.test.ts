@@ -72,21 +72,9 @@ describe('computeTemplateVariables', () => {
     assert.equal(vars.incompleteTasks, '');
   });
 
-  it('footer includes tmux and project when tmuxSession present', () => {
-    const vars = computeTemplateVariables(makePayload({ tmuxSession: 'main', projectName: 'proj' }));
-    assert.ok(vars.footer.includes('main'));
+  it('footer includes the project', () => {
+    const vars = computeTemplateVariables(makePayload({ projectName: 'proj' }));
     assert.ok(vars.footer.includes('proj'));
-  });
-
-  it('footer omits tmux part when tmuxSession absent', () => {
-    const vars = computeTemplateVariables(makePayload({ tmuxSession: undefined }));
-    assert.ok(!vars.footer.includes('tmux'));
-    assert.ok(vars.footer.includes('project'));
-  });
-
-  it('tmuxTailBlock is empty when tmuxTail absent', () => {
-    const vars = computeTemplateVariables(makePayload({ tmuxTail: undefined }));
-    assert.equal(vars.tmuxTailBlock, '');
   });
 });
 

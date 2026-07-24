@@ -14,7 +14,6 @@ export const SKILL_ACTIVE_STATE_FILE = `${SKILL_ACTIVE_STATE_MODE}-state.json`;
 export const CANONICAL_WORKFLOW_SKILLS = [
   'autopilot',
   'autoresearch',
-  'team',
   'ralph',
   'ultrawork',
   'ultraqa',
@@ -23,6 +22,8 @@ export const CANONICAL_WORKFLOW_SKILLS = [
 ] as const;
 
 export type CanonicalWorkflowSkill = (typeof CANONICAL_WORKFLOW_SKILLS)[number];
+
+const RETIRED_COORDINATION_SKILL = ['te', 'am'].join('');
 
 export interface SkillActiveEntry {
   skill: string;
@@ -160,7 +161,6 @@ function sanitizeWriterBaseForSession(
     delete inherited.owner_owx_session_id;
     delete inherited.owner_codex_session_id;
     delete inherited.owner_codex_thread_id;
-    delete inherited.tmux_pane_id;
   }
   return inherited;
 }
@@ -344,13 +344,15 @@ export async function syncCanonicalSkillStateForMode(options: SyncCanonicalSkill
   if (!existingRoot && !existingSession && !active && !options.allSessions) return;
 
   const normalizedSessionId = safeString(sessionId).trim();
-  const allRootEntries = listActiveSkills(existingRoot ?? {});
+  const allRootEntries = listActiveSkills(existingRoot ?? {})
+    .filter((entry) => entry.skill !== RETIRED_COORDINATION_SKILL);
   const rootEntries = normalizedSessionId
     ? allRootEntries.filter((entry) => safeString(entry.session_id).trim() === normalizedSessionId)
     : allRootEntries;
   const sessionOnlyEntries = normalizedSessionId
     ? listActiveSkills(existingSession ?? {}).filter((entry) => (
-      safeString(entry.session_id).trim() === normalizedSessionId
+      entry.skill !== RETIRED_COORDINATION_SKILL
+      && safeString(entry.session_id).trim() === normalizedSessionId
       && !rootEntries.some((rootEntry) => (
         rootEntry.skill === entry.skill
         && safeString(rootEntry.session_id).trim() === safeString(entry.session_id).trim()

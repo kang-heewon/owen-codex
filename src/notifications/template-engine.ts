@@ -6,24 +6,22 @@
  */
 
 import type { FullNotificationPayload, NotificationEvent } from "./types.js";
-import { parseTmuxTail } from "./formatter.js";
 import { basename } from "path";
 
 /** Set of known template variables for validation */
 const KNOWN_VARIABLES = new Set<string>([
   // Raw payload fields
-  "event", "sessionId", "message", "timestamp", "tmuxSession",
+  "event", "sessionId", "message", "timestamp",
   "projectPath", "projectName", "modesUsed", "contextSummary",
   "durationMs", "agentsSpawned", "agentsCompleted",
   "reason", "activeMode", "iteration", "maxIterations",
   "question", "incompleteTasks", "agentName", "agentType",
-  "tmuxTail", "tmuxPaneId",
   // Reply context (from OPENCLAW_REPLY_* env vars; populated in OpenClaw
   // instruction templates, empty in standard notification templates)
   "replyChannel", "replyTarget", "replyThread",
   // Computed variables
   "duration", "time", "modesDisplay", "iterationDisplay",
-  "agentDisplay", "projectDisplay", "footer", "tmuxTailBlock",
+  "agentDisplay", "projectDisplay", "footer",
   "reasonDisplay",
 ]);
 
@@ -57,28 +55,11 @@ function getProjectDisplay(payload: FullNotificationPayload): string {
 }
 
 /**
- * Build common footer with tmux and project info (markdown).
+ * Build common project footer (markdown).
  * Mirrors buildFooter(payload, true) in formatter.ts.
  */
 function buildFooterText(payload: FullNotificationPayload): string {
-  const parts: string[] = [];
-  if (payload.tmuxSession) {
-    parts.push(`**tmux:** \`${payload.tmuxSession}\``);
-  }
-  parts.push(`**project:** \`${getProjectDisplay(payload)}\``);
-  return parts.join(" | ");
-}
-
-/**
- * Build tmux tail block with code fence, or empty string.
- * Mirrors buildTmuxTailBlock() in formatter.ts.
- * Includes two leading newlines (blank line separator) to match formatter output.
- */
-function buildTmuxTailBlock(payload: FullNotificationPayload): string {
-  if (!payload.tmuxTail) return "";
-  const parsed = parseTmuxTail(payload.tmuxTail);
-  if (!parsed) return "";
-  return `\n\n**Recent output:**\n\`\`\`\n${parsed}\n\`\`\``;
+  return `**project:** \`${getProjectDisplay(payload)}\``;
 }
 
 /**
@@ -95,7 +76,6 @@ export function computeTemplateVariables(
   vars.sessionId = payload.sessionId || "";
   vars.message = payload.message || "";
   vars.timestamp = payload.timestamp || "";
-  vars.tmuxSession = payload.tmuxSession || "";
   vars.projectPath = payload.projectPath || "";
   vars.projectName = payload.projectName || "";
   vars.modesUsed = payload.modesUsed?.join(", ") || "";
@@ -121,8 +101,6 @@ export function computeTemplateVariables(
       : "";
   vars.agentName = payload.agentName || "";
   vars.agentType = payload.agentType || "";
-  vars.tmuxTail = payload.tmuxTail || "";
-  vars.tmuxPaneId = payload.tmuxPaneId || "";
 
   // Computed variables
   vars.duration = formatDuration(payload.durationMs);
@@ -143,7 +121,6 @@ export function computeTemplateVariables(
       : "";
   vars.projectDisplay = getProjectDisplay(payload);
   vars.footer = buildFooterText(payload);
-  vars.tmuxTailBlock = buildTmuxTailBlock(payload);
   vars.reasonDisplay = payload.reason || "unknown";
 
   return vars;
@@ -249,8 +226,7 @@ const DEFAULT_TEMPLATES: Record<NotificationEvent, string> = {
     "# Session Started\n\n" +
     "**Session:** `{{sessionId}}`\n" +
     "**Project:** `{{projectDisplay}}`\n" +
-    "**Time:** {{time}}" +
-    "{{#if tmuxSession}}\n**tmux:** `{{tmuxSession}}`{{/if}}",
+    "**Time:** {{time}}",
 
   "session-stop":
     "# Session Continuing\n" +
@@ -267,7 +243,6 @@ const DEFAULT_TEMPLATES: Record<NotificationEvent, string> = {
     "{{#if agentDisplay}}\n**Agents:** {{agentDisplay}}{{/if}}" +
     "{{#if modesDisplay}}\n**Modes:** {{modesDisplay}}{{/if}}" +
     "{{#if contextSummary}}\n\n**Summary:** {{contextSummary}}{{/if}}" +
-    "{{tmuxTailBlock}}" +
     "\n\n{{footer}}",
 
   "session-idle":
@@ -275,7 +250,6 @@ const DEFAULT_TEMPLATES: Record<NotificationEvent, string> = {
     "Codex has finished and is waiting for input.\n" +
     "{{#if reason}}\n**Reason:** {{reason}}{{/if}}" +
     "{{#if modesDisplay}}\n**Modes:** {{modesDisplay}}{{/if}}" +
-    "{{tmuxTailBlock}}" +
     "\n\n{{footer}}",
 
   "ask-user-question":

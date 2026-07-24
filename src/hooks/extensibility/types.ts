@@ -13,9 +13,6 @@ export type HookEventName =
   | 'run.blocked_on_system'
   | 'finished'
   | 'failed'
-  | 'worker.assigned'
-  | 'worker.stalled'
-  | 'worker.recovered'
   | 'retry-needed'
   | 'pr-created'
   | 'test-started'
@@ -62,26 +59,6 @@ export interface HookPluginLogContext {
   [key: string]: unknown;
 }
 
-export interface HookPluginTmuxSendKeysOptions {
-  paneId?: string;
-  sessionName?: string;
-  text: string;
-  submit?: boolean;
-  cooldownMs?: number;
-}
-
-export interface HookPluginTmuxSendKeysResult {
-  ok: boolean;
-  reason: string;
-  target?: string;
-  paneId?: string;
-  error?: string;
-}
-
-// Backward-compatible aliases
-export type HookPluginSendKeysOptions = HookPluginTmuxSendKeysOptions;
-export type HookPluginSendKeysResult = HookPluginTmuxSendKeysResult;
-
 export interface HookPluginOmxSessionState {
   session_id: string;
   native_session_id?: string;
@@ -101,23 +78,6 @@ export interface HookPluginOmxHudState {
   [key: string]: unknown;
 }
 
-export interface HookPluginOmxNotifyFallbackState {
-  pid?: number;
-  parent_pid?: number;
-  started_at?: string;
-  cwd?: string;
-  notify_script?: string;
-  poll_ms?: number;
-  pid_file?: string | null;
-  max_lifetime_ms?: number;
-  tracked_files?: number;
-  seen_turns?: number;
-  stop_reason?: string;
-  stop_signal?: string | null;
-  stopping?: boolean;
-  [key: string]: unknown;
-}
-
 export interface HookPluginOmxUpdateCheckState {
   last_checked_at?: string;
   last_seen_latest?: string;
@@ -131,18 +91,12 @@ export interface HookPluginOmxSdk {
   hud: {
     read: () => Promise<HookPluginOmxHudState | null>;
   };
-  notifyFallback: {
-    read: () => Promise<HookPluginOmxNotifyFallbackState | null>;
-  };
   updateCheck: {
     read: () => Promise<HookPluginOmxUpdateCheckState | null>;
   };
 }
 
 export interface HookPluginSdk {
-  tmux: {
-    sendKeys: (options: HookPluginTmuxSendKeysOptions) => Promise<HookPluginTmuxSendKeysResult>;
-  };
   log: {
     info: (message: string, meta?: Record<string, unknown>) => Promise<void>;
     warn: (message: string, meta?: Record<string, unknown>) => Promise<void>;
@@ -169,7 +123,6 @@ export type HookPluginDispatchStatus =
   | 'runner_error'
   | 'spawn_failed'
   | 'runner_missing'
-  | 'skipped_team_worker'
   | 'skipped';
 
 export interface HookPluginDispatchResult {
@@ -206,8 +159,6 @@ export interface HookDispatchOptions {
   event?: HookEventEnvelope;
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
-  allowInTeamWorker?: boolean;
-  allowTeamWorkerSideEffects?: boolean;
   sideEffectsEnabled?: boolean;
   enabled?: boolean;
 }
@@ -221,7 +172,6 @@ export interface HookValidateOptions {
 export interface HookRuntimeDispatchInput {
   cwd: string;
   event: HookEventEnvelope;
-  allowTeamWorkerSideEffects?: boolean;
   sideEffectsEnabled?: boolean;
 }
 

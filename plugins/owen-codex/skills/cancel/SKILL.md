@@ -1,6 +1,6 @@
 ---
 name: cancel
-description: Cancel any active OWX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, swarm, ultrapilot, pipeline, team)
+description: Cancel any active OWX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, ultrapilot, pipeline)
 ---
 
 # Cancel Skill
@@ -21,10 +21,8 @@ Automatically detects which mode is active and cancels it:
 - **Ultrawork**: Stops parallel execution (standalone or linked)
 - **Ecomode**: Stops token-efficient parallel execution (standalone or linked to ralph)
 - **UltraQA**: Stops QA cycling workflow
-- **Swarm**: Stops coordinated agent swarm, releases claimed tasks
 - **Ultrapilot**: Stops parallel autopilot workers
 - **Pipeline**: Stops sequential agent pipeline
-- **Team**: Sends shutdown inbox to all workers, waits for exit, kills tmux session, and clears team state
 
 ## Usage
 
@@ -39,7 +37,6 @@ Or say: "cancelomc", "stopomc"
 `/cancel` follows the session-aware state contract:
 - By default the command inspects the current session via `state_list_active` and `state_get_status`, navigating `.owx/state/sessions/{sessionId}/…` to discover which mode is active.
 - When a session id is provided or already known, that session-scoped path is authoritative. Legacy files in `.owx/state/*.json` are consulted only as a compatibility fallback if the session id is missing or empty.
-- Swarm is a shared SQLite/marker mode (`.owx/state/swarm.db` / `.owx/state/swarm-active.marker`) and is not session-scoped.
 - The default cleanup flow calls `state_clear` with the session id to remove only the matching session files; modes stay bound to their originating session.
 
 ## Normative Ralph cancellation post-conditions (MUST)
@@ -59,11 +56,9 @@ Active modes are still cancelled in dependency order:
 3. Ultrawork (standalone)
 4. Ecomode (standalone)
 5. UltraQA (standalone)
-6. Swarm (standalone)
-7. Ultrapilot (standalone)
-8. Pipeline (standalone)
-9. Team (tmux-based)
-10. Plan Consensus (standalone)
+6. Ultrapilot (standalone)
+7. Pipeline (standalone)
+8. Plan Consensus (standalone)
 
 ## Normative Ralph post-conditions (MUST)
 
@@ -88,8 +83,7 @@ Use `--force` or `--all` when you need to erase every session plus legacy artifa
 Steps under the hood:
 1. `state_list_active` enumerates `.owx/state/sessions/{sessionId}/…` to find every known session.
 2. `state_clear` runs once per session to drop that session’s files.
-3. A global `state_clear` without `session_id` removes legacy files under `.owx/state/*.json`, `.owx/state/swarm*.db`, and compatibility artifacts (see list).
-4. Team artifacts (`.owx/state/team/*/`, tmux sessions matching `owx-team-*`) are best-effort cleared as part of the legacy fallback.
+3. A global `state_clear` without `session_id` removes legacy files under `.owx/state/*.json` and compatibility artifacts (see list).
 
 Every `state_clear` command honors the `session_id` argument, so even force mode still uses the session-aware paths first before deleting legacy files.
 
@@ -101,11 +95,6 @@ Legacy compatibility list (removed only under `--force`/`--all`):
 - `.owx/state/ultrawork-state.json`
 - `.owx/state/ecomode-state.json`
 - `.owx/state/ultraqa-state.json`
-- `.owx/state/swarm.db`
-- `.owx/state/swarm.db-wal`
-- `.owx/state/swarm.db-shm`
-- `.owx/state/swarm-active.marker`
-- `.owx/state/swarm-tasks.db`
 - `.owx/state/ultrapilot-state.json`
 - `.owx/state/ultrapilot-ownership.json`
 - `.owx/state/pipeline-state.json`
@@ -139,7 +128,7 @@ fi
 The skill now relies on the session-aware state contract rather than hard-coded file paths:
 1. Call `state_list_active` to enumerate `.owx/state/sessions/{sessionId}/…` and discover every active session.
 2. For each session id, call `state_get_status` to learn which mode is running (`autopilot`, `ralph`, `ultrawork`, etc.) and whether dependent modes exist.
-3. If a `session_id` was supplied to `/cancel`, skip legacy fallback entirely and operate solely within that session path; otherwise, consult legacy files in `.owx/state/*.json` only if the state tools report no active session. Swarm remains a shared SQLite/marker mode outside session scoping.
+3. If a `session_id` was supplied to `/cancel`, skip legacy fallback entirely and operate solely within that session path; otherwise, consult legacy files in `.owx/state/*.json` only if the state tools report no active session.
 4. Any cancellation logic in this doc mirrors the dependency order discovered via state tools (autopilot → ralph → …).
 
 ### 3A. Force Mode (if --force or --all)
@@ -147,67 +136,6 @@ The skill now relies on the session-aware state contract rather than hard-coded 
 Use force mode to clear every session plus legacy artifacts via `state_clear`. Direct file removal is reserved for legacy cleanup when the state tools report no active sessions.
 
 ### 3B. Smart Cancellation (default)
-
-#### If Team Active (tmux-based)
-
-Teams are detected by checking for config files in `.owx/state/team/`:
-
-```bash
-# Check for active teams
-ls .owx/state/team/*/config.json 2>/dev/null
-```
-
-**Two-pass cancellation protocol:**
-
-**Pass 1: Graceful Shutdown**
-```
-For each team found in .owx/state/team/:
-  1. Read config.json to get team_name and workers list
-  2. For each worker:
-     a. Write shutdown inbox to .owx/state/team/{name}/workers/{worker}/inbox.md
-     b. Send short trigger via tmux send-keys
-     c. Wait up to 15 seconds for worker tmux pane to exit
-     d. If still alive: mark as unresponsive
-```
-
-**Pass 2: Force Kill**
-```
-After graceful pass:
-  1. For each remaining alive worker:
-     a. Send C-c via tmux send-keys
-     b. Wait 2 seconds
-     c. Kill the tmux window if still alive
-  2. Destroy the tmux session: tmux kill-session -t owx-team-{name}
-```
-
-**Cleanup:**
-```
-  1. Strip AGENTS.md team worker overlay (<!-- OWX:TEAM:WORKER:START/END -->)
-  2. Remove team state directory: rm -rf .owx/state/team/{name}/
-  3. Clear team mode state: state_clear(mode="team")
-  4. Emit structured cancel report
-```
-
-**Structured Cancel Report:**
-```
-Team "{team_name}" cancelled:
-  - Workers signaled: N
-  - Graceful exits: M
-  - Force killed: K
-  - tmux session destroyed: yes/no
-  - State cleaned up: yes/no
-```
-
-**Implementation note:** The cancel skill is executed by the LLM, not as a bash script. When you detect an active team:
-1. Check `.owx/state/team/*/config.json` for active teams
-2. For each worker in config.workers, write shutdown inbox and send trigger
-3. Wait briefly for workers to exit (15s timeout)
-4. Force kill remaining workers via tmux
-5. Destroy tmux session: `tmux kill-session -t owx-team-{name}`
-6. Strip AGENTS.md overlay
-7. Remove state: `rm -rf .owx/state/team/{name}/`
-8. `state_clear(mode="team")`
-9. Report structured summary to user
 
 #### If Autopilot Active
 
@@ -334,8 +262,7 @@ The cancel skill runs as follows:
 1. Parse the `--force` / `--all` flags, tracking whether cleanup should span every session or stay scoped to the current session id.
 2. Use `state_list_active` to enumerate known session ids and `state_get_status` to learn the active mode (`autopilot`, `ralph`, `ultrawork`, etc.) for each session.
 3. When operating in default mode, call `state_clear` with that session_id to remove only the session’s files, then run mode-specific cleanup (autopilot → ralph → …) based on the state tool signals.
-4. In force mode, iterate every active session, call `state_clear` per session, then run a global `state_clear` without `session_id` to drop legacy files (`.owx/state/*.json`, compatibility artifacts) and report success. Swarm remains a shared SQLite/marker mode outside session scoping.
-5. Team artifacts (`.owx/state/team/*/`, tmux sessions matching `owx-team-*`) remain best-effort cleanup items invoked during the legacy/global pass.
+4. In force mode, iterate every active session, call `state_clear` per session, then run a global `state_clear` without `session_id` to drop legacy files (`.owx/state/*.json`, compatibility artifacts) and report success.
 
 State tools always honor the `session_id` argument, so even force mode still clears the session-scoped paths before deleting compatibility-only legacy state.
 
@@ -349,10 +276,8 @@ Mode-specific subsections below describe what extra cleanup each handler perform
 | Ultrawork | "Ultrawork cancelled. Parallel execution mode deactivated." |
 | Ecomode | "Ecomode cancelled. Token-efficient execution mode deactivated." |
 | UltraQA | "UltraQA cancelled. QA cycling workflow stopped." |
-| Swarm | "Swarm cancelled. Coordinated agents stopped." |
 | Ultrapilot | "Ultrapilot cancelled. Parallel autopilot workers stopped." |
 | Pipeline | "Pipeline cancelled. Sequential agent chain stopped." |
-| Team | "Team cancelled. Teammates shut down and cleaned up." |
 | Plan Consensus | "Plan Consensus cancelled. Planning session ended." |
 | Force | "All OWX modes cleared. You are free to start fresh." |
 | None | "No active OWX modes detected." |
@@ -365,7 +290,6 @@ Mode-specific subsections below describe what extra cleanup each handler perform
 | Ralph | No | N/A |
 | Ultrawork | No | N/A |
 | UltraQA | No | N/A |
-| Swarm | No | N/A |
 | Ultrapilot | No | N/A |
 | Pipeline | No | N/A |
 | Plan Consensus | Yes (plan file path preserved) | N/A |
@@ -377,21 +301,3 @@ Mode-specific subsections below describe what extra cleanup each handler perform
 - **Safe**: Only clears linked Ultrawork, preserves standalone Ultrawork
 - **Local-only**: Clears state files in `.owx/state/` directory
 - **Resume-friendly**: Autopilot state is preserved for seamless resume
-- **Team-aware**: Detects tmux-based teams and performs graceful shutdown with force-kill fallback
-
-## Tmux Team Cleanup
-
-When cancelling team mode, the cancel skill should:
-
-1. **Kill all team tmux sessions**: `tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^owx-team-'` and kill each
-2. **Remove team state directories**: `rm -rf .owx/state/team/*/`
-3. **Strip AGENTS.md overlay**: Remove content between `<!-- OWX:TEAM:WORKER:START -->` and `<!-- OWX:TEAM:WORKER:END -->`
-
-### Force Clear Addition
-
-When `--force` is used, also clean up:
-```bash
-rm -rf .owx/state/team/                  # All team state
-# Kill all owx-team-* tmux sessions
-tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^owx-team-' | while read s; do tmux kill-session -t "$s" 2>/dev/null; done
-```

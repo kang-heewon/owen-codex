@@ -756,7 +756,6 @@ describe('runImmediateUpdate', () => {
             '--plugin',
             '--mcp',
             'none',
-            '--disable-team',
           ]);
           return { ok: true, stderr: '' };
         },
@@ -1046,7 +1045,7 @@ describe('runDeferredGlobalUpdate', () => {
 
       assert.equal(result.ok, true);
       assert.equal(calls.length, 1);
-      assert.match(calls[0].args[1], /'owx' 'setup' '--scope' 'user' '--plugin' '--mcp' 'none' '--disable-team'/);
+      assert.match(calls[0].args[1], /'owx' 'setup' '--scope' 'user' '--plugin' '--mcp' 'none'/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
@@ -1086,7 +1085,7 @@ describe('runDeferredGlobalUpdate', () => {
 
       assert.equal(result.ok, true);
       assert.equal(calls.length, 1);
-      assert.match(calls[0].args[1], /'owx' 'setup' '--scope' 'user' '--plugin' '--mcp' 'none' '--disable-team'/);
+      assert.match(calls[0].args[1], /'owx' 'setup' '--scope' 'user' '--plugin' '--mcp' 'none'/);
       assert.doesNotMatch(calls[0].args[1], /compat/);
       assert.doesNotMatch(calls[0].args[1], /legacy/);
     } finally {
@@ -1199,7 +1198,6 @@ describe('post-update setup refresh handoff', () => {
         '--plugin',
         '--mcp',
         'none',
-        '--disable-team',
       ]);
       assert.deepEqual(resolveSetupRefreshArgs(cwd), [
         'setup',
@@ -1208,7 +1206,6 @@ describe('post-update setup refresh handoff', () => {
         '--plugin',
         '--mcp',
         'none',
-        '--disable-team',
       ]);
     } finally {
       await rm(cwd, { recursive: true, force: true });

@@ -52,7 +52,7 @@ export interface StageResult {
 
 /**
  * A single stage in the pipeline. Implementations wrap concrete execution
- * backends (deep-interview, ralplan, ultragoal, code-review, ultraqa, and legacy team/Ralph adapters) behind this uniform interface.
+ * backends (deep-interview, ralplan, ultragoal, code-review, ultraqa, and legacy Ralph adapters) behind this uniform interface.
  */
 export interface PipelineStage {
   /** Unique name for this stage (e.g. 'deep-interview', 'ralplan', 'ultragoal', 'code-review'). */
@@ -96,14 +96,6 @@ export interface PipelineConfig {
    * Passed through to the ralph stage. Defaults to 10.
    */
   maxRalphIterations?: number;
-
-  /**
-   * Legacy worker count for adapters that still launch team execution. Defaults to 2.
-   */
-  workerCount?: number;
-
-  /** Agent type for team workers (e.g. 'executor'). Defaults to 'executor'. */
-  agentType?: string;
 
   /** Callback fired on each stage transition. */
   onStageTransition?: (from: string, to: string) => void;
@@ -174,9 +166,4 @@ export interface PipelineModeStateExtension {
   /** Quality-gate retry ceiling; legacy name retained for API compatibility. */
   pipeline_max_ralph_iterations: number;
 
-  /** Worker count for team execution. */
-  pipeline_worker_count: number;
-
-  /** Agent type for team workers. */
-  pipeline_agent_type: string;
 }

@@ -43,7 +43,7 @@ Supported setup flags (current implementation):
    - else default `legacy` unless a plugin cache is discovered
 3. Create directories and persist effective scope/install mode
 4. In legacy mode, install prompts/native agents/skills and merge full config.toml. In plugin mode, archive/remove legacy OWX-managed prompts/skills, refresh installable native agent TOMLs for `agent_type` routing, clean up stale generated non-installable native agents, and keep native Codex hooks installed.
-5. Verify Team CLI API interop markers exist in built `dist/cli/team.js`
+5. Verify native Codex agent definitions and plugin mirror consistency
 6. Generate AGENTS.md defaults only when selected/allowed (or legacy behavior outside plugin mode)
 7. Configure notify hook references outside plugin mode and write `./.owx/hud-config.json`
 

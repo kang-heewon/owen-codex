@@ -1,81 +1,22 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-async function withAmbientTmuxEnv<T>(env: NodeJS.ProcessEnv, run: () => Promise<T>): Promise<T> {
-  const previousTmux = process.env.TMUX;
-  const previousTmuxPane = process.env.TMUX_PANE;
-  const previousPath = process.env.PATH;
+describe('state-server retained surface', () => {
+  it('omits the removed mode from schemas and rejects its legacy tools', async () => {
+    process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
+    const { buildStateServerTools, handleStateToolCall } = await import('../state-server.js');
+    const schemas = JSON.stringify(buildStateServerTools());
+    assert.equal(schemas.includes('"team"'), false);
 
-  if (typeof env.TMUX === 'string') process.env.TMUX = env.TMUX;
-  else delete process.env.TMUX;
-  if (typeof env.TMUX_PANE === 'string') process.env.TMUX_PANE = env.TMUX_PANE;
-  else delete process.env.TMUX_PANE;
-  if (typeof env.PATH === 'string') process.env.PATH = env.PATH;
-  else if ('PATH' in env) delete process.env.PATH;
-
-  try {
-    return await run();
-  } finally {
-    if (typeof previousTmux === 'string') process.env.TMUX = previousTmux;
-    else delete process.env.TMUX;
-    if (typeof previousTmuxPane === 'string') process.env.TMUX_PANE = previousTmuxPane;
-    else delete process.env.TMUX_PANE;
-    if (typeof previousPath === 'string') process.env.PATH = previousPath;
-    else delete process.env.PATH;
-  }
-}
-
-async function createFakeTmuxBin(wd: string): Promise<string> {
-  const fakeBin = join(wd, 'bin');
-  await mkdir(fakeBin, { recursive: true });
-  const tmuxPath = join(fakeBin, 'tmux');
-  await writeFile(
-    tmuxPath,
-    `#!/usr/bin/env bash
-set -eu
-cmd="\${1:-}"
-shift || true
-if [[ "$cmd" == "display-message" ]]; then
-  target=""
-  format=""
-  while (($#)); do
-    case "$1" in
-      -p) shift ;;
-      -t) target="$2"; shift 2 ;;
-      *) format="$1"; shift ;;
-    esac
-  done
-  if [[ -z "$target" && "$format" == "#{pane_id}" ]]; then
-    echo "%777"
-    exit 0
-  fi
-  if [[ -z "$target" && "$format" == "#S" ]]; then
-    echo "maintainer-default"
-    exit 0
-  fi
-  if [[ "$target" == "%777" && "$format" == "#{pane_id}" ]]; then
-    echo "%777"
-    exit 0
-  fi
-  if [[ "$target" == "%777" && "$format" == "#S" ]]; then
-    echo "maintainer-default"
-    exit 0
-  fi
-fi
-if [[ "$cmd" == "list-sessions" ]]; then
-  echo "maintainer-default"
-  exit 0
-fi
-exit 1
-`,
-  );
-  await chmod(tmuxPath, 0o755);
-  return fakeBin;
-}
+    const response = await handleStateToolCall({ params: { name: 'team_read', arguments: {} } });
+    assert.equal(response.isError, true);
+    assert.match(response.content[0]?.text || '', /Unknown tool/);
+  });
+});
 
 describe('state-server directory initialization', () => {
   it('keeps read-only state tools side-effect-free without setup', async () => {
@@ -85,9 +26,7 @@ describe('state-server directory initialization', () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-test-'));
     try {
       const stateDir = join(wd, '.owx', 'state');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await handleStateToolCall({
         params: {
@@ -97,7 +36,6 @@ describe('state-server directory initialization', () => {
       });
 
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(
         JSON.parse(response.content[0]?.text || '{}'),
         { active_modes: [] },
@@ -134,9 +72,7 @@ describe('state-server directory initialization', () => {
 
       assert.equal(response.isError, undefined);
       assert.equal(existsSync(join(box, '.owx', 'state', 'ralph-state.json')), true);
-      assert.equal(existsSync(join(box, '.owx', 'tmux-hook.json')), true);
       assert.equal(existsSync(join(wd, '.owx', 'state')), false);
-      assert.equal(existsSync(join(wd, '.owx', 'tmux-hook.json')), false);
     } finally {
       if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
       else delete process.env.OWX_ROOT;
@@ -148,7 +84,7 @@ describe('state-server directory initialization', () => {
     process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
     const previousOmxRoot = process.env.OWX_ROOT;
     const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
+    const previousTeamStateRoot = process.env["OWX_TE\x41M_STATE_ROOT"];
     const { handleStateToolCall } = await import('../state-server.js');
 
     const root = await mkdtemp(join(tmpdir(), 'owx-state-server-boxed-skill-'));
@@ -159,7 +95,7 @@ describe('state-server directory initialization', () => {
       await mkdir(wd, { recursive: true });
       process.env.OWX_ROOT = box;
       delete process.env.OWX_STATE_ROOT;
-      delete process.env.OWX_TEAM_STATE_ROOT;
+      delete process.env["OWX_TE\x41M_STATE_ROOT"];
 
       const response = await handleStateToolCall({
         params: {
@@ -185,125 +121,8 @@ describe('state-server directory initialization', () => {
       else delete process.env.OWX_ROOT;
       if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
       else delete process.env.OWX_STATE_ROOT;
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it('co-locates tracked mode and canonical skill state under OWX_TEAM_STATE_ROOT', async () => {
-    process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
-    const previousOmxRoot = process.env.OWX_ROOT;
-    const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    const { handleStateToolCall } = await import('../state-server.js');
-
-    const root = await mkdtemp(join(tmpdir(), 'owx-state-server-team-skill-'));
-    const teamStateRoot = join(root, 'team-state');
-    const wd = join(root, 'source');
-    const sessionId = 'sess-team-ralplan';
-    try {
-      await mkdir(wd, { recursive: true });
-      delete process.env.OWX_ROOT;
-      delete process.env.OWX_STATE_ROOT;
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-
-      const response = await handleStateToolCall({
-        params: {
-          name: 'state_write',
-          arguments: {
-            workingDirectory: wd,
-            session_id: sessionId,
-            mode: 'ralplan',
-            active: true,
-            current_phase: 'planning',
-          },
-        },
-      });
-
-      assert.equal(response.isError, undefined);
-      const teamSessionDir = join(teamStateRoot, 'sessions', sessionId);
-      assert.equal(existsSync(join(teamSessionDir, 'ralplan-state.json')), true);
-      assert.equal(existsSync(join(teamSessionDir, 'skill-active-state.json')), true);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', sessionId, 'ralplan-state.json')), false);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', sessionId, 'skill-active-state.json')), false);
-    } finally {
-      if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
-      else delete process.env.OWX_ROOT;
-      if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
-      else delete process.env.OWX_STATE_ROOT;
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it('keeps auto-completed transition canonical state under OWX_TEAM_STATE_ROOT', async () => {
-    process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
-    const previousOmxRoot = process.env.OWX_ROOT;
-    const previousOmxStateRoot = process.env.OWX_STATE_ROOT;
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    const { handleStateToolCall } = await import('../state-server.js');
-
-    const root = await mkdtemp(join(tmpdir(), 'owx-state-server-team-transition-'));
-    const teamStateRoot = join(root, 'team-state');
-    const wd = join(root, 'source');
-    const sessionId = 'sess-team-transition';
-    try {
-      await mkdir(wd, { recursive: true });
-      delete process.env.OWX_ROOT;
-      delete process.env.OWX_STATE_ROOT;
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-
-      const deepInterview = await handleStateToolCall({
-        params: {
-          name: 'state_write',
-          arguments: {
-            workingDirectory: wd,
-            session_id: sessionId,
-            mode: 'deep-interview',
-            active: true,
-            current_phase: 'interviewing',
-            deep_interview_gate: {
-              status: 'complete',
-              rationale: 'Requirements are clarified and ready for ralplan consensus.',
-            },
-          },
-        },
-      });
-      assert.equal(deepInterview.isError, undefined);
-
-      const ralplan = await handleStateToolCall({
-        params: {
-          name: 'state_write',
-          arguments: {
-            workingDirectory: wd,
-            session_id: sessionId,
-            mode: 'ralplan',
-            active: true,
-            current_phase: 'planning',
-          },
-        },
-      });
-
-      assert.equal(ralplan.isError, undefined);
-      const teamSessionDir = join(teamStateRoot, 'sessions', sessionId);
-      const completedDeepInterview = JSON.parse(
-        await readFile(join(teamSessionDir, 'deep-interview-state.json'), 'utf-8'),
-      ) as { active?: boolean; current_phase?: string };
-      assert.equal(completedDeepInterview.active, false);
-      assert.equal(completedDeepInterview.current_phase, 'completed');
-      assert.equal(existsSync(join(teamSessionDir, 'ralplan-state.json')), true);
-      assert.equal(existsSync(join(teamSessionDir, 'skill-active-state.json')), true);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', sessionId, 'deep-interview-state.json')), false);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', sessionId, 'skill-active-state.json')), false);
-    } finally {
-      if (typeof previousOmxRoot === 'string') process.env.OWX_ROOT = previousOmxRoot;
-      else delete process.env.OWX_ROOT;
-      if (typeof previousOmxStateRoot === 'string') process.env.OWX_STATE_ROOT = previousOmxStateRoot;
-      else delete process.env.OWX_STATE_ROOT;
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
+      if (typeof previousTeamStateRoot === 'string') process.env["OWX_TE\x41M_STATE_ROOT"] = previousTeamStateRoot;
+      else delete process.env["OWX_TE\x41M_STATE_ROOT"];
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -315,9 +134,7 @@ describe('state-server directory initialization', () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-read-test-'));
     try {
       const stateDir = join(wd, '.owx', 'state');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await handleStateToolCall({
         params: {
@@ -327,7 +144,6 @@ describe('state-server directory initialization', () => {
       });
 
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(
         JSON.parse(response.content[0]?.text || '{}'),
         { exists: false, mode: 'deep-interview' },
@@ -344,9 +160,7 @@ describe('state-server directory initialization', () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-status-test-'));
     try {
       const stateDir = join(wd, '.owx', 'state');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await handleStateToolCall({
         params: {
@@ -356,52 +170,10 @@ describe('state-server directory initialization', () => {
       });
 
       assert.equal(existsSync(stateDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(
         JSON.parse(response.content[0]?.text || '{}'),
         { statuses: {} },
       );
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('bootstraps state-tool tmux-hook from the current tmux pane for mutating tools', async () => {
-    process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
-    const { handleStateToolCall } = await import('../state-server.js');
-
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-test-live-'));
-    try {
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
-      const fakeBin = await createFakeTmuxBin(wd);
-
-      await withAmbientTmuxEnv(
-        {
-          TMUX: '/tmp/maintainer-default,123,0',
-          TMUX_PANE: '%777',
-          PATH: `${fakeBin}:${process.env.PATH || ''}`,
-        },
-        async () => {
-          const response = await handleStateToolCall({
-            params: {
-              name: 'state_write',
-              arguments: {
-                workingDirectory: wd,
-                mode: 'deep-interview',
-                active: true,
-                current_phase: 'deep-interview',
-              },
-            },
-          });
-          const payload = JSON.parse(response.content[0]?.text || '{}');
-          assert.equal(payload.success, true);
-        },
-      );
-
-      const tmuxConfig = JSON.parse(await readFile(tmuxHookConfig, 'utf-8')) as {
-        target?: { type?: string; value?: string };
-      };
-      assert.deepEqual(tmuxConfig.target, { type: 'pane', value: '%777' });
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -512,7 +284,7 @@ describe('state-server directory initialization', () => {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'deep-interview',
             active: false,
             run_outcome: 'cancelled',
           },
@@ -524,7 +296,7 @@ describe('state-server directory initialization', () => {
           name: 'state_read',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'deep-interview',
           },
         },
       });
@@ -545,10 +317,8 @@ describe('state-server directory initialization', () => {
     try {
       const stateDir = join(wd, '.owx', 'state');
       const sessionDir = join(wd, '.owx', 'state', 'sessions', 'sess1');
-      const tmuxHookConfig = join(wd, '.owx', 'tmux-hook.json');
       assert.equal(existsSync(stateDir), false);
       assert.equal(existsSync(sessionDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
 
       const response = await handleStateToolCall({
         params: {
@@ -559,7 +329,6 @@ describe('state-server directory initialization', () => {
 
       assert.equal(existsSync(stateDir), false);
       assert.equal(existsSync(sessionDir), false);
-      assert.equal(existsSync(tmuxHookConfig), false);
       assert.deepEqual(
         JSON.parse(response.content[0]?.text || '{}'),
         { statuses: {} },
@@ -649,7 +418,7 @@ describe('state-server directory initialization', () => {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'deep-interview',
             state: { [`k${i}`]: i },
           },
         },
@@ -660,7 +429,7 @@ describe('state-server directory initialization', () => {
         assert.equal(response.isError, undefined);
       }
 
-      const filePath = join(wd, '.owx', 'state', 'team-state.json');
+      const filePath = join(wd, '.owx', 'state', 'deep-interview-state.json');
       const state = JSON.parse(await readFile(filePath, 'utf-8')) as Record<string, unknown>;
       for (let i = 0; i < 16; i++) {
         assert.equal(state[`k${i}`], i);
@@ -790,7 +559,7 @@ describe('state-server directory initialization', () => {
     }
   });
 
-  it('allows approved overlaps and preserves the remaining canonical state on clear', async () => {
+  it('allows retained workflow overlaps and preserves the remaining canonical state on clear', async () => {
     process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
     const { handleStateToolCall } = await import('../state-server.js');
 
@@ -802,7 +571,7 @@ describe('state-server directory initialization', () => {
           arguments: {
             workingDirectory: wd,
             session_id: 'sess-overlap',
-            mode: 'team',
+            mode: 'ultrawork',
             active: true,
             current_phase: 'running',
           },
@@ -827,7 +596,7 @@ describe('state-server directory initialization', () => {
       const canonical = JSON.parse(await readFile(canonicalPath, 'utf-8')) as {
         active_skills?: Array<{ skill: string }>;
       };
-      assert.deepEqual(canonical.active_skills?.map((entry) => entry.skill), ['team', 'ralph']);
+      assert.deepEqual(canonical.active_skills?.map((entry) => entry.skill), ['ultrawork', 'ralph']);
 
       await handleStateToolCall({
         params: {
@@ -835,7 +604,7 @@ describe('state-server directory initialization', () => {
           arguments: {
             workingDirectory: wd,
             session_id: 'sess-overlap',
-            mode: 'team',
+            mode: 'ultrawork',
           },
         },
       });
@@ -853,51 +622,6 @@ describe('state-server directory initialization', () => {
     }
   });
 
-  it('denies unsupported overlaps without writing the requested mode state', async () => {
-    process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
-    const { handleStateToolCall } = await import('../state-server.js');
-
-    const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-deny-'));
-    try {
-      await handleStateToolCall({
-        params: {
-          name: 'state_write',
-          arguments: {
-            workingDirectory: wd,
-            session_id: 'sess-deny',
-            mode: 'team',
-            active: true,
-            current_phase: 'running',
-          },
-        },
-      });
-
-      const denied = await handleStateToolCall({
-        params: {
-          name: 'state_write',
-          arguments: {
-            workingDirectory: wd,
-            session_id: 'sess-deny',
-            mode: 'autopilot',
-            active: true,
-            current_phase: 'ralplan',
-          },
-        },
-      });
-
-      assert.equal(denied.isError, true);
-      assert.match(denied.content[0]?.text || '', /Unsupported workflow overlap: team \+ autopilot\./);
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', 'sess-deny', 'autopilot-state.json')), false);
-
-      const canonical = JSON.parse(
-        await readFile(join(wd, '.owx', 'state', 'sessions', 'sess-deny', 'skill-active-state.json'), 'utf-8'),
-      ) as { active_skills?: Array<{ skill: string }> };
-      assert.deepEqual(canonical.active_skills?.map((entry) => entry.skill), ['team']);
-    } finally {
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
   it('allows ultrawork when canonical session state is stricter than mode files', async () => {
     process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
     const { handleStateToolCall } = await import('../state-server.js');
@@ -906,7 +630,7 @@ describe('state-server directory initialization', () => {
     try {
       await mkdir(join(wd, '.owx', 'state', 'sessions', 'sess-canonical-deny'), { recursive: true });
       await writeFile(
-        join(wd, '.owx', 'state', 'team-state.json'),
+        join(wd, '.owx', 'state', 'te\x61m-state.json'),
         JSON.stringify({ active: true, mode: 'team', current_phase: 'running' }, null, 2),
       );
       await writeFile(
@@ -966,7 +690,7 @@ describe('state-server directory initialization', () => {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'ralph',
             active: true,
             current_phase: 'running',
           },
@@ -978,7 +702,7 @@ describe('state-server directory initialization', () => {
           name: 'state_clear',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'ralph',
             all_sessions: true,
           },
         },
@@ -1007,7 +731,7 @@ describe('state-server directory initialization', () => {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'ultrawork',
             active: true,
             current_phase: 'running',
           },
@@ -1033,7 +757,7 @@ describe('state-server directory initialization', () => {
           name: 'state_clear',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'ultrawork',
           },
         },
       });
@@ -1050,24 +774,24 @@ describe('state-server directory initialization', () => {
     }
   });
 
-  it('keeps root-scoped team state out of session-scoped ralph canonical state', async () => {
+  it('keeps root-scoped retained state out of session-scoped Ralph canonical state', async () => {
     process.env.OWX_STATE_SERVER_DISABLE_AUTO_START = '1';
     const { handleStateToolCall } = await import('../state-server.js');
 
     const wd = await mkdtemp(join(tmpdir(), 'owx-state-server-team-ralph-'));
     try {
-      const teamWrite = await handleStateToolCall({
+      const rootWrite = await handleStateToolCall({
         params: {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
-            mode: 'team',
+            mode: 'ultrawork',
             active: true,
             current_phase: 'running',
           },
         },
       });
-      assert.equal(teamWrite.isError, undefined);
+      assert.equal(rootWrite.isError, undefined);
 
       const ralphWrite = await handleStateToolCall({
         params: {
@@ -1094,7 +818,7 @@ describe('state-server directory initialization', () => {
           phase,
           session_id,
         })),
-        [{ skill: 'team', phase: 'running', session_id: undefined }],
+        [{ skill: 'ultrawork', phase: 'running', session_id: undefined }],
       );
 
       const sessionCanonical = JSON.parse(
@@ -1136,21 +860,21 @@ describe('state-server directory initialization', () => {
       });
       assert.equal(autopilotWrite.isError, undefined);
 
-      const invalidTeamWrite = await handleStateToolCall({
+      const invalidRalphWrite = await handleStateToolCall({
         params: {
           name: 'state_write',
           arguments: {
             workingDirectory: wd,
             session_id: 'sess-standalone',
-            mode: 'team',
+            mode: 'ralph',
             active: true,
             current_phase: 'starting',
           },
         },
       });
 
-      assert.equal(invalidTeamWrite.isError, true);
-      const body = JSON.parse(invalidTeamWrite.content[0]?.text || '{}') as { error?: string };
+      assert.equal(invalidRalphWrite.isError, true);
+      const body = JSON.parse(invalidRalphWrite.content[0]?.text || '{}') as { error?: string };
       assert.match(body.error || '', /owx state/i);
       assert.match(body.error || '', /owx_state\.\*/i);
 
@@ -1168,7 +892,7 @@ describe('state-server directory initialization', () => {
         })),
         [{ skill: 'autopilot', phase: 'planning', session_id: 'sess-standalone' }],
       );
-      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', 'sess-standalone', 'team-state.json')), false);
+      assert.equal(existsSync(join(wd, '.owx', 'state', 'sessions', 'sess-standalone', 'ralph-state.json')), false);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

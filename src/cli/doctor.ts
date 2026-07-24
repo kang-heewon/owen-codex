@@ -30,7 +30,6 @@ import {
 } from "./explore.js";
 import { getPackageRoot } from "../utils/package.js";
 import {
-	hasLegacyOmxTeamRunTable,
 	getModelContextRecommendation,
 } from "../config/generator.js";
 import {
@@ -41,7 +40,6 @@ import {
 	getMissingManagedCodexHookEvents,
 } from "../config/codex-hooks.js";
 import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
-import { getDefaultBridge, isBridgeEnabled } from "../runtime/bridge.js";
 import {
 	OWX_EXPLORE_CMD_ENV,
 	isExploreCommandRoutingEnabled,
@@ -50,7 +48,6 @@ import {
 	OWX_LORE_COMMIT_GUARD_ENV,
 	isLoreCommitGuardEnabled,
 } from "../config/commit-lore-guard.js";
-import { isLeaderRuntimeStale } from "../team/leader-activity.js";
 import { triagePrompt } from "../hooks/triage-heuristic.js";
 import { readTriageConfig } from "../hooks/triage-config.js";
 import {
@@ -86,7 +83,6 @@ interface DoctorOptions {
 	verbose?: boolean;
 	force?: boolean;
 	dryRun?: boolean;
-	team?: boolean;
 }
 
 interface Check {
@@ -160,11 +156,6 @@ function resolveDoctorPaths(cwd: string, scope: DoctorSetupScope): DoctorPaths {
 }
 
 export async function doctor(options: DoctorOptions = {}): Promise<void> {
-	if (options.team) {
-		await doctorTeam();
-		return;
-	}
-
 	const cwd = process.cwd();
 	const scopeResolution = await resolveDoctorScope(cwd);
 	const paths = resolveDoctorPaths(cwd, scopeResolution.scope);
@@ -316,325 +307,6 @@ export async function doctor(options: DoctorOptions = {}): Promise<void> {
 	} else {
 		console.log("\nAll checks passed! owen-codex is ready.");
 	}
-}
-
-interface TeamDoctorIssue {
-	code:
-		| "delayed_status_lag"
-		| "slow_shutdown"
-		| "orphan_tmux_session"
-		| "resume_blocker"
-		| "prompt_resume_unavailable"
-		| "stale_leader";
-	message: string;
-	severity: "warn" | "fail";
-}
-
-async function doctorTeam(): Promise<void> {
-	console.log("owen-codex doctor --team");
-	console.log("=========================\n");
-
-	const issues = await collectTeamDoctorIssues(process.cwd());
-	if (issues.length === 0) {
-		console.log("  [OK] team diagnostics: no issues");
-		console.log("\nAll team checks passed.");
-		return;
-	}
-
-	const failureCount = issues.filter(
-		(issue) => issue.severity === "fail",
-	).length;
-	const warningCount = issues.length - failureCount;
-
-	for (const issue of issues) {
-		const icon = issue.severity === "warn" ? "[!!]" : "[XX]";
-		console.log(`  ${icon} ${issue.code}: ${issue.message}`);
-	}
-
-	console.log(`\nResults: ${warningCount} warnings, ${failureCount} failed`);
-	// Ensure non-zero exit for `owx doctor --team` failures.
-	if (failureCount > 0) process.exitCode = 1;
-}
-
-async function collectTeamDoctorIssues(
-	cwd: string,
-): Promise<TeamDoctorIssue[]> {
-	const issues: TeamDoctorIssue[] = [];
-	const stateDir = owxStateDir(cwd);
-	const teamsRoot = join(stateDir, "team");
-	const nowMs = Date.now();
-	const lagThresholdMs = 60_000;
-	const shutdownThresholdMs = 30_000;
-	const leaderStaleThresholdMs = 180_000;
-
-	// Rust-first: if the runtime bridge is enabled, use Rust-authored readiness
-	// and authority as the semantic truth source for runtime health.
-	if (isBridgeEnabled()) {
-		const bridge = getDefaultBridge(stateDir);
-		const readiness = bridge.readReadiness();
-		const authority = bridge.readAuthority();
-		if (readiness && !readiness.ready) {
-			for (const reason of readiness.reasons) {
-				issues.push({
-					code: "resume_blocker",
-					message: `runtime not ready: ${reason}`,
-					severity: "fail",
-				});
-			}
-		}
-		if (authority?.stale) {
-			issues.push({
-				code: "stale_leader",
-				message: `authority stale (owner: ${authority.owner ?? "unknown"}): ${authority.stale_reason ?? "unknown reason"}`,
-				severity: "fail",
-			});
-		}
-	}
-
-	const teamDirs: string[] = [];
-	if (existsSync(teamsRoot)) {
-		const entries = await readdir(teamsRoot, { withFileTypes: true });
-		for (const e of entries) {
-			if (e.isDirectory()) teamDirs.push(e.name);
-		}
-	}
-
-	const tmuxSessions = listTeamTmuxSessions();
-	const tmuxUnavailable = tmuxSessions === null;
-	const knownTeamSessions = new Set<string>();
-
-	for (const teamName of teamDirs) {
-		const teamDir = join(teamsRoot, teamName);
-		const manifestPath = join(teamDir, "manifest.v2.json");
-		const configPath = join(teamDir, "config.json");
-
-		let tmuxSession = `owx-team-${teamName}`;
-		let workerLaunchMode: "interactive" | "prompt" = "interactive";
-		let promptWorkers: Array<{ name?: string; pid?: number }> = [];
-		if (existsSync(manifestPath)) {
-			try {
-				const raw = await readFile(manifestPath, "utf-8");
-				const parsed = JSON.parse(raw) as {
-					tmux_session?: string;
-					policy?: { worker_launch_mode?: string };
-					workers?: Array<{ name?: string; pid?: number }>;
-				};
-				if (
-					typeof parsed.tmux_session === "string" &&
-					parsed.tmux_session.trim() !== ""
-				) {
-					tmuxSession = parsed.tmux_session;
-				}
-				if (parsed.policy?.worker_launch_mode === "prompt") {
-					workerLaunchMode = "prompt";
-				}
-				if (Array.isArray(parsed.workers)) promptWorkers = parsed.workers;
-			} catch {
-				// ignore malformed manifest
-			}
-		} else if (existsSync(configPath)) {
-			try {
-				const raw = await readFile(configPath, "utf-8");
-				const parsed = JSON.parse(raw) as {
-					tmux_session?: string;
-					worker_launch_mode?: string;
-					workers?: Array<{ name?: string; pid?: number }>;
-				};
-				if (
-					typeof parsed.tmux_session === "string" &&
-					parsed.tmux_session.trim() !== ""
-				) {
-					tmuxSession = parsed.tmux_session;
-				}
-				if (parsed.worker_launch_mode === "prompt") {
-					workerLaunchMode = "prompt";
-				}
-				if (Array.isArray(parsed.workers)) promptWorkers = parsed.workers;
-			} catch {
-				// ignore malformed config
-			}
-		}
-
-		knownTeamSessions.add(tmuxSession);
-
-		if (workerLaunchMode === "prompt") {
-			for (const worker of promptWorkers) {
-				const pid = worker.pid ?? 0;
-				if (Number.isFinite(pid) && pid > 0 && isPidAlive(pid)) {
-					issues.push({
-						code: "prompt_resume_unavailable",
-						message: `${teamName}/${worker.name ?? "unknown"} pid ${pid} appears to be running, but doctor cannot verify that the PID still belongs to the original prompt-mode worker after CLI restart; if this is the original worker, shut it down or start a new team`,
-						severity: "warn",
-					});
-				}
-			}
-		} else if (!tmuxUnavailable && !tmuxSessions.has(tmuxSession)) {
-			// resume_blocker: only meaningful if tmux is available to query for interactive teams.
-			issues.push({
-				code: "resume_blocker",
-				message: `${teamName} references missing tmux session ${tmuxSession}`,
-				severity: "fail",
-			});
-		}
-
-		// delayed_status_lag + slow_shutdown checks
-		const workersRoot = join(teamDir, "workers");
-		if (!existsSync(workersRoot)) continue;
-		const workers = await readdir(workersRoot, { withFileTypes: true });
-		for (const worker of workers) {
-			if (!worker.isDirectory()) continue;
-			const workerDir = join(workersRoot, worker.name);
-			const statusPath = join(workerDir, "status.json");
-			const heartbeatPath = join(workerDir, "heartbeat.json");
-			const shutdownReqPath = join(workerDir, "shutdown-request.json");
-			const shutdownAckPath = join(workerDir, "shutdown-ack.json");
-
-			if (existsSync(statusPath) && existsSync(heartbeatPath)) {
-				try {
-					const [statusRaw, hbRaw] = await Promise.all([
-						readFile(statusPath, "utf-8"),
-						readFile(heartbeatPath, "utf-8"),
-					]);
-					const status = JSON.parse(statusRaw) as { state?: string };
-					const hb = JSON.parse(hbRaw) as { last_turn_at?: string };
-					const lastTurnMs = hb.last_turn_at
-						? Date.parse(hb.last_turn_at)
-						: NaN;
-					if (
-						status.state === "working" &&
-						Number.isFinite(lastTurnMs) &&
-						nowMs - lastTurnMs > lagThresholdMs
-					) {
-						issues.push({
-							code: "delayed_status_lag",
-							message: `${teamName}/${worker.name} working with stale heartbeat`,
-							severity: "fail",
-						});
-					}
-				} catch {
-					// ignore malformed files
-				}
-			}
-
-			if (existsSync(shutdownReqPath) && !existsSync(shutdownAckPath)) {
-				try {
-					const reqRaw = await readFile(shutdownReqPath, "utf-8");
-					const req = JSON.parse(reqRaw) as { requested_at?: string };
-					const reqMs = req.requested_at ? Date.parse(req.requested_at) : NaN;
-					if (Number.isFinite(reqMs) && nowMs - reqMs > shutdownThresholdMs) {
-						issues.push({
-							code: "slow_shutdown",
-							message: `${teamName}/${worker.name} has stale shutdown request without ack`,
-							severity: "fail",
-						});
-					}
-				} catch {
-					// ignore malformed files
-				}
-			}
-		}
-	}
-
-	// stale_leader: team has active workers but leader has no recent activity
-	const hudStatePath = join(stateDir, "hud-state.json");
-	const leaderActivityPath = join(stateDir, "leader-runtime-activity.json");
-	if (
-		(existsSync(hudStatePath) || existsSync(leaderActivityPath)) &&
-		teamDirs.length > 0
-	) {
-		try {
-			const leaderIsStale = await isLeaderRuntimeStale(
-				stateDir,
-				leaderStaleThresholdMs,
-				nowMs,
-			);
-
-			if (leaderIsStale && !tmuxUnavailable) {
-				// Check if any team tmux session has live worker panes
-				for (const teamName of teamDirs) {
-					const session = knownTeamSessions.has(`owx-team-${teamName}`)
-						? `owx-team-${teamName}`
-						: [...knownTeamSessions].find((s) => s.includes(teamName));
-					if (!session || !tmuxSessions.has(session)) continue;
-					issues.push({
-						code: "stale_leader",
-						message: `${teamName} has active tmux session but leader has no recent activity`,
-						severity: "fail",
-					});
-				}
-			}
-		} catch {
-			// ignore malformed HUD state
-		}
-	}
-
-	// orphan_tmux_session: session exists but no matching team state
-	if (!tmuxUnavailable) {
-		for (const session of tmuxSessions) {
-			if (!knownTeamSessions.has(session)) {
-				issues.push({
-					code: "orphan_tmux_session",
-					message: `${session} exists without matching team state (possibly external project)`,
-					severity: "warn",
-				});
-			}
-		}
-	}
-
-	return dedupeIssues(issues);
-}
-
-function isPidAlive(pid: number): boolean {
-  if (!Number.isFinite(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ESRCH') return false;
-    return false;
-  }
-}
-
-function dedupeIssues(issues: TeamDoctorIssue[]): TeamDoctorIssue[] {
-	const seen = new Set<string>();
-	const out: TeamDoctorIssue[] = [];
-	for (const issue of issues) {
-		const key = `${issue.code}:${issue.message}`;
-		if (seen.has(key)) continue;
-		seen.add(key);
-		out.push(issue);
-	}
-	return out;
-}
-
-function listTeamTmuxSessions(): Set<string> | null {
-	const { result: res } = spawnPlatformCommandSync(
-		"tmux",
-		["list-sessions", "-F", "#{session_name}"],
-		{ encoding: "utf-8" },
-	);
-	if (res.error) {
-		// tmux binary unavailable or not executable.
-		return null;
-	}
-
-	if (res.status !== 0) {
-		const stderr = (res.stderr || "").toLowerCase();
-		// tmux installed but no server/session is running.
-		if (
-			stderr.includes("no server running") ||
-			stderr.includes("failed to connect to server")
-		) {
-			return new Set();
-		}
-		return null;
-	}
-
-	const sessions = (res.stdout || "")
-		.split("\n")
-		.map((s) => s.trim())
-		.filter((s) => s.startsWith("owx-team-"));
-	return new Set(sessions);
 }
 
 function checkCodexCli(): Check {
@@ -836,15 +508,6 @@ async function checkConfig(configPath: string): Promise<Check> {
 				name: "Config",
 				status: "fail",
 				message: `invalid config.toml (${hint})`,
-			};
-		}
-
-		if (hasLegacyOmxTeamRunTable(content)) {
-			return {
-				name: "Config",
-				status: "warn",
-				message:
-					'retired [mcp_servers.owx_team_run] table still present; run "owx setup --force" to repair the config',
 			};
 		}
 
@@ -1169,7 +832,6 @@ async function checkPluginScopedNativeHooks(
 		: join(codexHomeDir, "plugins", "cache", OWX_LOCAL_MARKETPLACE_NAME, "owen-codex", "<version>");
 	const expectedHooksPath = join(expectedCacheDir, "hooks", "hooks.json");
 	const expectedHookLauncherPath = join(expectedCacheDir, "hooks", "codex-native-hook.mjs");
-	const expectedPinnedLauncherPath = join(expectedCacheDir, "hooks", "owx-command.json");
 	const state = await readOmxPluginCacheState(expectedCacheDir);
 
 	if (!state) {
@@ -1190,7 +852,7 @@ async function checkPluginScopedNativeHooks(
 		};
 	}
 
-	for (const expectedPath of [expectedHooksPath, expectedHookLauncherPath, expectedPinnedLauncherPath]) {
+	for (const expectedPath of [expectedHooksPath, expectedHookLauncherPath]) {
 		if (!existsSync(expectedPath)) {
 			return {
 				name: "Native hooks",
@@ -1206,7 +868,7 @@ async function checkPluginScopedNativeHooks(
 			name: "Native hooks",
 			status: "warn",
 			message:
-				`plugin-scoped hooks are enabled, but cached plugin hook files or pinned hook launcher in ${expectedCacheDir} do not match the packaged plugin; ${setupHooksPathDescription}; run "owx setup --plugin --force" to refresh the plugin cache`,
+				`plugin-scoped hooks are enabled, but cached plugin hook files in ${expectedCacheDir} do not match the packaged plugin; ${setupHooksPathDescription}; run "owx setup --plugin --force" to refresh the plugin cache`,
 		};
 	}
 
@@ -2322,13 +1984,6 @@ async function checkMcpServers(
 	try {
 		const content = await readFile(configPath, "utf-8");
 		const mcpCount = (content.match(/\[mcp_servers\./g) || []).length;
-		if (hasLegacyOmxTeamRunTable(content)) {
-			return {
-				name: "MCP Servers",
-				status: "warn",
-				message: `${mcpCount} servers configured, but retired [mcp_servers.owx_team_run] is not supported; run "owx setup --force" to repair the config`,
-			};
-		}
 		if (installMode === "plugin") {
 			return describePluginMcpState(content, mcpMode);
 		}

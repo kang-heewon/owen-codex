@@ -29,7 +29,6 @@ describe('owx setup prompt/native-agent overwrite behavior', () => {
       const installedNativeAgents = new Set(await readdir(nativeAgentsDir));
 
       assert.equal(installedPrompts.has('executor.md'), true);
-      assert.equal(installedPrompts.has('team-executor.md'), true);
       assert.equal(installedPrompts.has('code-reviewer.md'), true);
       assert.equal(installedPrompts.has('code-simplifier.md'), true);
 

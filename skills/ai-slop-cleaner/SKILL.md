@@ -51,7 +51,7 @@ Use this skill when:
      - **Grounded compatibility/fail-safe fallback** — is scoped to an external/version/fail-safe boundary, documents the rationale, preserves failure evidence, and has regression tests for both the primary and fallback behavior
    - Prefer root-cause repair, deletion, boundary repair, or explicit failure behavior before preserving fallback paths
    - For broad, ambiguous, cross-layer, or architectural fallback-like code, invoke `$ralplan` for consensus resolution before edits
-   - Recursion guard: when already inside ralplan, ralph, team, or another OWX workflow, do not spawn a nested `$ralplan`; record the finding and attach it to the active ralplan, leader, or plan handoff instead
+   - Recursion guard: when already inside ralplan, ralph, ultragoal, or another OWX workflow, do not spawn a nested `$ralplan`; record the finding and attach it to the active workflow or plan handoff instead
 
 4. **Categorize issues before editing**
    - **Fallback-like code** — masking fallbacks, workaround branches, bypasses, swallowed errors, silent defaults, broad shims, alternate execution paths

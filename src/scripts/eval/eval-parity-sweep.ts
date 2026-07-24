@@ -16,7 +16,6 @@ const testArgs = [
   'dist/cli/__tests__/session-search-help.test.js',
   'dist/autoresearch/__tests__/contracts.test.js',
   'dist/autoresearch/__tests__/runtime.test.js',
-  'dist/team/__tests__/worktree.test.js',
   'dist/modes/__tests__/base-autoresearch-contract.test.js',
 ];
 const test = spawnSync('node', testArgs, { encoding: 'utf-8' });

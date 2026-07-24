@@ -5,7 +5,6 @@ import {
   validateSlackMention,
   parseMentionAllowedMentions,
   buildConfigFromEnv,
-  getReplyListenerPlatformConfig,
 } from '../config.js';
 
 const ENV_KEYS = [
@@ -20,10 +19,6 @@ const ENV_KEYS = [
   'OWX_TELEGRAM_NOTIFIER_UID',
   'OWX_SLACK_WEBHOOK_URL',
   'OWX_SLACK_MENTION',
-  'OWX_REPLY_ENABLED',
-  'OWX_REPLY_DISCORD_USER_IDS',
-  'OWX_REPLY_POLL_INTERVAL_MS',
-  'OWX_REPLY_RATE_LIMIT',
 ];
 
 function clearEnvVars(): void {
@@ -270,51 +265,5 @@ describe('buildConfigFromEnv', () => {
     assert.ok(config);
     assert.equal(config['discord-bot']!.mention, '<@12345678901234567>');
     assert.equal(config.discord!.mention, '<@12345678901234567>');
-  });
-});
-
-describe('getReplyListenerPlatformConfig', () => {
-  it('does not expose credentials for disabled channels', () => {
-    const config = {
-      enabled: true,
-      telegram: {
-        enabled: false,
-        botToken: 'tg-token',
-        chatId: 'tg-chat',
-      },
-      'discord-bot': {
-        enabled: false,
-        botToken: 'dc-token',
-        channelId: 'dc-channel',
-      },
-    };
-
-    const platformConfig = getReplyListenerPlatformConfig(config);
-    assert.equal(platformConfig.telegramEnabled, false);
-    assert.equal(platformConfig.discordEnabled, false);
-    assert.equal(platformConfig.telegramBotToken, undefined);
-    assert.equal(platformConfig.discordBotToken, undefined);
-  });
-
-  it('returns credentials for enabled channels only', () => {
-    const config = {
-      enabled: true,
-      telegram: {
-        enabled: true,
-        botToken: 'tg-token',
-        chatId: 'tg-chat',
-      },
-      'discord-bot': {
-        enabled: false,
-        botToken: 'dc-token',
-        channelId: 'dc-channel',
-      },
-    };
-
-    const platformConfig = getReplyListenerPlatformConfig(config);
-    assert.equal(platformConfig.telegramEnabled, true);
-    assert.equal(platformConfig.telegramBotToken, 'tg-token');
-    assert.equal(platformConfig.discordEnabled, false);
-    assert.equal(platformConfig.discordBotToken, undefined);
   });
 });

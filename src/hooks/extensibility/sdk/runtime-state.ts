@@ -2,7 +2,6 @@ import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import type {
   HookPluginOmxHudState,
-  HookPluginOmxNotifyFallbackState,
   HookPluginOmxSessionState,
   HookPluginOmxUpdateCheckState,
   HookPluginSdk,
@@ -49,11 +48,6 @@ export function createHookPluginOmxApi(cwd: string): HookPluginSdk['owx'] {
         });
         return readOmxStateFile<HookPluginOmxHudState>(hudStatePath);
       },
-    },
-    notifyFallback: {
-      read: () => readOmxStateFile<HookPluginOmxNotifyFallbackState>(
-        owxRootStateFilePath(cwd, 'notify-fallback-state.json'),
-      ),
     },
     updateCheck: {
       read: () => readOmxStateFile<HookPluginOmxUpdateCheckState>(

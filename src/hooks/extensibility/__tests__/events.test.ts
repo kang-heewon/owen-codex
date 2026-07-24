@@ -16,9 +16,6 @@ describe('isDerivedEventName', () => {
     assert.equal(isDerivedEventName('run.heartbeat'), false);
     assert.equal(isDerivedEventName('run.blocked_on_user'), false);
     assert.equal(isDerivedEventName('run.blocked_on_system'), false);
-    assert.equal(isDerivedEventName('worker.assigned'), false);
-    assert.equal(isDerivedEventName('worker.stalled'), false);
-    assert.equal(isDerivedEventName('worker.recovered'), false);
     assert.equal(isDerivedEventName('test-started'), false);
     assert.equal(isDerivedEventName('pr-created'), false);
   });

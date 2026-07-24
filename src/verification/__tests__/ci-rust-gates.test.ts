@@ -183,7 +183,7 @@ describe('CI Rust gates', () => {
     for (const jobName of ['rustfmt', 'clippy', 'rust-tests']) {
       assertJobIf(workflow, jobName, /full_suite == 'true'.*rust_changed == 'true'.*native_changed == 'true'/s);
     }
-    for (const jobName of ['lint', 'typecheck', 'test', 'coverage-team-critical', 'ralph-persistence-gate']) {
+    for (const jobName of ['lint', 'typecheck', 'test', 'ralph-persistence-gate']) {
       assertJobIf(workflow, jobName, /full_suite == 'true'.*ts_changed == 'true'.*shared_config_changed == 'true'/s);
     }
     assertJobIf(
@@ -231,11 +231,10 @@ describe('CI Rust gates', () => {
     assert.match(workflow, /name:\s*ci-dist-node20/);
     assert.match(jobBlock(workflow, 'build-dist'), /rust_changed == 'true'/);
     assert.match(jobBlock(workflow, 'build-dist'), /native_changed == 'true'/);
-    assert.match(workflow, /^  coverage-team-critical:\s*\n(?:.*\n)*?^\s+needs:\s*\[changes, build-dist\]/m);
     assert.match(workflow, /^  ralph-persistence-gate:\s*\n(?:.*\n)*?^\s+needs:\s*\[changes, build-dist\]/m);
     assert.match(workflow, /^  build:\s*\n(?:.*\n)*?^\s+needs:\s*\[changes, build-dist\]/m);
 
-    for (const jobName of ['test', 'coverage-team-critical', 'ralph-persistence-gate', 'build']) {
+    for (const jobName of ['test', 'ralph-persistence-gate', 'build']) {
       assert.match(
         workflow,
         new RegExp(`^  ${jobName}:\\s*\\n(?:.*\\n)*?^\\s+- name:\\s*Download prebuilt dist artifact\\s*\\n\\s+uses:\\s*actions/download-artifact@v8`, 'm'),
@@ -253,7 +252,7 @@ describe('CI Rust gates', () => {
   it('uses npm package caching without skipping clean dependency installs', () => {
     const workflow = readCiWorkflow();
 
-    for (const jobName of ['lint', 'typecheck', 'build-dist', 'test', 'coverage-team-critical', 'ralph-persistence-gate', 'build']) {
+    for (const jobName of ['lint', 'typecheck', 'build-dist', 'test', 'ralph-persistence-gate', 'build']) {
       const job = jobBlock(workflow, jobName);
 
       assert.match(job, /uses:\s*actions\/setup-node@v6/);
@@ -270,7 +269,7 @@ describe('CI Rust gates', () => {
 
     assert.match(
       workflow,
-      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
+      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, ralph-persistence-gate, build\]/,
     );
   });
 
@@ -294,14 +293,13 @@ describe('CI Rust gates', () => {
       'typecheck',
       'build-dist',
       'test',
-      'coverage-team-critical',
       'ralph-persistence-gate',
       'build',
     ];
 
     assert.match(
       ciStatusJob,
-      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, coverage-team-critical, ralph-persistence-gate, build\]/,
+      /needs:\s*\[changes, rustfmt, clippy, rust-tests, lint, typecheck, build-dist, test, ralph-persistence-gate, build\]/,
     );
 
     for (const jobName of requiredJobs) {
@@ -349,7 +347,6 @@ describe('CI Rust gates', () => {
       'typecheck',
       'build-dist',
       'test',
-      'coverage-team-critical',
       'ralph-persistence-gate',
       'build',
       'ci-status',

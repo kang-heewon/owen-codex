@@ -6,10 +6,7 @@
  */
 
 import type { PipelineStage, StageContext, StageResult } from '../types.js';
-import {
-  buildFollowupStaffingPlan,
-  resolveAvailableAgentTypes,
-} from '../../team/followup-planner.js';
+import { buildNativeRolePlan, type NativeRolePlan } from '../../subagents/native-role-plan.js';
 
 export interface RalphVerifyStageOptions {
   /** Stage name. Explicit legacy Ralph paths use 'ralph'; legacy pipeline adapters use 'ralph-verify'. */
@@ -17,7 +14,7 @@ export interface RalphVerifyStageOptions {
 
   /**
    * Ordered artifact keys used as Ralph execution input.
-   * Legacy ralph-verify keeps reading prior ralph/team-exec output; explicit legacy
+   * Legacy ralph-verify reads prior Ralph output; explicit legacy
    * Ralph execution reads ralplan first so implementation starts from approved planning.
    */
   executionArtifactKeys?: readonly string[];
@@ -50,12 +47,9 @@ export function createRalphVerifyStage(options: RalphVerifyStageOptions = {}): P
 
       try {
         // Extract execution context from previous stage.
-        const executionArtifactKeys = options.executionArtifactKeys ?? ['ralph', 'team-exec'];
+        const executionArtifactKeys = options.executionArtifactKeys ?? ['ralph'];
         const executionArtifacts = pickFirstArtifact(ctx.artifacts, executionArtifactKeys);
-        const availableAgentTypes = await resolveAvailableAgentTypes(ctx.cwd);
-        const staffingPlan = buildFollowupStaffingPlan('ralph', ctx.task, availableAgentTypes, {
-          workerCount: Math.min(maxIterations, 3),
-        });
+        const rolePlan = buildNativeRolePlan(ctx.task);
 
         // Build ralph verification descriptor
         const verifyDescriptor: RalphVerifyDescriptor = {
@@ -63,8 +57,7 @@ export function createRalphVerifyStage(options: RalphVerifyStageOptions = {}): P
           maxIterations,
           cwd: ctx.cwd,
           sessionId: ctx.sessionId,
-          availableAgentTypes,
-          staffingPlan,
+          rolePlan,
           executionArtifacts: executionArtifacts ?? {},
         };
 
@@ -73,8 +66,7 @@ export function createRalphVerifyStage(options: RalphVerifyStageOptions = {}): P
           artifacts: {
             verifyDescriptor,
             maxIterations,
-            availableAgentTypes,
-            staffingPlan,
+            rolePlan,
             stage: 'ralph-verify',
             instruction: buildRalphInstruction(verifyDescriptor),
           },
@@ -104,8 +96,7 @@ export interface RalphVerifyDescriptor {
   maxIterations: number;
   cwd: string;
   sessionId?: string;
-  availableAgentTypes: string[];
-  staffingPlan: ReturnType<typeof buildFollowupStaffingPlan>;
+  rolePlan: NativeRolePlan;
   executionArtifacts: Record<string, unknown>;
 }
 
@@ -113,7 +104,7 @@ export interface RalphVerifyDescriptor {
  * Build the ralph CLI instruction from a descriptor.
  */
 export function buildRalphInstruction(descriptor: RalphVerifyDescriptor): string {
-  return `${descriptor.staffingPlan.launchHints.shellCommand} # max_iterations=${descriptor.maxIterations} # staffing=${descriptor.staffingPlan.staffingSummary} # verify=${descriptor.staffingPlan.verificationPlan.summary}`;
+  return `$ralph ${JSON.stringify(descriptor.task)} # max_iterations=${descriptor.maxIterations} # ${descriptor.rolePlan.summary}`;
 }
 
 function pickFirstArtifact(
@@ -134,6 +125,6 @@ export function createRalphStage(options: RalphVerifyStageOptions = {}): Pipelin
   return createRalphVerifyStage({
     ...options,
     stageName: 'ralph',
-    executionArtifactKeys: options.executionArtifactKeys ?? ['ralplan', 'team-exec'],
+    executionArtifactKeys: options.executionArtifactKeys ?? ['ralplan'],
   });
 }

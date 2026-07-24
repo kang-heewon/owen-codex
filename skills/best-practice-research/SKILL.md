@@ -15,14 +15,14 @@ Produce a cited, reusable best-practice answer or handoff that separates current
 ## Activate When
 
 - The user asks for best practices, recommended approach, current guidance, official recommendations, standards, or version-aware external behavior.
-- `$ralplan`, `$deep-interview`, `$team`, or another workflow needs current external evidence before planning or execution can be correct.
+- `$ralplan`, `$deep-interview`, `$ultragoal`, or another workflow needs current external evidence before planning or execution can be correct.
 - The task involves an already chosen technology and needs authoritative usage guidance, migration notes, API behavior, lifecycle rules, or current safety guidance.
 
 ## Do Not Activate When
 
 - The answer is fully repo-local; use `explore` for codebase facts.
 - The main question is whether to adopt, replace, upgrade, or compare dependencies; use `dependency-expert`.
-- The user only needs implementation against already-grounded requirements; use `executor`, `$ralph`, or `$team` as appropriate.
+- The user only needs implementation against already-grounded requirements; use an `executor` subagent, `$ultragoal`, or `$ralph` as appropriate.
 - The task can be answered from stable local project conventions without current external lookup.
 
 ## Specialist Routing

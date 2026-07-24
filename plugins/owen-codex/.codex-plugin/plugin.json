@@ -1,7 +1,7 @@
 {
   "name": "owen-codex",
   "version": "0.0.1",
-  "description": "Multi-agent orchestration layer for OpenAI Codex CLI",
+  "description": "Durable workflow and verification toolkit for OpenAI Codex",
   "author": {
     "name": "Owen",
     "url": "https://github.com/kang-heewon"
@@ -22,7 +22,7 @@
   "apps": "./.app.json",
   "interface": {
     "displayName": "owen-codex",
-    "shortDescription": "Workflow layer and skill bundle for OpenAI Codex CLI.",
+    "shortDescription": "Workflow and verification toolkit for OpenAI Codex.",
     "longDescription": "Plugin = OWX skill/workflow discovery plus plugin-scoped companion metadata for hooks, MCP servers, and apps. Setup = runtime wiring; legacy setup installs native agents/prompts, while plugin setup enables official plugin-scoped hooks, archives stale legacy native agents/prompts, and keeps config, optional AGENTS.md, HUD, and runtime state current.",
     "developerName": "Owen",
     "category": "Developer Tools"

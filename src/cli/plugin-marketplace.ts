@@ -1,8 +1,7 @@
 import { existsSync } from "fs";
-import { cp, readdir, readFile, rm, writeFile } from "fs/promises";
+import { cp, readdir, readFile, rm } from "fs/promises";
 import { join, resolve } from "path";
 import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
-import { teamModeEnabled, type SetupTeamMode } from "../config/team-mode.js";
 
 export const OWX_LOCAL_MARKETPLACE_NAME = "owen-codex-local";
 export const OWX_PLUGIN_NAME = "owen-codex";
@@ -29,9 +28,6 @@ interface PluginManifest {
 	skills?: unknown;
 	hooks?: unknown;
 }
-
-const OWX_PLUGIN_HOOK_LAUNCHER_FILE = "owx-command.json";
-const TEAM_MODE_PLUGIN_SKILL_NAMES = new Set(["team", "worker"]);
 
 export async function resolvePackagedOmxMarketplace(
 	packageRoot: string,
@@ -116,13 +112,10 @@ export async function packagedOmxPluginVersion(
 
 export async function expectedPackagedOmxSkillNames(
 	packagedMarketplace: PackagedOmxMarketplace,
-	options: { teamMode?: SetupTeamMode } = {},
 ): Promise<string[] | null> {
 	const skillNames = await listChildDirectoryNames(join(packagedMarketplace.pluginRoot, "skills"));
 	if (!skillNames) return null;
-	return skillNames.filter((name) => (
-		teamModeEnabled(options.teamMode) || !TEAM_MODE_PLUGIN_SKILL_NAMES.has(name)
-	));
+	return skillNames;
 }
 
 export function owxPluginCacheBase(codexHomeDir: string): string {
@@ -188,7 +181,6 @@ export interface OmxPluginCacheState {
 	skillsPointer: string | null;
 	skillNames: string[] | null;
 	hooksPointer: string | null;
-	hookLauncherPinned: boolean;
 }
 
 export async function readOmxPluginCacheState(
@@ -205,20 +197,16 @@ export async function readOmxPluginCacheState(
 		skillsPointer: typeof manifest.skills === "string" ? manifest.skills : null,
 		skillNames: await listChildDirectoryNames(join(cacheDir, "skills")),
 		hooksPointer: typeof manifest.hooks === "string" ? manifest.hooks : null,
-		hookLauncherPinned: existsSync(
-			join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
-		),
 	};
 }
 
 export async function hasExpectedOmxPluginCache(
 	codexHomeDir: string,
 	packagedMarketplace: PackagedOmxMarketplace,
-	options: { teamMode?: SetupTeamMode } = {},
 ): Promise<boolean> {
 	const [version, expectedSkillNames] = await Promise.all([
 		packagedOmxPluginVersion(packagedMarketplace),
-		expectedPackagedOmxSkillNames(packagedMarketplace, options),
+		expectedPackagedOmxSkillNames(packagedMarketplace),
 	]);
 	if (!version || !expectedSkillNames) return false;
 	const state = await readOmxPluginCacheState(
@@ -228,7 +216,6 @@ export async function hasExpectedOmxPluginCache(
 		state?.manifestVersion !== version ||
 		state.skillsPointer !== "./skills/" ||
 		state.hooksPointer !== "./hooks/hooks.json" ||
-		!state.hookLauncherPinned ||
 		!existsSync(join(state.cacheDir, "hooks", "hooks.json")) ||
 		!existsSync(join(state.cacheDir, "hooks", "codex-native-hook.mjs")) ||
 		JSON.stringify(state.skillNames) !== JSON.stringify(expectedSkillNames)
@@ -254,7 +241,7 @@ async function fileContentsEqual(leftPath: string, rightPath: string): Promise<b
 /**
  * Compares only plugin-scoped hook assets that Codex executes from the cache.
  * Manifest pointers and skill lists are validated by callers before using this
- * as a hook/launcher freshness predicate.
+ * as a hook-entrypoint freshness predicate.
  */
 export async function pluginHookCacheMatchesPackaged(
 	cacheDir: string,
@@ -266,57 +253,7 @@ export async function pluginHookCacheMatchesPackaged(
 	) && await fileContentsEqual(
 		join(cacheDir, "hooks", "codex-native-hook.mjs"),
 		join(packagedMarketplace.pluginRoot, "hooks", "codex-native-hook.mjs"),
-	) && await pinnedHookLauncherMatchesPackaged(
-		cacheDir,
-		packagedMarketplace,
 	);
-}
-
-function buildPinnedHookLauncherContent(
-	packagedMarketplace: PackagedOmxMarketplace,
-): string {
-	return `${JSON.stringify(
-		{
-			command: process.execPath,
-			argsPrefix: [join(packagedMarketplace.packageRoot, "dist", "cli", "owx.js")],
-		},
-		null,
-		2,
-	)}\n`;
-}
-
-async function pinnedHookLauncherMatchesPackaged(
-	cacheDir: string,
-	packagedMarketplace: PackagedOmxMarketplace,
-): Promise<boolean> {
-	try {
-		return await readFile(
-			join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
-			"utf-8",
-		) === buildPinnedHookLauncherContent(packagedMarketplace);
-	} catch {
-		return false;
-	}
-}
-
-async function writePinnedHookLauncher(
-	cacheDir: string,
-	packagedMarketplace: PackagedOmxMarketplace,
-): Promise<void> {
-	await writeFile(
-		join(cacheDir, "hooks", OWX_PLUGIN_HOOK_LAUNCHER_FILE),
-		buildPinnedHookLauncherContent(packagedMarketplace),
-	);
-}
-
-async function applyTeamModeToPluginCache(
-	cacheDir: string,
-	teamMode: SetupTeamMode | undefined,
-): Promise<void> {
-	if (teamModeEnabled(teamMode)) return;
-	for (const skillName of TEAM_MODE_PLUGIN_SKILL_NAMES) {
-		await rm(join(cacheDir, "skills", skillName), { recursive: true, force: true });
-	}
 }
 
 export interface OmxPluginCacheMaterializeResult {
@@ -328,20 +265,18 @@ export interface OmxPluginCacheMaterializeResult {
 export async function materializePackagedOmxPluginCache(
 	codexHomeDir: string,
 	packagedMarketplace: PackagedOmxMarketplace | null,
-	options: { dryRun?: boolean; teamMode?: SetupTeamMode } = {},
+	options: { dryRun?: boolean } = {},
 ): Promise<OmxPluginCacheMaterializeResult> {
 	if (!packagedMarketplace) return { status: "unavailable" };
 	const version = await packagedOmxPluginVersion(packagedMarketplace);
 	if (!version) return { status: "unavailable" };
 	const cacheDir = join(owxPluginCacheBase(codexHomeDir), version);
-	if (await hasExpectedOmxPluginCache(codexHomeDir, packagedMarketplace, options)) {
+	if (await hasExpectedOmxPluginCache(codexHomeDir, packagedMarketplace)) {
 		return { status: "unchanged", cacheDir, version };
 	}
 	if (!options.dryRun) {
 		await rm(cacheDir, { recursive: true, force: true });
 		await cp(packagedMarketplace.pluginRoot, cacheDir, { recursive: true });
-		await applyTeamModeToPluginCache(cacheDir, options.teamMode);
-		await writePinnedHookLauncher(cacheDir, packagedMarketplace);
 	}
 	return { status: "materialized", cacheDir, version };
 }

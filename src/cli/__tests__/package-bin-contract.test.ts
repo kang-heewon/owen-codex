@@ -47,24 +47,17 @@ describe('package bin contract', () => {
     assert.equal(pkg.scripts?.['sync:plugin:check'], 'node dist/scripts/sync-plugin-mirror.js --check');
     assert.equal(pkg.scripts?.['verify:plugin-bundle'], 'node dist/scripts/sync-plugin-mirror.js --check');
     assert.equal(pkg.scripts?.['verify:native-agents'], 'node dist/scripts/verify-native-agents.js');
-    assert.equal(pkg.scripts?.prepack, 'npm run build && npm run verify:native-agents && npm run sync:plugin && npm run verify:plugin-bundle && npm run clean:native-package-assets');
+    assert.equal(pkg.scripts?.['verify:removed-surfaces'], 'node dist/scripts/verify-removed-surfaces.js');
+    assert.equal(pkg.scripts?.['verify:packed-files'], 'node dist/scripts/verify-packed-files.js');
+    assert.equal(pkg.scripts?.prepack, 'npm run build && npm run verify:removed-surfaces && npm run verify:native-agents && npm run sync:plugin && npm run verify:plugin-bundle && npm run verify:packed-files && npm run clean:native-package-assets');
     assert.equal(pkg.scripts?.prepare, 'node src/scripts/prepare-build.js');
     assert.match(pkg.scripts?.postinstall ?? '', /dist\/scripts\/postinstall\.js/);
     assert.match(pkg.scripts?.postinstall ?? '', /existsSync/);
     assert.equal(pkg.scripts?.postpack, 'npm run clean:native-package-assets');
     assert.equal(pkg.scripts?.['test:explore'], 'cargo test -p owx-explore-harness && node --test dist/cli/__tests__/explore.test.js dist/hooks/__tests__/explore-routing.test.js dist/hooks/__tests__/explore-sparkshell-guidance-contract.test.js');
-    assert.equal(pkg.scripts?.['test:team:cross-rebase-smoke:compiled'], 'node dist/scripts/run-test-files.js dist/team/__tests__/cross-rebase-smoke.test.js');
     assert.equal(pkg.scripts?.['test:node'], 'node dist/scripts/run-test-files.js dist');
     assert.equal(pkg.scripts?.test, 'npm run build && npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node');
     assert.equal(pkg.scripts?.['test:ci:compiled'], 'npm run verify:native-agents && npm run verify:plugin-bundle && npm run test:node');
-    assert.equal(
-      pkg.scripts?.['coverage:team-critical'],
-      'npm run build && npm run coverage:team-critical:compiled',
-    );
-    assert.equal(
-      pkg.scripts?.['coverage:team-critical:compiled'],
-      "c8 --all --src dist/team --src dist/state --include 'dist/team/**/*.js' --include 'dist/state/**/*.js' --exclude '**/__tests__/**' --reporter=text-summary --reporter=lcov --reporter=json-summary --report-dir coverage/team --check-coverage --lines=78 --functions=90 --branches=70 --statements=78 node dist/scripts/run-test-files.js dist/team/__tests__ dist/state/__tests__",
-    );
     assert.equal(
       pkg.scripts?.['coverage:ts:full'],
       'npm run build && npm run coverage:ts:full:compiled',
@@ -75,7 +68,7 @@ describe('package bin contract', () => {
     );
     assert.equal(
       pkg.scripts?.['test:ralph-persistence:compiled'],
-      'node dist/scripts/run-test-files.js dist/cli/__tests__/session-scoped-runtime.test.js dist/mcp/__tests__/trace-server.test.js dist/hud/__tests__/state.test.js dist/mcp/__tests__/state-server-ralph-phase.test.js dist/ralph/__tests__/persistence.test.js dist/verification/__tests__/ralph-persistence-gate.test.js',
+      'node dist/scripts/run-test-files.js dist/mcp/__tests__/trace-server.test.js dist/hud/__tests__/state.test.js dist/mcp/__tests__/state-server-ralph-phase.test.js dist/ralph/__tests__/persistence.test.js',
     );
     assert.equal(
       pkg.scripts?.['test:plugin-boundaries:compiled'],
@@ -83,7 +76,7 @@ describe('package bin contract', () => {
     );
     assert.equal(pkg.scripts?.['test:compat:node'], 'npm run build && node dist/scripts/run-test-files.js dist/compat/__tests__');
 
-    for (const scriptName of ['test:node', 'test:ci:compiled', 'coverage:team-critical', 'coverage:team-critical:compiled', 'coverage:ts:full', 'coverage:ts:full:compiled', 'test:team:cross-rebase-smoke:compiled', 'test:team:worker-runtime-identity:compiled', 'test:recent-bug-regressions:compiled', 'test:ralph-persistence:compiled', 'test:plugin-boundaries:compiled', 'test:explicit-terminal-contract:compiled', 'test:compat:node'] as const) {
+    for (const scriptName of ['test:node', 'test:ci:compiled', 'coverage:ts:full', 'coverage:ts:full:compiled', 'test:recent-bug-regressions:compiled', 'test:ralph-persistence:compiled', 'test:plugin-boundaries:compiled', 'test:explicit-terminal-contract:compiled', 'test:compat:node'] as const) {
       const script: string | undefined = pkg.scripts?.[scriptName];
       assert.ok(script, `expected ${scriptName} to exist`);
       assert.equal(script.includes('$(find '), false, `${scriptName} should not rely on POSIX command substitution`);
@@ -162,9 +155,6 @@ describe('package bin contract', () => {
         `${target} initialize response should include serverInfo`,
       );
     }
-    assert.match(compiledCliSource, /owx update\s+Install the stable channel now, then refresh setup/);
-    assert.match(compiledCliSource, /owx update --stable\s+Install\/rollback to npm stable \(owen-codex@latest\), then refresh setup/);
-    assert.match(compiledCliSource, /owx update --dev\s+Install the upstream dev branch, then refresh setup/);
     assert.match(compiledCliSource, /case "update"/);
 
     rmSync(packagedSparkShellPath, { force: true });

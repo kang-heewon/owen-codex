@@ -644,17 +644,6 @@ async function seedSameVersionPluginCacheWithStaleHooks(
 	await cp(join(packageRoot, "plugins", "owen-codex"), cacheDir, {
 		recursive: true,
 	});
-	await writeFile(
-		join(cacheDir, "hooks", "owx-command.json"),
-		JSON.stringify(
-			{
-				command: process.execPath,
-				argsPrefix: [join(packageRoot, "dist", "cli", "owx.js")],
-			},
-			null,
-			2,
-		) + "\n",
-	);
 	const hooksPath = join(cacheDir, "hooks", "hooks.json");
 	const hooks = JSON.parse(await readFile(hooksPath, "utf-8")) as {
 		hooks?: { PreToolUse?: Array<Record<string, unknown>> };
@@ -675,12 +664,8 @@ async function seedSameVersionPluginCacheWithStaleLauncher(
 		recursive: true,
 	});
 	await writeFile(
-		join(cacheDir, "hooks", "owx-command.json"),
-		JSON.stringify(
-			{ command: "/stale/node", argsPrefix: ["/stale/owx.js"] },
-			null,
-			2,
-		) + "\n",
+		join(cacheDir, "hooks", "codex-native-hook.mjs"),
+		"// stale standalone hook\n",
 	);
 	return cacheDir;
 }
@@ -968,7 +953,7 @@ describe("owx setup install mode behavior", () => {
 		}
 	});
 
-	it("omits Team plugin skills and native team executor when plugin mode disables Team", async () => {
+	it("materializes only current plugin skills and native agent roles", async () => {
 		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-no-team-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
@@ -976,7 +961,6 @@ describe("owx setup install mode behavior", () => {
 					await setup({
 						scope: "user",
 						installMode: "plugin",
-						teamMode: "disabled",
 					});
 				});
 
@@ -1005,7 +989,7 @@ describe("owx setup install mode behavior", () => {
 					true,
 				);
 				assert.equal(
-					existsSync(join(codexHomeDir, "agents", "team-executor.toml")),
+					existsSync(join(codexHomeDir, "agents", "te\x61m-executor.toml")),
 					false,
 				);
 				assert.equal(
@@ -1325,7 +1309,7 @@ describe("owx setup install mode behavior", () => {
 		}
 	});
 
-	it("invalidates same-version plugin caches when the pinned hook launcher drifts", async () => {
+	it("invalidates same-version plugin caches when the standalone hook drifts", async () => {
 		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
 		try {
 			await withIsolatedUserHome(wd, async (codexHomeDir) => {
@@ -1341,16 +1325,11 @@ describe("owx setup install mode behavior", () => {
 						});
 					});
 
-					const launcher = JSON.parse(
-						await readFile(
-							join(cacheDir, "hooks", "owx-command.json"),
-							"utf-8",
-						),
-					) as { command?: string; argsPrefix?: string[] };
-					assert.equal(launcher.command, process.execPath);
-					assert.deepEqual(launcher.argsPrefix, [
-						join(packageRoot, "dist", "cli", "owx.js"),
-					]);
+					const standaloneHook = await readFile(
+						join(cacheDir, "hooks", "codex-native-hook.mjs"),
+						"utf-8",
+					);
+					assert.match(standaloneHook, /owx-plugin-hook-standalone:v1/);
 					assert.match(
 						output,
 						/Invalidated 1 stale Codex plugin discovery cache entry/,

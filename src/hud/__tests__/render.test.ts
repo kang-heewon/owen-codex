@@ -31,7 +31,6 @@ function emptyCtx(): HudRenderContext {
     autoresearch: null,
     codeReview: null,
     ultraqa: null,
-    team: null,
     metrics: null,
     hudNotify: null,
     session: null,
@@ -273,41 +272,6 @@ describe('renderHud – ultraqa', () => {
   });
 });
 
-// ── Team ──────────────────────────────────────────────────────────────────────
-
-describe('renderHud – team', () => {
-  it('renders agent count when count > 0', () => {
-    const ctx = { ...emptyCtx(), team: { active: true, agent_count: 3 } };
-    const result = renderHud(ctx, 'focused');
-    assert.ok(result.includes(`${GREEN}team:3 workers${RESET}`));
-  });
-
-  it('renders team name when count is absent', () => {
-    const ctx = { ...emptyCtx(), team: { active: true, team_name: 'my-team' } };
-    const result = renderHud(ctx, 'focused');
-    assert.ok(result.includes(`${GREEN}team:my-team${RESET}`));
-  });
-
-  it('renders bare "team" when neither count nor name is set', () => {
-    const ctx = { ...emptyCtx(), team: { active: true } };
-    const result = renderHud(ctx, 'focused');
-    assert.ok(result.includes(`${GREEN}team${RESET}`));
-  });
-
-  it('skips the count branch when agent_count is 0', () => {
-    const ctx = { ...emptyCtx(), team: { active: true, agent_count: 0 } };
-    const result = renderHud(ctx, 'focused');
-    assert.ok(!result.includes('workers'));
-    // Falls through to bare "team"
-    assert.ok(result.includes(`${GREEN}team${RESET}`));
-  });
-
-  it('omits team when null', () => {
-    const result = renderHud(emptyCtx(), 'focused');
-    assert.ok(!result.includes('team'));
-  });
-});
-
 // ── Ultragoal ────────────────────────────────────────────────────────────────
 
 describe('renderHud – ultragoal', () => {
@@ -468,10 +432,9 @@ describe('renderHud – ultragoal', () => {
     assert.ok(result.split('\n').length <= 2);
   });
 
-  it('combines active ultragoal and team into one non-duplicated focused summary', () => {
+  it('renders active ultragoal as one non-duplicated focused summary', () => {
     const ctx = {
       ...emptyCtx(),
-      team: { active: true, agent_count: 4, team_name: 'hud-fix' },
       ultragoal: {
         active: true,
         status: 'in_progress',
@@ -495,10 +458,8 @@ describe('renderHud – ultragoal', () => {
 
     const result = stripSgr(renderHud(ctx, 'focused', { maxWidth: 220, maxLines: 3 }));
 
-    assert.equal((result.match(/team:4 workers/g) ?? []).length, 1);
     assert.equal((result.match(/ultragoal 1\/4/g) ?? []).length, 1);
-    assert.ok(result.includes('ultragoal 1/4 + team:4 workers ▶ G002-team-hud: Fix combined HUD rendering'));
-    assert.ok(!result.includes(' | team:4 workers | ultragoal'));
+    assert.ok(result.includes('ultragoal 1/4 ▶ G002-team-hud: Fix combined HUD rendering'));
     assert.ok(result.split('\n').length <= 3);
   });
 
@@ -968,7 +929,7 @@ describe('renderHud – total turns (full preset)', () => {
 // ── Presets ───────────────────────────────────────────────────────────────────
 
 describe('renderHud – presets', () => {
-  it('minimal preset includes gitBranch, ralph, ultrawork, team, turns', () => {
+  it('minimal preset includes retained workflow summaries and turns', () => {
     const ctx = {
       ...emptyCtx(),
       gitBranch: 'feat/x',
@@ -978,7 +939,6 @@ describe('renderHud – presets', () => {
       deepInterview: { active: true, current_phase: 'intent-first' },
       autoresearch: { active: true, current_phase: 'running' },
       ultraqa: { active: true, current_phase: 'qa' },
-      team: { active: true, agent_count: 2 },
       metrics: { total_turns: 10, session_turns: 3, last_activity: '' },
     };
     const result = renderHud(ctx, 'minimal');
@@ -989,7 +949,6 @@ describe('renderHud – presets', () => {
     assert.ok(result.includes('interview:intent-first'));
     assert.ok(result.includes('research:running'));
     assert.ok(result.includes('qa:qa'));
-    assert.ok(result.includes('workers'));
     assert.ok(result.includes('turns:3'));
   });
 
@@ -1075,7 +1034,6 @@ describe('renderHud – wrapping', () => {
       deepInterview: { active: true, current_phase: 'intent-first' },
       autoresearch: { active: true, current_phase: 'running' },
       ultraqa: { active: true, current_phase: 'diagnose' },
-      team: { active: true, agent_count: 3 },
       metrics: {
         session_turns: 12,
         total_turns: 12,
@@ -1106,7 +1064,6 @@ describe('renderHud – sanitization', () => {
       deepInterview: { active: true, current_phase: injected, input_lock_active: true },
       autoresearch: { active: true, current_phase: injected },
       ultraqa: { active: true, current_phase: injected },
-      team: { active: true, team_name: injected },
     };
 
     const plain = stripSgr(renderHud(ctx, 'focused'));

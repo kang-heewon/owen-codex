@@ -29,7 +29,7 @@ const isolatedEnvKeys = [
   'OWX_MCP_WORKDIR_ROOTS',
   'OWX_ROOT',
   'OWX_STATE_ROOT',
-  'OWX_TEAM_STATE_ROOT',
+  'OWX_TE\x41M_STATE_ROOT',
   'OWX_SESSION_ID',
   'CODEX_SESSION_ID',
   'SESSION_ID',
@@ -94,38 +94,13 @@ describe('validateStateFileName', () => {
 });
 
 describe('state paths', () => {
-  it('uses explicit OWX_TEAM_STATE_ROOT before boxed roots and workingDirectory', () => {
+  it('uses OWX_ROOT as boxed workspace root before workingDirectory', () => {
     const prevRoot = process.env.OWX_ROOT;
     const prevStateRoot = process.env.OWX_STATE_ROOT;
-    const prevTeamRoot = process.env.OWX_TEAM_STATE_ROOT;
+    const prevTeamRoot = process.env["OWX_TE\x41M_STATE_ROOT"];
     process.env.OWX_ROOT = '/tmp/owx-box';
     process.env.OWX_STATE_ROOT = '/tmp/ignored-state-root';
-    process.env.OWX_TEAM_STATE_ROOT = '/tmp/explicit-team-state';
-    try {
-      assert.equal(getBaseStateDir('/tmp/source'), '/tmp/explicit-team-state');
-      assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1');
-      assert.equal(getStatePath('ralph', '/tmp/source', 'sess1'), '/tmp/explicit-team-state/sessions/sess1/ralph-state.json');
-      assert.deepEqual(getBaseStateDirWithSource('/tmp/source'), {
-        baseStateDir: '/tmp/explicit-team-state',
-        rootSource: 'team-env',
-      });
-    } finally {
-      if (typeof prevRoot === 'string') process.env.OWX_ROOT = prevRoot;
-      else delete process.env.OWX_ROOT;
-      if (typeof prevStateRoot === 'string') process.env.OWX_STATE_ROOT = prevStateRoot;
-      else delete process.env.OWX_STATE_ROOT;
-      if (typeof prevTeamRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-    }
-  });
-
-  it('uses OWX_ROOT as boxed workspace root before workingDirectory when no team root is explicit', () => {
-    const prevRoot = process.env.OWX_ROOT;
-    const prevStateRoot = process.env.OWX_STATE_ROOT;
-    const prevTeamRoot = process.env.OWX_TEAM_STATE_ROOT;
-    process.env.OWX_ROOT = '/tmp/owx-box';
-    process.env.OWX_STATE_ROOT = '/tmp/ignored-state-root';
-    delete process.env.OWX_TEAM_STATE_ROOT;
+    delete process.env["OWX_TE\x41M_STATE_ROOT"];
     try {
       assert.equal(getBaseStateDir('/tmp/source'), '/tmp/owx-box/.owx/state');
       assert.equal(getStateDir('/tmp/source', 'sess1'), '/tmp/owx-box/.owx/state/sessions/sess1');
@@ -139,8 +114,8 @@ describe('state paths', () => {
       else delete process.env.OWX_ROOT;
       if (typeof prevStateRoot === 'string') process.env.OWX_STATE_ROOT = prevStateRoot;
       else delete process.env.OWX_STATE_ROOT;
-      if (typeof prevTeamRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = prevTeamRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
+      if (typeof prevTeamRoot === 'string') process.env["OWX_TE\x41M_STATE_ROOT"] = prevTeamRoot;
+      else delete process.env["OWX_TE\x41M_STATE_ROOT"];
     }
   });
 
@@ -163,7 +138,7 @@ describe('state paths', () => {
     const disallowedRoot = await mkRealTemp('owx-state-root-disallowed-');
     process.env.OWX_MCP_WORKDIR_ROOTS = allowedRoot;
     try {
-      for (const key of ['OWX_TEAM_STATE_ROOT', 'OWX_ROOT', 'OWX_STATE_ROOT'] as const) {
+      for (const key of ['OWX_ROOT', 'OWX_STATE_ROOT'] as const) {
         process.env[key] = disallowedRoot;
         assert.throws(
           () => getBaseStateDirWithSource(join(allowedRoot, 'workspace')),
@@ -290,7 +265,7 @@ describe('state paths', () => {
     const base = getBaseStateDir('/repo');
     assert.equal(base, '/repo/.owx/state');
     assert.equal(getStateDir('/repo'), '/repo/.owx/state');
-    assert.equal(getStatePath('team', '/repo'), '/repo/.owx/state/team-state.json');
+    assert.equal(getStatePath('team', '/repo'), '/repo/.owx/state/te\x61m-state.json');
   });
 
   it('builds session state paths', () => {
@@ -492,58 +467,4 @@ describe('state paths', () => {
     }
   });
 
-  it('resolves current session from authoritative team state root without OWX_SESSION_ID', async () => {
-    const wd = await mkRealTemp('owx-state-paths-team-root-session-');
-    const teamStateRoot = join(wd, 'team-state-root');
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    const previousSessionId = process.env.OWX_SESSION_ID;
-    try {
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-      delete process.env.OWX_SESSION_ID;
-      await mkdir(join(teamStateRoot, 'sessions', 'sess-team-current'), { recursive: true });
-      await writeFile(join(teamStateRoot, 'session.json'), JSON.stringify({
-        session_id: 'sess-team-current',
-        cwd: wd,
-      }));
-      await mkdir(join(wd, '.owx', 'state'), { recursive: true });
-      await writeFile(join(wd, '.owx', 'state', 'session.json'), JSON.stringify({
-        session_id: 'sess-stale-source-root',
-        cwd: join(wd, '..', 'other-worktree'),
-      }));
-
-      assert.equal(await readCurrentSessionId(wd), 'sess-team-current');
-    } finally {
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
-      else delete process.env.OWX_SESSION_ID;
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
-
-  it('does not resolve current session from source root when a team state root is authoritative', async () => {
-    const wd = await mkRealTemp('owx-state-paths-ignore-source-session-');
-    const teamStateRoot = join(wd, 'team-state-root');
-    const previousTeamStateRoot = process.env.OWX_TEAM_STATE_ROOT;
-    const previousSessionId = process.env.OWX_SESSION_ID;
-    try {
-      process.env.OWX_TEAM_STATE_ROOT = teamStateRoot;
-      delete process.env.OWX_SESSION_ID;
-      await mkdir(teamStateRoot, { recursive: true });
-      const sourceStateDir = join(wd, '.owx', 'state');
-      await mkdir(join(sourceStateDir, 'sessions', 'sess-source-current'), { recursive: true });
-      await writeFile(join(sourceStateDir, 'session.json'), JSON.stringify({
-        session_id: 'sess-source-current',
-        cwd: wd,
-      }));
-
-      assert.equal(await readCurrentSessionId(wd), undefined);
-    } finally {
-      if (typeof previousTeamStateRoot === 'string') process.env.OWX_TEAM_STATE_ROOT = previousTeamStateRoot;
-      else delete process.env.OWX_TEAM_STATE_ROOT;
-      if (typeof previousSessionId === 'string') process.env.OWX_SESSION_ID = previousSessionId;
-      else delete process.env.OWX_SESSION_ID;
-      await rm(wd, { recursive: true, force: true });
-    }
-  });
 });

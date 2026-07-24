@@ -52,12 +52,6 @@ async function appendHooksLog(
 	});
 }
 
-function isTeamWorker(env: NodeJS.ProcessEnv): boolean {
-	return (
-		typeof env.OWX_TEAM_WORKER === "string" && env.OWX_TEAM_WORKER.trim() !== ""
-	);
-}
-
 async function runPluginRunner(
 	plugin: { id: string; path: string; file: string },
 	event: HookEventEnvelope,
@@ -363,11 +357,7 @@ export async function dispatchHookEvent(
 	const plugins = await discoverHookPlugins(cwd);
 	summary.plugin_count = plugins.length;
 
-	const inTeamWorker = isTeamWorker(env);
-	const allowTeamSideEffects =
-		options.allowTeamWorkerSideEffects ?? options.allowInTeamWorker ?? false;
-	const sideEffectsEnabled =
-		options.sideEffectsEnabled ?? (!inTeamWorker || allowTeamSideEffects);
+	const sideEffectsEnabled = options.sideEffectsEnabled ?? true;
 
 	for (const plugin of plugins) {
 		const result = await runPluginRunner(

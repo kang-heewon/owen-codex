@@ -4,11 +4,7 @@ import { join } from 'node:path';
 import { startMode, updateModeState } from '../modes/base.js';
 import { readApprovedExecutionLaunchHintOutcome, type ApprovedExecutionLaunchHint } from '../planning/artifacts.js';
 import { ensureCanonicalRalphArtifacts } from '../ralph/persistence.js';
-import { resolveCodexHomeForLaunch } from './codex-home.js';
-import {
-  buildFollowupStaffingPlan,
-  resolveAvailableAgentTypes,
-} from '../team/followup-planner.js';
+import { buildNativeRolePlan } from '../subagents/native-role-plan.js';
 
 export const RALPH_HELP = `owx ralph - Launch Codex with ralph persistence mode active
 
@@ -301,19 +297,15 @@ export async function ralphCommand(args: string[]): Promise<void> {
   const approvedHint = readMatchedApprovedRalphExecutionHint(cwd, explicitTask);
   const task = explicitTask === 'ralph-cli-launch' ? approvedHint?.task ?? explicitTask : explicitTask;
   const noDeslop = normalizedArgs.some((arg) => arg.toLowerCase() === '--no-deslop');
-  const availableAgentTypes = await resolveAvailableAgentTypes(cwd);
-  const codexHomeOverride = resolveCodexHomeForLaunch(cwd, process.env);
-  const staffingPlan = buildFollowupStaffingPlan('ralph', task, availableAgentTypes, {
-    codexHomeOverride,
-  });
+  const rolePlan = buildNativeRolePlan(task);
   await startMode('ralph', task, 50);
   const sessionFiles = await writeRalphSessionFiles(cwd, task, { noDeslop, approvedHint });
   await updateModeState('ralph', {
     current_phase: 'starting',
     canonical_progress_path: artifacts.canonicalProgressPath,
-    available_agent_types: availableAgentTypes,
-    staffing_summary: staffingPlan.staffingSummary,
-    staffing_allocations: staffingPlan.allocations,
+    available_agent_types: rolePlan.availableAgentTypes,
+    recommended_agent_types: rolePlan.recommendedAgentTypes,
+    native_role_plan: rolePlan.summary,
     native_subagents_enabled: true,
     native_subagent_tracking_path: '.owx/state/subagent-tracking.json',
     native_subagent_policy: 'Parallel Codex subagents are allowed for independent work only when each dispatch sets agent_type to an installed OWX role; phase completion must wait for active native subagent threads to finish.',
@@ -335,9 +327,9 @@ export async function ralphCommand(args: string[]): Promise<void> {
     console.log('[ralph] Migrated legacy progress -> ' + artifacts.canonicalProgressPath);
   }
   console.log('[ralph] Ralph persistence mode active. Launching Codex...');
-  console.log(`[ralph] available_agent_types: ${staffingPlan.rosterSummary}`);
-  console.log(`[ralph] staffing_plan: ${staffingPlan.staffingSummary}`);
-  const { launchWithHud } = await import('./index.js');
+  console.log(`[ralph] available_agent_types: ${rolePlan.availableAgentTypes.join(', ')}`);
+  console.log(`[ralph] native_role_plan: ${rolePlan.summary}`);
+  const { launchDirectly } = await import('./index.js');
   const codexArgsBase = filterRalphCodexArgs(normalizedArgs);
   const codexArgs = explicitTask === 'ralph-cli-launch' && approvedHint?.task
     ? [...codexArgsBase, approvedHint.task]
@@ -346,7 +338,7 @@ export async function ralphCommand(args: string[]): Promise<void> {
   const previousAppendixEnv = process.env[RALPH_APPEND_ENV];
   process.env[RALPH_APPEND_ENV] = appendixPath;
   try {
-    await launchWithHud(codexArgs);
+    await launchDirectly(codexArgs);
   } finally {
     if (typeof previousAppendixEnv === 'string') process.env[RALPH_APPEND_ENV] = previousAppendixEnv;
     else delete process.env[RALPH_APPEND_ENV];

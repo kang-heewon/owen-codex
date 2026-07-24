@@ -12,14 +12,11 @@
 
 import { constants as fsConstants } from 'node:fs';
 import { access, lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { withModeRuntimeContext } from '../state/mode-state-context.js';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { classifyTaskSize, isHeavyMode, type TaskSizeResult, type TaskSizeThresholds } from './task-size-detector.js';
-import { isApprovedExecutionFollowupShortcut, type FollowupMode } from '../team/followup-planner.js';
 import { isPlanningComplete, readPlanningArtifacts } from '../planning/artifacts.js';
 import { hasDurableRalplanConsensusEvidenceForCwd } from '../ralplan/consensus-gate.js';
 import { KEYWORD_TRIGGER_DEFINITIONS, compareKeywordMatches } from './keyword-registry.js';
-import { readTeamModeConfig } from '../config/team-mode.js';
 import {
   SKILL_ACTIVE_STATE_FILE,
   listActiveSkills,
@@ -34,10 +31,6 @@ import {
   type TrackedWorkflowMode,
 } from '../state/workflow-transition.js';
 import { reconcileWorkflowTransition } from '../state/workflow-transition-reconcile.js';
-import {
-  clearDeepInterviewQuestionObligation,
-  type DeepInterviewQuestionEnforcementState,
-} from '../question/deep-interview.js';
 import {
   buildDeepInterviewConfigStateFields,
   resolveDeepInterviewRuntimeConfig,
@@ -119,7 +112,7 @@ export const DEEP_INTERVIEW_STATE_FILE = 'deep-interview-state.json';
 export const DEEP_INTERVIEW_BLOCKED_APPROVAL_INPUTS = ['yes', 'y', 'proceed', 'continue', 'ok', 'sure', 'go ahead', 'next i should'] as const;
 export const DEEP_INTERVIEW_INPUT_LOCK_MESSAGE = 'Deep interview is active; auto-approval shortcuts are blocked until the interview finishes.';
 
-type StatefulSkillMode = 'deep-interview' | 'autopilot' | 'ralph' | 'ralplan' | 'ultragoal' | 'ultrawork' | 'ultraqa' | 'team' | 'autoresearch';
+type StatefulSkillMode = 'deep-interview' | 'autopilot' | 'ralph' | 'ralplan' | 'ultragoal' | 'ultrawork' | 'ultraqa' | 'autoresearch';
 
 interface StatefulSkillSeedConfig {
   mode: StatefulSkillMode;
@@ -137,7 +130,6 @@ const EXECUTION_LIKE_WORKFLOW_SKILLS = new Set<TrackedWorkflowMode>([
   'autopilot',
   'autoresearch',
   'ralph',
-  'team',
   'ultragoal',
   'ultrawork',
   'ultraqa',
@@ -149,7 +141,6 @@ const STATEFUL_SKILL_SEED_CONFIG: Record<StatefulSkillMode, StatefulSkillSeedCon
   autoresearch: { mode: 'autoresearch', initialPhase: 'executing' },
   ralph: { mode: 'ralph', initialPhase: 'starting', includeIteration: true },
   ralplan: { mode: 'ralplan', initialPhase: 'planning' },
-  team: { mode: 'team', initialPhase: 'starting', scope: 'root' },
   ultragoal: { mode: 'ultragoal', initialPhase: 'planning' },
   ultrawork: { mode: 'ultrawork', initialPhase: 'planning' },
   ultraqa: { mode: 'ultraqa', initialPhase: 'planning' },
@@ -158,8 +149,6 @@ const STATEFUL_SKILL_SEED_CONFIG: Record<StatefulSkillMode, StatefulSkillSeedCon
 export interface DeepInterviewModeState {
   active: boolean;
   mode: 'deep-interview';
-  tmux_pane_id?: string;
-  tmux_pane_set_at?: string;
   current_phase: string;
   started_at: string;
   updated_at: string;
@@ -168,7 +157,6 @@ export interface DeepInterviewModeState {
   thread_id?: string;
   turn_id?: string;
   input_lock?: DeepInterviewInputLock;
-  question_enforcement?: DeepInterviewQuestionEnforcementState;
   downstream_authority?: DownstreamAuthority;
   bypass_planning_gate_until?: string;
   [key: string]: unknown;
@@ -513,16 +501,7 @@ export async function persistDeepInterviewModeState(
 
   if (nextSkill?.skill === 'deep-interview' && nextSkill.active) {
     const configStateFields = buildDeepInterviewConfigStateFields(nextSkill.deep_interview_config);
-    const nextQuestionEnforcement = clearDeepInterviewQuestionObligation(
-      previousModeState?.question_enforcement,
-      'handoff',
-      new Date(nowIso),
-    );
-    const nextState = withModeRuntimeContext<DeepInterviewModeState>(
-      previousModeState ?? {},
-      {
-        ...(previousModeState?.tmux_pane_id ? { tmux_pane_id: previousModeState.tmux_pane_id } : {}),
-        ...(previousModeState?.tmux_pane_set_at ? { tmux_pane_set_at: previousModeState.tmux_pane_set_at } : {}),
+    const nextState: DeepInterviewModeState = {
         active: true,
         mode: 'deep-interview',
         current_phase: previousModeState?.active ? previousModeState.current_phase || 'intent-first' : 'intent-first',
@@ -533,12 +512,9 @@ export async function persistDeepInterviewModeState(
         turn_id: input.turnId ?? previousModeState?.turn_id,
         ...configStateFields,
         ...(nextSkill.input_lock ? { input_lock: nextSkill.input_lock } : {}),
-        ...(nextQuestionEnforcement ? { question_enforcement: nextQuestionEnforcement } : {}),
         ...(previousModeState?.downstream_authority ? { downstream_authority: previousModeState.downstream_authority } : {}),
         ...(previousModeState?.bypass_planning_gate_until ? { bypass_planning_gate_until: previousModeState.bypass_planning_gate_until } : {}),
-      },
-      { nowIso },
-    );
+    };
     await writeFile(statePath, JSON.stringify(nextState, null, 2));
     return;
   }
@@ -547,10 +523,7 @@ export async function persistDeepInterviewModeState(
   if (!previousModeState?.active && !hadActiveDeepInterview) return;
 
   const releasedInputLock = nextSkill?.skill === 'deep-interview' ? nextSkill.input_lock : previousSkill?.input_lock;
-  const questionExitReason = nextSkill?.skill === 'deep-interview' && nextSkill.active === false ? 'abort' : 'handoff';
   const nextState: DeepInterviewModeState = {
-    ...(previousModeState?.tmux_pane_id ? { tmux_pane_id: previousModeState.tmux_pane_id } : {}),
-    ...(previousModeState?.tmux_pane_set_at ? { tmux_pane_set_at: previousModeState.tmux_pane_set_at } : {}),
     active: false,
     mode: 'deep-interview',
     current_phase: preserveCompletedDeepInterviewPhase(previousModeState) || 'completing',
@@ -561,15 +534,6 @@ export async function persistDeepInterviewModeState(
     thread_id: input.threadId ?? previousModeState?.thread_id ?? previousSkill?.thread_id,
     turn_id: input.turnId ?? previousModeState?.turn_id ?? previousSkill?.turn_id,
     ...(releasedInputLock ? { input_lock: releasedInputLock } : {}),
-    ...(previousModeState?.question_enforcement
-      ? {
-          question_enforcement: clearDeepInterviewQuestionObligation(
-            previousModeState.question_enforcement,
-            questionExitReason,
-            new Date(nowIso),
-          ),
-        }
-      : {}),
     ...(previousModeState?.downstream_authority ? { downstream_authority: previousModeState.downstream_authority } : {}),
     ...(previousModeState?.bypass_planning_gate_until ? { bypass_planning_gate_until: previousModeState.bypass_planning_gate_until } : {}),
   };
@@ -642,22 +606,15 @@ async function persistStatefulSkillSeedState(
   const preserveExistingModeState = existingModeMatches
     && existingPhase !== ''
     && !existingModeTerminal
-    && (
-      sameActiveSkill
-      || (config.mode === 'team' && existingModeState?.active === true)
-    );
+    && sameActiveSkill;
   const startedAt = previousSkill?.skill === nextSkill.skill && previousSkill.active && !existingModeTerminal
     ? safeString(existingModeState?.started_at).trim() || previousSkill.activated_at || nowIso
     : preserveExistingModeState
       ? safeString(existingModeState?.started_at).trim() || nowIso
     : nowIso;
 
-  const baseState: Record<string, unknown> = withModeRuntimeContext(
-    (preserveExistingModeState ? existingModeState : {}) ?? {},
-    {
+  const baseState: Record<string, unknown> = {
       ...(preserveExistingModeState ? existingModeState : {}),
-      ...(existingModeState?.tmux_pane_id ? { tmux_pane_id: existingModeState.tmux_pane_id } : {}),
-      ...(existingModeState?.tmux_pane_set_at ? { tmux_pane_set_at: existingModeState.tmux_pane_set_at } : {}),
       active: true,
       mode: config.mode,
       current_phase: preserveExistingModeState
@@ -668,9 +625,7 @@ async function persistStatefulSkillSeedState(
       session_id: nextSkill.session_id || safeString(existingModeState?.session_id).trim() || undefined,
       thread_id: nextSkill.thread_id || safeString(existingModeState?.thread_id).trim() || undefined,
       turn_id: nextSkill.turn_id || safeString(existingModeState?.turn_id).trim() || undefined,
-    },
-    { nowIso },
-  );
+  };
 
   if (config.includeIteration) {
     const defaultIteration = config.mode === 'autopilot' ? 1 : 0;
@@ -806,9 +761,9 @@ const KEYWORD_MAP: Array<{ pattern: RegExp; skill: string; priority: number }> =
   priority: entry.priority,
 }));
 
-const KEYWORDS_REQUIRING_INTENT = new Set(['ralph', 'team', 'stop', 'abort', 'parallel', 'autoresearch', 'ultragoal', 'autopilot']);
+const KEYWORDS_REQUIRING_INTENT = new Set(['ralph', 'stop', 'abort', 'parallel', 'autoresearch', 'ultragoal', 'autopilot']);
 
-type IntentKeyword = 'ralph' | 'team' | 'stop' | 'abort' | 'parallel' | 'autoresearch' | 'ultragoal' | 'autopilot';
+type IntentKeyword = 'ralph' | 'stop' | 'abort' | 'parallel' | 'autoresearch' | 'ultragoal' | 'autopilot';
 
 const DEEP_INTERVIEW_ACTIVATION_PATTERNS: RegExp[] = [
   /(?:^|[^\w])\$(?:deep-interview)\b/i,
@@ -824,9 +779,6 @@ const DEEP_INTERVIEW_MANAGEMENT_MENTION_PATTERN = /\b(?:clear|cleanup|clean\s+up
 /**
  * Per-keyword intent patterns used when a keyword is in KEYWORDS_REQUIRING_INTENT.
  *
- * "team" requires explicit orchestration phrasing so a generic
- * reference in prose doesn't spin up the skill.
- *
  * "stop" / "abort" require a bare imperative or explicit OWX mode reference so
  * test-log lines like "stop retrying" or "request aborted" do not trigger cancel.
  *
@@ -841,18 +793,12 @@ const KEYWORD_INTENT_PATTERNS: Record<IntentKeyword, RegExp[]> = {
     /^(?:please\s+)?ralph\s+(?:continue|resume|start|run|go|keep\s+going|ship|fix|implement|execute|verify|complete)\b/i,
     /\bralph\s+(?:mode|workflow|loop)\b/i,
   ],
-  team: [
-    /(?:^|[^\w])\$(?:team)\b/i,
-    /\/prompts:team\b/i,
-    /\b(?:use|run|start|enable|launch|invoke|activate|orchestrate|coordinate)\s+(?:a\s+|an\s+|the\s+)?team\b/i,
-    /\bteam\s+(?:mode|orchestration|workflow|agents?)\b/i,
-  ],
   stop: [
     /^(?:please\s+)?stop(?:\s+now)?\s*[.!]?\s*$/i,
     /\bcancelowx\b/i,
     /(?:^|[^\w])\$(?:stop|cancel|abort)\b/i,
     /\/(?:cancel|stop|abort)\b/i,
-    /\bstop\s+(?:the\s+)?(?:agent|ralph|autopilot|team|ultrawork|execution|current\s+(?:mode|task|run))\b/i,
+    /\bstop\s+(?:the\s+)?(?:agent|ralph|autopilot|ultrawork|execution|current\s+(?:mode|task|run))\b/i,
     /\b(?:cancel|stop)\s+(?:the\s+)?(?:active|running|current)\s+(?:mode|task|run|execution)\b/i,
   ],
   abort: [
@@ -860,7 +806,7 @@ const KEYWORD_INTENT_PATTERNS: Record<IntentKeyword, RegExp[]> = {
     /\bcancelowx\b/i,
     /(?:^|[^\w])\$(?:stop|cancel|abort)\b/i,
     /\/(?:cancel|stop|abort)\b/i,
-    /\babort\s+(?:the\s+)?(?:agent|ralph|autopilot|team|ultrawork|execution|current\s+(?:mode|task|run))\b/i,
+    /\babort\s+(?:the\s+)?(?:agent|ralph|autopilot|ultrawork|execution|current\s+(?:mode|task|run))\b/i,
   ],
   parallel: [
     /(?:^|[^\w])\$(?:parallel|ultrawork|ulw)\b/i,
@@ -1021,15 +967,6 @@ export function detectPrimaryKeyword(text: string): KeywordMatch | null {
   return matches.length > 0 ? matches[0] : null;
 }
 
-function filterMatchesForTeamMode(matches: KeywordMatch[], teamEnabled: boolean): KeywordMatch[] {
-  return teamEnabled ? matches : matches.filter((entry) => entry.skill !== 'team');
-}
-
-function detectPrimaryKeywordForTeamMode(text: string, teamEnabled: boolean): KeywordMatch | null {
-  const matches = filterMatchesForTeamMode(detectKeywords(text), teamEnabled);
-  return matches[0] ?? null;
-}
-
 function isActiveSkillContinuationPrompt(text: string): boolean {
   const normalized = text.trim();
   if (!normalized) return false;
@@ -1045,10 +982,6 @@ function isNamedActiveSkillContinuationPrompt(text: string, skill: string): bool
   ).test(text.trim());
 }
 
-function isOmxQuestionAnsweredPrompt(text: string): boolean {
-  return /^\s*\[owx question answered\]/i.test(text.trim());
-}
-
 function shouldReusePreviousSkillForContinuation(
   text: string,
   previous: SkillActiveState | null,
@@ -1059,8 +992,7 @@ function shouldReusePreviousSkillForContinuation(
   }
 
   return isActiveSkillContinuationPrompt(text)
-    || isNamedActiveSkillContinuationPrompt(text, previousSkill)
-    || ((previousSkill === 'autopilot' || previousSkill === 'deep-interview') && isOmxQuestionAnsweredPrompt(text));
+    || isNamedActiveSkillContinuationPrompt(text, previousSkill);
 }
 
 function isAutopilotSupervisedChildSkill(skill: string): boolean {
@@ -1136,14 +1068,11 @@ function resolveContinuationKeywordMatch(
     return fallbackMatch;
   }
 
-  const markedQuestionAnswerContinuation = (previousSkill === 'autopilot' || previousSkill === 'deep-interview')
-    && isOmxQuestionAnsweredPrompt(text);
-
-  if (!markedQuestionAnswerContinuation && parseExplicitSkillInvocations(normalizeWorkflowKeyboardTypos(text)).sawExplicitLikeInvocation) {
+  if (parseExplicitSkillInvocations(normalizeWorkflowKeyboardTypos(text)).sawExplicitLikeInvocation) {
     return fallbackMatch;
   }
 
-  if (!markedQuestionAnswerContinuation && !shouldReusePreviousSkillForContinuation(text, previous) && !safeString(fallbackMatch?.keyword).trim().startsWith('$')) {
+  if (!shouldReusePreviousSkillForContinuation(text, previous) && !safeString(fallbackMatch?.keyword).trim().startsWith('$')) {
     return fallbackMatch;
   }
 
@@ -1199,17 +1128,16 @@ export async function recordSkillActivation(input: RecordSkillActivationInput): 
   const previousRoot = await readExistingSkillState(rootStatePath);
   const previousSession = sessionStatePath ? await readExistingSkillState(sessionStatePath) : null;
   const previous = input.sessionId ? previousSession : previousRoot;
-  const teamMode = readTeamModeConfig(sourceCwd);
   const match = resolveContinuationKeywordMatch(
     input.text,
     previous,
-    detectPrimaryKeywordForTeamMode(input.text, teamMode.enabled),
+    detectPrimaryKeyword(input.text),
   );
   if (!match) return null;
 
   const nowIso = input.nowIso ?? new Date().toISOString();
   const hadDeepInterviewLock = previous?.skill === 'deep-interview' && previous?.input_lock?.active === true;
-  const matches = filterMatchesForTeamMode(detectKeywords(input.text), teamMode.enabled);
+  const matches = detectKeywords(input.text);
   const hasCancelIntent = matches.some((entry) => entry.skill === 'cancel');
 
   if (hasCancelIntent && hadDeepInterviewLock) {
@@ -1317,16 +1245,12 @@ export async function recordSkillActivation(input: RecordSkillActivationInput): 
 
   const isTrackedWorkflowMatch = isTrackedWorkflowMode(match.skill);
   const trackedMatchSkill = isTrackedWorkflowMatch ? match.skill : null;
-  const markedQuestionAnswerContinuation = sameSkill
-    && (match.skill === 'autopilot' || match.skill === 'deep-interview')
-    && isOmxQuestionAnsweredPrompt(input.text);
   const normalizedInputText = isTrackedWorkflowMatch
     ? normalizeWorkflowKeyboardTypos(input.text)
     : input.text;
-  const workflowMatches: TrackedWorkflowMode[] = isTrackedWorkflowMatch && !markedQuestionAnswerContinuation
+  const workflowMatches: TrackedWorkflowMode[] = isTrackedWorkflowMatch
     ? parseExplicitSkillInvocations(normalizedInputText).matches
       .map((entry) => entry.skill)
-      .filter((skill) => teamMode.enabled || skill !== 'team')
       .filter(isTrackedWorkflowMode)
     : [];
   const resolvedWorkflowRequest = isTrackedWorkflowMatch
@@ -1639,7 +1563,6 @@ export async function recordSkillActivation(input: RecordSkillActivationInput): 
 export const EXECUTION_GATE_KEYWORDS = new Set<string>([
   'ralph',
   'autopilot',
-  'team',
   'ultrawork',
 ]);
 
@@ -1703,7 +1626,7 @@ export function isUnderspecifiedForExecution(text: string): boolean {
 
   // Strip mode keywords for effective word counting
   const stripped = trimmed
-    .replace(/\b(?:ralph|autopilot|team|ultrawork|ulw)\b/gi, '')
+    .replace(/\b(?:ralph|autopilot|ultrawork|ulw)\b/gi, '')
     .trim();
   const effectiveWords = stripped.split(/\s+/).filter(w => w.length > 0).length;
 
@@ -1760,15 +1683,11 @@ export function applyRalplanGate(
     requireNativeSubagents: options.requireNativeSubagents,
   });
   const shortFollowupBypasses = executionKeywords.filter((keyword) => {
-    if (keyword !== 'team' && keyword !== 'ralph') return false;
-    return isApprovedExecutionFollowupShortcut(
-      keyword as FollowupMode,
-      text,
-      {
-        planningComplete: planningComplete && consensusComplete,
-        priorSkill: options.priorSkill,
-      },
-    );
+    if (keyword !== 'ralph') return false;
+    const normalized = text.trim().replace(/\s+/g, ' ');
+    const shortRalphRequest = /^ralph(?:\s+please)?$/i.test(normalized);
+    const priorSkillMatches = !options.priorSkill || options.priorSkill.toLowerCase() === 'ralplan';
+    return shortRalphRequest && planningComplete && consensusComplete && priorSkillMatches;
   });
   if (shortFollowupBypasses.length > 0) {
     return { keywords, gateApplied: false, gatedKeywords: [] };
@@ -1799,7 +1718,7 @@ export interface TaskSizeFilterOptions {
 
 /**
  * Get all keywords with task-size-based filtering applied.
- * For small tasks, heavy orchestration modes (ralph/autopilot/team/ultrawork etc.)
+ * For small tasks, heavy orchestration modes (ralph/autopilot/ultrawork etc.)
  * are suppressed to avoid over-orchestration.
  */
 export function getAllKeywordsWithSizeCheck(

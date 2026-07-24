@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -21,7 +22,6 @@ function runOmx(cwd: string, argv: string[], env: Record<string, string> = {}) {
       CODEX_HOME: env.CODEX_HOME ?? "",
       NODE_OPTIONS: "",
       OWX_AUTO_UPDATE: "0",
-      OWX_NOTIFY_FALLBACK: "0",
       OWX_HOOK_DERIVED_SIGNALS: "0",
       ...env,
     },
@@ -155,6 +155,8 @@ exit 2
       const bin = join(wd, "bin");
       const countFile = join(wd, "count");
       const argvFile = join(wd, "argv.log");
+      const rootFile = join(wd, "root.log");
+      const explicitRoot = join(wd, "state-project");
       await mkdir(authDir, { recursive: true });
       await mkdir(codexHome, { recursive: true });
       await writeFile(join(authDir, "first.json"), '{"access_token":"first-secret"}\n');
@@ -163,14 +165,21 @@ exit 2
         { slot: "first", createdAt: "now", updatedAt: "now" },
         { slot: "second", createdAt: "now", updatedAt: "now" }
       ] }, null, 2));
-      await writeFakeCodex(bin, `#!/bin/sh\ncount=0\n[ -f ${JSON.stringify(countFile)} ] && count=$(cat ${JSON.stringify(countFile)})\ncount=$((count+1))\nprintf '%s' "$count" > ${JSON.stringify(countFile)}\nprintf '%s\\n' "$*" >> ${JSON.stringify(argvFile)}\nif [ "$count" -eq 1 ]; then mkdir -p "$CODEX_HOME/sessions/2026/05/24"; printf '{}\\n' > "$CODEX_HOME/sessions/2026/05/24/rollout-session-123.jsonl"; echo 'HTTP 429 quota exceeded access_token=stderr-secret Bearer abc.def' >&2; exit 1; fi\ncase "$*" in *"resume session-123"*--model*"gpt-review"*) exit 0;; *) echo 'missing resume args or model flag' >&2; exit 3;; esac\n`);
-      const env = { HOME: home, CODEX_HOME: codexHome, PATH: `${bin}:/usr/bin:/bin` };
+      await writeFakeCodex(bin, `#!/bin/sh\ncount=0\n[ -f ${JSON.stringify(countFile)} ] && count=$(cat ${JSON.stringify(countFile)})\ncount=$((count+1))\nprintf '%s' "$count" > ${JSON.stringify(countFile)}\nprintf '%s\\n' "$*" >> ${JSON.stringify(argvFile)}\nprintf '%s\\n' "$OWX_ROOT" >> ${JSON.stringify(rootFile)}\nif [ "$count" -eq 1 ]; then mkdir -p "$CODEX_HOME/sessions/2026/05/24"; printf '{}\\n' > "$CODEX_HOME/sessions/2026/05/24/rollout-session-123.jsonl"; echo 'HTTP 429 quota exceeded access_token=stderr-secret Bearer abc.def' >&2; exit 1; fi\ncase "$*" in *"resume session-123"*--model*"gpt-review"*) exit 0;; *) echo 'missing resume args or model flag' >&2; exit 3;; esac\n`);
+      const env = {
+        HOME: home,
+        CODEX_HOME: codexHome,
+        PATH: `${bin}:/usr/bin:/bin`,
+        OWX_ROOT: explicitRoot,
+      };
       const result = runOmx(wd, ["--hotswap", "--direct", "--model", "gpt-review"], env);
       assert.equal(result.status, 0, result.stderr + result.stdout);
       assert.match(result.stderr, /HTTP 429 quota exceeded/);
       const argvLog = await readFile(argvFile, "utf-8");
       assert.match(argvLog, /resume session-123/);
       assert.match(argvLog, /--model gpt-review/);
+      assert.deepEqual((await readFile(rootFile, "utf-8")).trim().split("\n"), [explicitRoot, explicitRoot]);
+      assert.equal(existsSync(join(explicitRoot, ".owx", ".owx")), false);
       assert.equal(await readFile(join(codexHome, "auth.json"), "utf-8"), '{"access_token":"second-secret"}\n');
       assert.doesNotMatch(result.stderr + result.stdout, /first-secret|second-secret|stderr-secret|abc\.def/);
     } finally {

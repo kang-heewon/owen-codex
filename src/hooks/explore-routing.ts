@@ -34,6 +34,6 @@ export function isSimpleExplorationPrompt(text: string): boolean {
 export function buildExploreRoutingGuidance(): string {
   return [
     '**Repository Lookup Routing:** use normal Codex repository inspection tools/subagents as the default surface for simple read-only repository lookup and implementation context.',
-    '- Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence or `--tmux-pane` summaries; it does not replace raw evidence capture.',
+    '- Use `owx sparkshell -- <command>` only for explicit shell-native read-only evidence; it does not replace raw evidence capture.',
   ].join("\n");
 }

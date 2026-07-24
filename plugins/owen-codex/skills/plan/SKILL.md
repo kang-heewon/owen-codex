@@ -53,7 +53,7 @@ Jumping into code without understanding requirements leads to rework, scope cree
 ### Interview Mode (broad/vague requests)
 
 1. **Classify the request**: Broad (vague verbs, no specific files, touches 3+ areas) triggers interview mode
-2. **Ask one focused question** using the surface-appropriate structured question path for preferences, scope, and constraints: in attached-tmux OWX runtime use `owx question`; outside tmux use native structured input when available; use plain text only as a last fallback
+2. **Ask one focused question** using native structured user input for preferences, scope, and constraints when available; use one concise plain-text question as the fallback
 3. **Gather codebase facts first**: Before asking "what patterns does your code use?", spawn an `explore` agent to find out, then ask informed follow-up questions
 4. **Build on answers**: Each question builds on the previous answer
 5. **Consult Analyst** (THOROUGH tier) for hidden requirements, edge cases, and risks
@@ -75,7 +75,7 @@ Jumping into code without understanding requirements leads to rework, scope cree
    - **Viable Options** (>=2) with bounded pros/cons for each option
    - If only one viable option remains, an explicit **invalidation rationale** for the alternatives that were rejected
    - In **deliberate mode**: a **pre-mortem** (3 failure scenarios) and an **expanded test plan** covering **unit / integration / e2e / observability**
-2. **User feedback** *(--interactive only)*: If running with `--interactive`, **MUST** use `AskUserQuestion` / the structured question UI (`owx question` in attached tmux; native structured input outside tmux when available) to present the draft plan **plus the RALPLAN-DR Principles / Decision Drivers / Options summary for early direction alignment** with these options:
+2. **User feedback** *(--interactive only)*: If running with `--interactive`, **MUST** use native structured user input when available to present the draft plan **plus the RALPLAN-DR Principles / Decision Drivers / Options summary for early direction alignment** with these options:
    - **Proceed to review** — send to Architect and Critic for evaluation
    - **Request changes** — return to step 1 with user feedback incorporated
    - **Skip review** — go directly to final approval (step 7)
@@ -94,20 +94,17 @@ Jumping into code without understanding requirements leads to rework, scope cree
    b. Deduplicate and categorize the suggestions
    c. Update the plan file in `.owx/plans/` with the accepted improvements (add missing details, refine steps, strengthen acceptance criteria, ADR updates, etc.)
    d. Note which improvements were applied in a brief changelog section at the end of the plan
-   e. Before any execution handoff, derive an explicit **available-agent-types roster** from the known prompt catalog and add concrete **follow-up staffing guidance** for `$ultragoal` and `$team` (recommended roles, counts, suggested reasoning levels by lane, and why each lane exists), plus an explicit `$ralph` fallback note only when persistent single-owner verification is intentionally selected
-   f. Add a product-facing **Goal-Mode Follow-up Suggestions** section: recommend `$ultragoal` by default for general goal-oriented follow-up, `$autoresearch-goal` only when the context is a research project with a research deliverable/evaluator, and `$performance-goal` when the context is an optimization or performance project. Keep these suggestions alongside the Team path and any explicit Ralph fallback rather than replacing implementation-delivery guidance. For ordinary pre-planning external docs or best-practice lookup, cite `$best-practice-research` evidence and synthesize it into the plan instead of recommending Autoresearch as a final architecture component. For durable-goal work that is also parallelizable, explicitly recommend **Team + Ultragoal**: Ultragoal remains leader-owned goal/ledger state and Team returns checkpoint-ready execution evidence.
-   g. For the `$team` path, add an explicit launch-hint block with concrete `owx team` / `$team` commands and a **team verification path** (what Team proves before shutdown and what Ultragoal checkpoints as durable completion evidence). Distinguish Team + Ultragoal from any explicit Ralph fallback: Team handles coordinated parallel lanes; Ultragoal is the default durable follow-up/ledger owner, and Ralph is only an explicitly requested legacy-style persistent sequential verification/fix lane when needed.
+   e. Before any execution handoff, derive an explicit **available-agent-types roster** from the known prompt catalog and add concrete follow-up staffing guidance for `$ultragoal` and native Codex subagents (recommended roles, counts, suggested reasoning levels by lane, bounded ownership, and why each lane exists), plus an explicit `$ralph` fallback note only when persistent single-owner verification is intentionally selected
+   f. Add a product-facing **Goal-Mode Follow-up Suggestions** section: recommend `$ultragoal` by default for general goal-oriented follow-up, `$autoresearch-goal` only for research projects with a research deliverable/evaluator, and `$performance-goal` for optimization projects. For durable parallel work, keep Ultragoal as the leader-owned goal/ledger and assign independent lanes to native Codex subagents with explicit `agent_type` and checkpoint-ready evidence.
 7. On Critic approval (with improvements applied): *(--interactive only)* If running with `--interactive`, use `AskUserQuestion` / the structured question UI to present the plan with these options:
-   - **Approve durable goal execution** — proceed via `$ultragoal` by default (optionally with `$team` for parallel lanes)
-   - **Approve and implement via team** — proceed to implementation via coordinated parallel team agents
+   - **Approve durable goal execution** — proceed via `$ultragoal` by default, using native Codex subagents for independent parallel lanes
    - **Start goal-mode follow-up** — proceed via `$ultragoal` by default, or `$autoresearch-goal` / `$performance-goal` when the approved plan specifically fits research validation or measurable optimization
    - **Request changes** — return to step 1 with user feedback
    - **Reject** — discard the plan entirely
    If NOT running with `--interactive`, output the final approved plan and stop. Do NOT auto-execute.
 8. *(--interactive only)* User chooses via the structured question UI (never ask for approval in plain text when a structured surface is available)
 9. On user approval (--interactive only):
-   - **Approve durable goal execution**: **MUST** invoke `$ultragoal` with the approved plan path from `.owx/plans/` as context **plus the explicit available-agent-types roster, suggested reasoning levels, concrete role allocation guidance, and direct launch hints for Ultragoal follow-up work**. Use `$team` alongside Ultragoal when parallel lanes are warranted. Do NOT implement directly. Do NOT edit source code files in the planning agent. Ralph is not the default follow-up; only invoke `$ralph` when the user explicitly selects a legacy/persistent single-owner execution lane.
-   - **Approve and implement via team**: **MUST** invoke `$team` with the approved plan path from `.owx/plans/` as context **plus the explicit available-agent-types roster, suggested reasoning levels, concrete staffing / worker-role allocation guidance, explicit `owx team` / `$team` launch hints, and the team verification path**. Do NOT implement directly. The team skill coordinates parallel agents across the staged pipeline for faster execution on large tasks.
+   - **Approve durable goal execution**: **MUST** invoke `$ultragoal` with the approved plan path from `.owx/plans/` as context **plus the explicit available-agent-types roster, suggested reasoning levels, concrete role allocation guidance, and direct launch hints for Ultragoal follow-up work**. Use native Codex subagents with explicit `agent_type` and non-overlapping ownership when parallel lanes are warranted. Do NOT implement directly. Do NOT edit source code files in the planning agent. Ralph is not the default follow-up; only invoke `$ralph` when the user explicitly selects a legacy/persistent single-owner execution lane.
    - **Start goal-mode follow-up**: **MUST** invoke the selected goal workflow with the approved plan path and appropriate success context: `$ultragoal` as the default goal-mode path, `$autoresearch-goal` for research projects, or `$performance-goal` for optimization/performance projects with measurable evaluator criteria. Do NOT implement directly in the planning agent.
 
 ### Review Mode (`--review`)
@@ -130,7 +127,7 @@ Every plan includes:
 - Verification Steps
 - For consensus/ralplan: **RALPLAN-DR summary** (Principles, Decision Drivers, Options)
 - For consensus/ralplan final output: **ADR** (Decision, Drivers, Alternatives considered, Why chosen, Consequences, Follow-ups)
-- For consensus/ralplan execution handoff: **Available-Agent-Types Roster**, **Follow-up Staffing Guidance** (including suggested reasoning levels by lane), product-facing **Goal-Mode Follow-up Suggestions** (`$ultragoal`, `$autoresearch-goal`, `$performance-goal` when contextually appropriate), explicit `owx team` / `$team` **Launch Hints**, and **Team Verification Path**
+- For consensus/ralplan execution handoff: **Available-Agent-Types Roster**, **Follow-up Staffing Guidance** (including suggested reasoning levels and bounded native-subagent ownership by lane), and product-facing **Goal-Mode Follow-up Suggestions** (`$ultragoal`, `$autoresearch-goal`, `$performance-goal` when contextually appropriate)
 - For deliberate consensus mode: **Pre-mortem (3 scenarios)** and **Expanded Test Plan** (unit/integration/e2e/observability)
 
 Plans are saved to `.owx/plans/`. Drafts go to `.owx/drafts/`.
@@ -147,8 +144,8 @@ Plans are saved to `.owx/plans/`. Drafts go to `.owx/drafts/`.
 - **CRITICAL — Consensus mode agent calls MUST be sequential, never parallel.** Always await the subsequent role-specific `Architect` result before issuing the subsequent role-specific `Critic` call.
 - In consensus mode, default to RALPLAN-DR short mode; enable deliberate mode on `--deliberate` or explicit high-risk signals (auth/security, migrations, destructive changes, production incidents, compliance/PII, public API breakage)
 - In consensus mode with `--interactive`: use `AskUserQuestion` / the structured question UI for the user feedback step (step 2) and the final approval step (step 7) -- never ask for approval in plain text when a structured surface is available. Without `--interactive`, auto-proceed through planning steps without pausing. Output the final plan without execution.
-- In consensus mode with `--interactive`, on user approval **MUST** invoke the selected follow-up lane from step 9 (`$ultragoal`, `$team`, `$autoresearch-goal`, `$performance-goal`, or explicit `$ralph` fallback) -- never implement directly in the planning agent
-- In consensus mode, execution follow-up handoff **MUST** include an explicit available-agent-types roster plus concrete staffing / role-allocation guidance grounded in that roster, suggested reasoning levels by lane, product-facing goal-mode follow-up suggestions (`$ultragoal` by default, `$autoresearch-goal` for research projects, `$performance-goal` for optimization/performance projects), explicit `owx team` / `$team` launch hints, and a team verification path. For parallelizable durable-goal plans, recommend Team + Ultragoal with leader-owned checkpointing from Team evidence; reserve Ralph for persistent sequential single-owner verification/fix follow-up.
+- In consensus mode with `--interactive`, on user approval **MUST** invoke the selected follow-up lane from step 9 (`$ultragoal`, `$autoresearch-goal`, `$performance-goal`, or explicit `$ralph` fallback) -- never implement directly in the planning agent
+- In consensus mode, execution follow-up handoff **MUST** include an explicit available-agent-types roster plus concrete native-subagent role allocation grounded in that roster, suggested reasoning levels, bounded lane ownership, and product-facing goal-mode follow-up suggestions. Parallelizable durable-goal plans keep leader-owned Ultragoal checkpointing and use native Codex subagent evidence; reserve Ralph for an explicitly selected sequential fallback.
 </Tool_Usage>
 
 ## Scenario Examples
@@ -212,7 +209,7 @@ Why bad: Decision fatigue. Present one option with trade-offs, get reaction, the
 <Escalation_And_Stop_Conditions>
 - Stop interviewing when requirements are clear enough to plan -- do not over-interview
 - In consensus mode, stop after 5 Planner/Architect/Critic iterations and present the best version
-- Consensus mode outputs the plan by default; with `--interactive`, user can approve and hand off to ultragoal/team, with Ralph only as an explicit legacy/persistent single-owner lane
+- Consensus mode outputs the plan by default; with `--interactive`, user can approve and hand off to Ultragoal with native Codex subagents, with Ralph only as an explicit legacy/persistent single-owner lane
 - If the user says "just do it" or "skip planning", **MUST** invoke `$ultragoal` to transition to durable goal execution mode by default; use `$ralph` only when the user explicitly asks for that fallback. Do NOT implement directly in the planning agent.
 - Escalate to the user when there are irreconcilable trade-offs that require a business decision
 </Escalation_And_Stop_Conditions>
@@ -258,7 +255,7 @@ Before asking any interview question, classify it:
 | Type | Examples | Action |
 |------|----------|--------|
 | Codebase Fact | "What patterns exist?", "Where is X?" | Explore first, do not ask user |
-| User Preference | "Priority?", "Timeline?" | Ask user via the structured question path (`owx question` in attached tmux; native structured input where available) |
+| User Preference | "Priority?", "Timeline?" | Ask through native structured user input when available |
 | Scope Decision | "Include feature Y?" | Ask user |
 | Requirement | "Performance constraints?" | Ask user |
 

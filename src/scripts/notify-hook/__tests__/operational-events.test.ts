@@ -8,9 +8,6 @@ describe('buildOperationalContext', () => {
       'run.heartbeat',
       'run.blocked_on_user',
       'run.blocked_on_system',
-      'worker.assigned',
-      'worker.stalled',
-      'worker.recovered',
     ]) {
       const context = buildOperationalContext({
         cwd: process.cwd(),

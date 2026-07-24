@@ -1,8 +1,8 @@
 import { existsSync } from 'fs';
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 import type { HookPluginSdk } from '../types.js';
-import { hookPluginDataPath, hookPluginRootDir, sanitizeHookPluginName } from './paths.js';
+import { hookPluginDataPath } from './paths.js';
 
 async function readJsonIfExists<T>(path: string, fallback: T): Promise<T> {
   if (!existsSync(path)) return fallback;
@@ -66,7 +66,5 @@ export function createHookPluginStateApi(
 }
 
 export async function clearHookPluginStateFiles(cwd: string, pluginName: string): Promise<void> {
-  const root = hookPluginRootDir(cwd, sanitizeHookPluginName(pluginName));
-  await unlink(join(root, 'data.json')).catch(() => {});
-  await unlink(join(root, 'tmux.json')).catch(() => {});
+  await unlink(hookPluginDataPath(cwd, pluginName)).catch(() => {});
 }

@@ -24,10 +24,7 @@ const ROOT_TEMPLATE_PATTERNS = [
   rx('smallest useful tool loop|reflexive web/tool escalation'),
   rx('Choose the lane before acting'),
   rx('Solo execute'),
-  rx('Outside active `team`/`swarm` mode, use `executor`'),
-  rx('Reserve `worker` strictly for active `team`/`swarm` sessions'),
   rx('Leader responsibilities'),
-  rx('Worker responsibilities'),
   rx('Route to `explore` for repo-local file / symbol / pattern / relationship lookup'),
   rx('explore` owns facts about this repo'),
   rx('Route to `researcher` when the main need is official docs'),
@@ -318,7 +315,6 @@ export const SKILL_CONTRACTS: GuidanceSurfaceContract[] = [
     'plan',
     'ralph',
     'ralplan',
-    'team',
   ].map((name) => ({
     id: name,
     path: `skills/${name}/SKILL.md`,
@@ -348,11 +344,6 @@ export const PROMPT_REFACTOR_MARKER_CONTRACTS = [
     requiredPaths: ['templates/AGENTS.md', 'src/hooks/agents-overlay.ts'],
   },
   {
-    id: 'team-worker-overlay-markers',
-    markers: ['<!-- OWX:TEAM:WORKER:START -->', '<!-- OWX:TEAM:WORKER:END -->'],
-    requiredPaths: ['templates/AGENTS.md', 'src/team/worker-bootstrap.ts', 'src/hooks/agents-overlay.ts'],
-  },
-  {
     id: 'model-table-markers',
     markers: ['<!-- OWX:MODELS:START -->', '<!-- OWX:MODELS:END -->'],
     requiredPaths: ['templates/AGENTS.md', 'src/utils/agents-model-table.ts'],
@@ -365,27 +356,6 @@ export const PROMPT_REFACTOR_MARKER_CONTRACTS = [
 ];
 
 export const PROMPT_REFACTOR_INVARIANT_CONTRACTS: GuidanceSurfaceContract[] = [
-  {
-    id: 'team-skill-state-machine',
-    path: 'skills/team/SKILL.md',
-    requiredPatterns: [
-      rx('Current Runtime Behavior'),
-      rx('tasks/task-<id>\\.json'),
-      rx('claim-task'),
-      rx('transition-task-status'),
-    ],
-  },
-  {
-    id: 'worker-skill-state-machine',
-    path: 'skills/worker/SKILL.md',
-    requiredPatterns: [
-      rx('Send a startup ACK'),
-      rx('claim-task'),
-      rx('transition-task-status'),
-      rx('release-task-claim.*pending'),
-      rx('mailbox-mark-delivered'),
-    ],
-  },
   {
     id: 'ralph-planning-gate',
     path: 'skills/ralph/SKILL.md',

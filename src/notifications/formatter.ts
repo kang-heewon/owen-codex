@@ -8,103 +8,6 @@
 import type { FullNotificationPayload } from "./types.js";
 import { basename } from "path";
 
-/** ANSI CSI escape sequences and two-character escapes */
-const ANSI_RE = /\x1b(?:[@-Z\\-_]|\[[0-9;]*[A-Za-z])/g;
-
-/** OWX UI chrome: spinner/progress indicator characters */
-const SPINNER_LINE_RE = /^[●⎿✻·◼]/;
-
-/** tmux expand hint injected by some pane-capture scripts */
-const CTRL_O_RE = /ctrl\+o to expand/i;
-
-/** Lines composed entirely of box-drawing characters and whitespace */
-const BOX_DRAWING_RE = /^[\s─═│║┌┐└┘┬┴├┤╔╗╚╝╠╣╦╩╬╟╢╤╧╪━┃┏┓┗┛┣┫┳┻╋┠┨┯┷┿╂]+$/;
-
-/** OWX HUD status lines: [OWX#...] or [OWX] (unversioned) */
-const OWX_HUD_RE = /\[OWX[#\]]/;
-
-/** Bypass-permissions indicator lines starting with ⏵ */
-const BYPASS_PERM_RE = /^⏵/;
-
-/** Bare shell prompt with no command after it */
-const BARE_PROMPT_RE = /^[❯>$%#]+$/;
-
-/** Minimum ratio of alphanumeric characters for a line to be "meaningful" */
-const MIN_ALNUM_RATIO = 0.15;
-
-/** Unicode-aware letters/numbers for density checks across non-Latin scripts */
-const UNICODE_ALNUM_RE = /[\p{L}\p{N}]/gu;
-
-/** Maximum number of meaningful output blocks to include in a notification */
-const MAX_TAIL_BLOCKS = 10;
-
-/** Maximum recent-output character budget before older blocks are dropped */
-const MAX_TAIL_CHARS = 1200;
-
-/**
- * Parse raw tmux pane output into clean, human-readable text suitable for
- * inclusion in a notification message.
- *
- * - Strips ANSI escape codes
- * - Removes UI chrome lines (spinner/progress characters: ●⎿✻·◼)
- * - Removes "ctrl+o to expand" hint lines
- * - Removes box-drawing character lines
- * - Removes OWX HUD status lines
- * - Removes bypass-permissions indicator lines
- * - Removes bare shell prompt lines
- * - Drops lines with < 15% Unicode letter/number density (for lines >= 8 chars)
- * - Groups indented continuation lines into the previous logical block
- * - Keeps the most recent 10 logical blocks within a 1200-character budget
- */
-export function parseTmuxTail(raw: string): string {
-  const blocks: string[][] = [];
-
-  for (const line of raw.split("\n")) {
-    const stripped = line.replace(ANSI_RE, "");
-    const trimmed = stripped.trim();
-
-    if (!trimmed) continue;
-    if (SPINNER_LINE_RE.test(trimmed)) continue;
-    if (CTRL_O_RE.test(trimmed)) continue;
-    if (BOX_DRAWING_RE.test(trimmed)) continue;
-    if (OWX_HUD_RE.test(trimmed)) continue;
-    if (BYPASS_PERM_RE.test(trimmed)) continue;
-    if (BARE_PROMPT_RE.test(trimmed)) continue;
-
-    // Unicode-aware density check: drop lines mostly composed of special characters
-    const alnumCount = (trimmed.match(UNICODE_ALNUM_RE) || []).length;
-    if (trimmed.length >= 8 && alnumCount / trimmed.length < MIN_ALNUM_RATIO) continue;
-
-    const cleanedLine = stripped.trimEnd();
-    const isContinuationLine = /^[\t ]+/.test(cleanedLine);
-
-    if (isContinuationLine && blocks.length > 0) {
-      blocks[blocks.length - 1].push(cleanedLine);
-      continue;
-    }
-
-    blocks.push([cleanedLine]);
-  }
-
-  const blockTexts = blocks.map((block) => block.join("\n"));
-  const recentBlocks: string[] = [];
-  let totalChars = 0;
-
-  for (let index = blockTexts.length - 1; index >= 0; index -= 1) {
-    if (recentBlocks.length >= MAX_TAIL_BLOCKS) break;
-
-    const block = blockTexts[index];
-    const nextTotalChars = totalChars + block.length + (recentBlocks.length > 0 ? 1 : 0);
-
-    if (recentBlocks.length > 0 && nextTotalChars > MAX_TAIL_CHARS) break;
-
-    recentBlocks.unshift(block);
-    totalChars = nextTotalChars;
-  }
-
-  return recentBlocks.join("\n");
-}
-
 function formatDuration(ms?: number): string {
   if (!ms) return "unknown";
   const seconds = Math.floor(ms / 1000);
@@ -126,31 +29,10 @@ function projectDisplay(payload: FullNotificationPayload): string {
   return "unknown";
 }
 
-function buildTmuxTailBlock(payload: FullNotificationPayload): string {
-  if (!payload.tmuxTail) return "";
-  const cleaned = parseTmuxTail(payload.tmuxTail);
-  if (!cleaned) return "";
-  return `\n**Recent output:**\n\`\`\`\n${cleaned}\n\`\`\``;
-}
-
 function buildFooter(payload: FullNotificationPayload, markdown: boolean): string {
-  const parts: string[] = [];
-
-  if (payload.tmuxSession) {
-    parts.push(
-      markdown
-        ? `**tmux:** \`${payload.tmuxSession}\``
-        : `tmux: ${payload.tmuxSession}`,
-    );
-  }
-
-  parts.push(
-    markdown
-      ? `**project:** \`${projectDisplay(payload)}\``
-      : `project: ${projectDisplay(payload)}`,
-  );
-
-  return parts.join(markdown ? " | " : " | ");
+  return markdown
+    ? `**project:** \`${projectDisplay(payload)}\``
+    : `project: ${projectDisplay(payload)}`;
 }
 
 export function formatSessionStart(payload: FullNotificationPayload): string {
@@ -164,10 +46,6 @@ export function formatSessionStart(payload: FullNotificationPayload): string {
     `**Project:** \`${project}\``,
     `**Time:** ${time}`,
   ];
-
-  if (payload.tmuxSession) {
-    lines.push(`**tmux:** \`${payload.tmuxSession}\``);
-  }
 
   return lines.join("\n");
 }
@@ -186,9 +64,6 @@ export function formatSessionStop(payload: FullNotificationPayload): string {
   if (payload.incompleteTasks != null && payload.incompleteTasks > 0) {
     lines.push(`**Incomplete tasks:** ${payload.incompleteTasks}`);
   }
-
-  const tail = buildTmuxTailBlock(payload);
-  if (tail) lines.push(tail);
 
   lines.push("");
   lines.push(buildFooter(payload, true));
@@ -221,9 +96,6 @@ export function formatSessionEnd(payload: FullNotificationPayload): string {
     lines.push("", `**Summary:** ${payload.contextSummary}`);
   }
 
-  const tail = buildTmuxTailBlock(payload);
-  if (tail) lines.push(tail);
-
   lines.push("");
   lines.push(buildFooter(payload, true));
 
@@ -243,9 +115,6 @@ export function formatSessionIdle(payload: FullNotificationPayload): string {
   if (payload.modesUsed && payload.modesUsed.length > 0) {
     lines.push(`**Modes:** ${payload.modesUsed.join(", ")}`);
   }
-
-  const tail = buildTmuxTailBlock(payload);
-  if (tail) lines.push(tail);
 
   lines.push("");
   lines.push(buildFooter(payload, true));
