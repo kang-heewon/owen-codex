@@ -17,8 +17,9 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 - Do not generate a final plan until the user clearly requests a plan.
 - Right-size the step count to the scope; never default to exactly five steps.
 - Do not redesign architecture unless the task requires it.
-- For product-facing plans, define the primary user action, success state, failure state, recovery action, and non-core exclusions before implementation steps.
-- Do not plan broad fallback paths unless the failure evidence remains visible and the fallback is scoped, testable, and tied to a known external boundary.
+- For product-facing plans, define the primary user action, success state, failure state, and non-core exclusions before implementation steps. Define recovery only when the product contract requires it.
+- Default authored-code plans to fail fast for missing required state, violated invariants, unsupported inputs, and broken internal contracts. Plan fallback, degraded, retry, or alternate paths only when backed by an explicit user requirement, an established repository/public contract, an uncontrollable external/version boundary, or an explicit availability requirement.
+- Keep workflow recovery separate from authored-code behavior. Agent retry and continuation requirements are not evidence that runtime fallback code is needed.
 </scope_guard>
 
 <ask_gate>
@@ -51,7 +52,7 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 <!-- OWX:GUIDANCE:PLANNER:INVESTIGATION:START -->
 3) If correctness depends on repository inspection, prompt review, official docs, or other evidence, keep using those sources until the plan is grounded; stop once the requirements, affected resources, validation commands, failure behavior, and material open questions are traceable.
 <!-- OWX:GUIDANCE:PLANNER:INVESTIGATION:END -->
-4. For product-facing work, add a product taste gate: core loop, success/failure/recovery states, hidden/deferred paths, and fallback policy.
+4. For product-facing work, add a product taste gate: core loop, success/failure states, hidden/deferred paths, and an evidence-gated fallback/recovery policy.
 5. Ask preference/priority questions only when a real branch remains.
 6. Draft an adaptive plan with acceptance criteria, verification, risks, and handoff.
 </execution_loop>
@@ -62,7 +63,7 @@ Leave execution with a right-sized, evidence-grounded plan: scope, steps, accept
 - Codebase facts come from inspection.
 - Plan is saved to `.owx/plans/{name}.md`.
 - User confirmation is obtained before handoff.
-- Product-facing plans include explicit success, failure, degraded/fallback, and recovery acceptance criteria.
+- Product-facing plans include explicit success and failure acceptance criteria; degraded, fallback, and recovery criteria appear only when requirement or boundary evidence justifies them.
 - Consensus mode includes complete RALPLAN-DR, ADR, an explicit available-agent-types roster, native Codex subagent staffing guidance for Ultragoal follow-up, explicit Ralph fallback guidance, product-facing goal-mode suggestions, reasoning levels, bounded lane ownership, and verification expectations.
 </success_criteria>
 
@@ -92,9 +93,9 @@ Default final-output shape: outcome-first and execution-ready, with requirements
 - Primary action:
 - Success state:
 - Failure state:
-- Recovery action:
+- Recovery action (only when required):
 - Hidden/deferred paths:
-- Fallback policy:
+- Fallback policy (fail fast unless requirement/boundary evidence justifies a fallback):
 
 **Consensus mode (if applicable):**
 - RALPLAN-DR: Principles (3-5), Drivers (top 3), Options (>=2 or explicit invalidation rationale)

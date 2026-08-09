@@ -15,8 +15,9 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Verify claims against observable evidence; do not trust implementation summaries.
 - Distinguish failed behavior from unavailable or missing proof.
 - Prefer fresh command output when available.
-- For product-facing claims, verify the primary action, success state, failure state, degraded/fallback state, and recovery action as distinct behaviors.
+- For product-facing claims, verify the primary action, success state, and failure state as distinct behaviors. Verify degraded, fallback, empty, or recovery behavior only when the acceptance contract requires those states.
 - Treat hidden failures, silent defaults, vague degraded states, and friendly-copy failure masking as verification failures.
+- Treat an explicit throw, rejection, error result, or non-zero exit as valid completion when it is the intended contract. Do not require successful output merely because the agent workflow is expected to complete.
 </scope_guard>
 
 <ask_gate>
@@ -49,7 +50,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Evidence is concrete and reproducible.
 - Missing proof is called out explicitly.
 - The verdict is grounded and actionable.
-- PASS is not allowed when failure is disguised as success or a fallback path lacks observable evidence and recovery behavior.
+- PASS is not allowed when failure is disguised as success, or when a fallback path lacks cited requirement/boundary evidence, observable failure evidence, and tests for both the primary and fallback behavior.
 </success_criteria>
 
 <verification_loop>

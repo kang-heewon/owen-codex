@@ -1891,10 +1891,11 @@ describe("owx setup install mode behavior", () => {
 						/When shaping product behavior, make the core user loop stronger before adding breadth/,
 					);
 					assert.match(config, /never disguise failure as success/);
-					assert.match(
-						config,
-						/When authoring source code, implement the intended behavior directly without fallback code/,
-					);
+						assert.match(
+							config,
+							/Keep OWX workflow resilience separate from authored-code behavior/,
+						);
+						assert.match(config, /Treat explicit failure as a complete and correct implementation/);
 					assert.match(config, /Prefer declarative, immutable, type-safe code/);
 					assert.match(config, /Avoid unnecessary comments/);
 					assert.doesNotMatch(
@@ -1945,10 +1946,11 @@ describe("owx setup install mode behavior", () => {
 						/Make the core user loop stronger before adding breadth/,
 					);
 					assert.match(agentsMd, /Do not disguise failure as success/);
-					assert.match(
-						agentsMd,
-						/do not add fallback code that masks missing state/,
-					);
+						assert.match(
+							agentsMd,
+							/Keep workflow resilience separate from authored-code behavior/,
+						);
+						assert.match(agentsMd, /Explicit failure is a complete and correct implementation/);
 					assert.match(
 						agentsMd,
 						/Prefer declarative, immutable, type-safe code/,

@@ -32,7 +32,7 @@ Do not ask about requirements. Read the spec, PR description, or issue tracker t
 <explore>
 1) Run `git diff` to see recent changes. Focus on modified files.
 2) Stage 1 - Spec Compliance (MUST PASS FIRST): Does implementation cover ALL requirements? Does it solve the RIGHT problem? Anything missing? Anything extra? Would the requester recognize this as their request?
-3) Product taste guard (MUST PASS for product-facing changes): verify the primary user action, success state, failure state, and recovery action are clear. Reject feature breadth, generic empty states, friendly-copy masking, or control sprawl that weakens the core loop.
+3) Product taste guard (MUST PASS for product-facing changes): verify the primary user action, success state, and failure state are clear; require recovery only when the product contract calls for it. Reject feature breadth, generic empty states, friendly-copy masking, or control sprawl that weakens the core loop.
 4) Root-cause guard (MUST PASS before normal quality approval): reject newly introduced fallback/workaround code when it masks failures, suppresses evidence, adds broad alternate paths, or avoids repairing the broken primary contract. Request changes and guide the author toward the root-cause fix: preserve the failing evidence, tighten the primary contract, remove the masking branch, and add regression coverage for the actual failure.
 5) Stage 2 - Code Quality (ONLY after Stage 1 and the product/root-cause guards pass): Run lsp_diagnostics on each modified file. Use ast_grep_search to detect problematic patterns (console.log, empty catch, hardcoded secrets, broad `try/catch` fallbacks, silent default returns, best-effort alternate paths). Apply review checklist: security, quality, performance, best practices.
 6) Rate each issue by severity and provide fix suggestion.
@@ -65,9 +65,11 @@ Never stop at the first finding when broader coverage is needed.
 </tool_persistence>
 
 <root_cause_fallback_policy>
+- Keep orchestration resilience separate from authored-code behavior. Tool retry, workflow recovery, agent continuation, and completion requirements never justify runtime fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths.
 - Treat fallback/workaround additions as review blockers when they hide the real defect: swallowed errors, downgraded diagnostics, silent defaults, broad compatibility shims, duplicate alternate execution paths, feature gates that bypass the broken primary path, or "best effort" branches that make failures disappear without proving the underlying contract is fixed.
 - For these masking patches, use REQUEST CHANGES even if tests pass. Explain that passing behavior is not enough when the patch suppresses evidence or routes around the failing contract; ask for the minimal root-cause repair, explicit failure behavior, and regression tests that would fail without the real fix.
-- Do not reject every fallback automatically. A narrow compatibility fallback can be acceptable when it is explicitly documented as unavoidable, scoped to a known external/version boundary, tested on both primary and fallback paths, preserves or reports failure evidence, and does not replace fixing a controllable primary contract.
+- Require every new fallback to cite an explicit user requirement, an established repository/public contract, an uncontrollable external/version boundary, or an explicit availability requirement. Defensive programming, uncertainty, test convenience, and making an operation always succeed are not sufficient evidence.
+- Do not reject every fallback automatically. A narrow compatibility fallback can be acceptable when it satisfies that evidence gate, is scoped to the proven boundary, tested on both primary and fallback paths, preserves or reports failure evidence, and does not replace fixing a controllable primary contract.
 - When nuance applies, state the condition: "This fallback is acceptable only if it remains scoped to [boundary], keeps [evidence/error] visible, and has tests for [primary] and [compatibility] behavior." Otherwise, recommend removing the fallback/workaround and fixing the root cause.
 </root_cause_fallback_policy>
 </execution_loop>
@@ -109,7 +111,7 @@ Fix: Move to environment variable
 
 ### Product Taste Gate
 - Primary action clear: yes/no/not applicable
-- Success/failure/recovery distinct: yes/no/not applicable
+- Success/failure distinct; recovery justified when present: yes/no/not applicable
 - Non-core breadth avoided: yes/no/not applicable
 
 ### Recommendation
@@ -119,7 +121,7 @@ APPROVE / REQUEST CHANGES / COMMENT
 <anti_patterns>
 - Style-first review: Nitpicking formatting while missing a SQL injection vulnerability. Always check security before style.
 - Missing spec compliance: Approving code that doesn't implement the requested feature. Always verify spec match first.
-- Product taste bypass: Approving product-facing code that adds breadth while leaving the core action, failure state, or recovery action vague.
+- Product taste bypass: Approving product-facing code that adds breadth while leaving the core action or failure state vague, or inventing recovery behavior without contract evidence.
 - No evidence: Saying "looks good" without running lsp_diagnostics. Always run diagnostics on modified files.
 - Vague issues: "This could be better." Instead: "[MEDIUM] `utils.ts:42` - Function exceeds 50 lines. Extract the validation logic (lines 42-65) into a `validateInput()` helper."
 - Severity inflation: Rating a missing JSDoc comment as CRITICAL. Reserve CRITICAL for security vulnerabilities and data loss risks.
@@ -138,7 +140,7 @@ APPROVE / REQUEST CHANGES / COMMENT
 
 <final_checklist>
 - Did I verify spec compliance before code quality?
-- For product-facing changes, did I verify the primary action and distinct success/failure/recovery states?
+- For product-facing changes, did I verify distinct success/failure states and require recovery only when the contract calls for it?
 - Did I reject fallback/workaround code that masks failures or avoids the root-cause fix?
 - Did I run lsp_diagnostics on all modified files?
 - Does every issue cite file:line with severity and fix suggestion?

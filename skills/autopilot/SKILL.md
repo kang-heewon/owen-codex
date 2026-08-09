@@ -81,6 +81,7 @@ Before Phase `deep-interview` or `ralplan` starts or resumes:
 </Pre-context Intake>
 
 <Execution_Policy>
+- Keep Autopilot's persistence and recovery semantics in the orchestration layer. Phase retries, state recovery, and the requirement to continue toward completion must never be used as justification for fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths in authored source code. Explicit application failure is a complete implementation when the intended contract requires fail-fast behavior.
 - Always execute the recommended phases in order: `deep-interview`, then `ralplan`, then `ultragoal`, then `code-review`, then `ultraqa`.
 - Native `agent_type` is the sole child-role authority. A required role that cannot be selected is a visible `role_identity_unavailable` blocker; never infer identity from task names or prompt wording.
 - Never skip directly from vague/freeform expansion to implementation; unclear input must be clarified and planned through `$deep-interview` and `$ralplan`.

@@ -81,6 +81,28 @@ describe('prompt guidance wave two contract', () => {
     assert.match(codeReviewer, /preserves or reports failure evidence/i);
     assert.match(codeReviewer, /narrow compatibility fallback can be acceptable/i);
     assert.match(codeReviewer, /fixing a controllable primary contract/i);
+    assert.match(codeReviewer, /orchestration resilience separate from authored-code behavior/i);
+    assert.match(codeReviewer, /Require every new fallback to cite an explicit user requirement/i);
+    assert.match(codeReviewer, /Defensive programming.*not sufficient evidence/i);
+  });
+
+  it('authoring roles keep workflow recovery out of generated runtime code', () => {
+    const executor = loadSurface('prompts/executor.md');
+    const planner = loadSurface('prompts/planner.md');
+    const analyst = loadSurface('prompts/analyst.md');
+    const verifier = loadSurface('prompts/verifier.md');
+    const autopilot = loadSurface('skills/autopilot/SKILL.md');
+    const ralph = loadSurface('skills/ralph/SKILL.md');
+
+    assert.match(executor, /agent\/workflow recovery separate from authored-code behavior/i);
+    assert.match(executor, /Fail fast.*missing required state.*violated invariants.*unsupported inputs/i);
+    assert.match(executor, /Throwing, rejecting, returning an explicit error, or exiting non-zero can be the fully resolved behavior/i);
+    assert.match(planner, /Agent retry and continuation requirements are not evidence that runtime fallback code is needed/i);
+    assert.match(planner, /Default authored-code plans to fail fast/i);
+    assert.match(analyst, /deliberate fail-fast behavior is a complete state model/i);
+    assert.match(verifier, /explicit throw, rejection, error result, or non-zero exit as valid completion/i);
+    assert.match(autopilot, /persistence and recovery semantics in the orchestration layer/i);
+    assert.match(ralph, /persistence and retry semantics in the orchestration layer/i);
   });
 
   it('code-review and verifier-adjacent prompts preserve merge-if-green as downstream context', () => {

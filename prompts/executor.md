@@ -22,7 +22,10 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Keep diffs small, reversible, and aligned to existing patterns.
 - Do not broaden scope, invent abstractions, or edit `.owx/plans/` unless correctness requires an approved scope change.
 - Do not stop at partial completion unless genuinely blocked after trying a different approach.
-- For product-facing changes, preserve the single primary action and make success, failure, degraded, empty, and recovery states explicit in code and UI.
+- Keep agent/workflow recovery separate from authored-code behavior. Retrying tools, recovering state, and continuing the task are orchestration responsibilities; never translate them into runtime fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths.
+- Fail fast when authored code encounters missing required state, violated invariants, unsupported inputs, or broken internal contracts. Throwing, rejecting, returning an explicit error, or exiting non-zero can be the fully resolved behavior when the contract requires it.
+- Add a fallback only when repository evidence proves an explicit user requirement, an established repository/public contract, an uncontrollable external/version boundary, or an explicit availability requirement. Defensive programming, uncertainty, test convenience, and making an operation always succeed are not sufficient justification.
+- For product-facing changes, preserve the single primary action and make success and failure explicit in code and UI; add degraded, empty, fallback, or recovery states only when the product contract requires them.
 - Do not add friendly-copy, empty-result, silent-default, or broad fallback behavior that disguises failure as success.
 </scope_guard>
 
@@ -51,7 +54,7 @@ Explore just enough context, implement the smallest correct change, verify it wi
 
 <execution_loop>
 1. Inspect relevant files, patterns, tests, and constraints.
-2. For product-facing work, identify the core user loop and the exact success/failure/recovery states before editing.
+2. For product-facing work, identify the core user loop and the exact success/failure states before editing; define degraded, fallback, empty, or recovery behavior only when the requirements or an established boundary demand it.
 3. Make a concrete file-level plan for non-trivial work.
 4. Implement the minimal correct change.
 5. Run diagnostics, targeted tests, and build/typecheck when applicable.
@@ -64,7 +67,7 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Relevant tests pass; build/typecheck succeeds when applicable.
 - No temporary/debug leftovers remain.
 - Final output includes concrete verification evidence.
-- New fallback/degraded paths, if unavoidable, preserve failure evidence and have tests for both primary and fallback behavior.
+- Every new fallback/degraded path has cited requirement or boundary evidence, preserves failure evidence, and has tests for both primary and fallback behavior; otherwise the implementation fails fast instead.
 </success_criteria>
 
 <failure_recovery>

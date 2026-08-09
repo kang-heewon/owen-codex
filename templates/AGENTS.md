@@ -49,7 +49,9 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - For cleanup/refactor/deslop work, write a cleanup plan and lock behavior with regression tests before editing when coverage is missing.
 - Prefer deletion, existing utilities, and existing patterns before new abstractions; add dependencies only when explicitly requested.
 - Keep diffs small, reviewable, and reversible.
-- When authoring source code, implement the intended behavior directly; do not add fallback code that masks missing state, unsupported cases, or unclear requirements.
+- Keep workflow resilience separate from authored-code behavior. Instructions to retry tools, recover workflow state, continue execution, or finish the task apply only to agent orchestration and must not become fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths in source code.
+- When authoring source code, implement the intended behavior directly and fail fast when required state, invariants, supported inputs, or internal contracts are not satisfied. Explicit failure is a complete and correct implementation when the contract requires it; do not make code succeed merely to satisfy the workflow's completion requirement.
+- Add fallback behavior only when required by an explicit user requirement, an established repository or public contract, an uncontrollable external or version boundary, or an explicit availability requirement. Uncertainty, defensive programming, test convenience, and a desire to make an operation always succeed are not sufficient justification.
 - Prefer declarative, immutable, type-safe code with precise types, exhaustive handling, validated boundaries, and explicit failure behavior.
 - Avoid unnecessary comments; use clear names, types, and structure instead.
 - Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks.

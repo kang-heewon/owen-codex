@@ -132,7 +132,9 @@ describe('config generator', () => {
       assert.match(toml, /When shaping product behavior, make the core user loop stronger before adding breadth/);
       assert.match(toml, /define explicit success and failure states/);
       assert.match(toml, /never disguise failure as success/);
-      assert.match(toml, /When authoring source code, implement the intended behavior directly without fallback code/);
+      assert.match(toml, /Keep OWX workflow resilience separate from authored-code behavior/);
+      assert.match(toml, /Treat explicit failure as a complete and correct implementation/);
+      assert.match(toml, /defensive programming, test convenience, and a desire to make an operation always succeed are not sufficient justification/);
       assert.match(toml, /Prefer declarative, immutable, type-safe code/);
       assert.match(toml, /Avoid unnecessary comments/);
       assert.match(toml, new RegExp(`^developer_instructions = "${OWX_DEVELOPER_INSTRUCTIONS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"$`, 'm'));

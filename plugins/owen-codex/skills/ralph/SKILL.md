@@ -30,6 +30,7 @@ Complex tasks often fail silently: partial implementations get declared "done", 
 </Why_This_Exists>
 
 <Execution_Policy>
+- Keep Ralph's persistence and retry semantics in the orchestration layer. Continuing the workflow, retrying tools, and recovering state must never become fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths in authored source code. Explicit application failure is a complete implementation when the intended contract requires fail-fast behavior.
 - Fire independent agent calls simultaneously -- never wait sequentially for independent work
 - Use `run_in_background: true` for long operations (installs, builds, test suites)
 - Always set `agent_type` when spawning native subagents; use `reasoning_effort` for per-dispatch intensity when needed

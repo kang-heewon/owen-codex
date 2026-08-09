@@ -41,6 +41,9 @@ const ROOT_TEMPLATE_PATTERNS = [
   rx('Product taste is a delivery constraint'),
   rx('core user loop.*single primary action|single primary action.*success state.*failure state'),
   rx('Do not disguise failure as success|friendly copy.*empty results.*silent fallbacks'),
+  rx('workflow resilience separate from authored-code behavior'),
+  rx('Explicit failure is a complete and correct implementation'),
+  rx('Defensive programming.*not sufficient justification'),
 ];
 
 const CORE_ROLE_PATTERNS = {
@@ -58,6 +61,9 @@ const CORE_ROLE_PATTERNS = {
     rx('Ask only when progress is impossible|Ask only when blocked'),
     rx('product-facing changes.*single primary action|primary action.*success.*failure.*recovery'),
     rx('Do not add.*silent-default|disguises failure as success'),
+    rx('agent/workflow recovery separate from authored-code behavior'),
+    rx('Fail fast.*missing required state.*violated invariants.*unsupported inputs'),
+    rx('Defensive programming.*not sufficient justification'),
   ],
   planner: [
     rx('outcome-first.*execution-ready plans'),
@@ -73,6 +79,8 @@ const CORE_ROLE_PATTERNS = {
     rx('Ask only when a real planning blocker|Ask only when blocked'),
     rx('product-facing plans.*primary user action|Product Taste Gate'),
     rx('failure evidence remains visible|fallback policy'),
+    rx('workflow recovery separate from authored-code behavior'),
+    rx('Default authored-code plans to fail fast'),
   ],
   verifier: [
     rx('outcome-first, evidence-dense verdicts'),
@@ -87,6 +95,8 @@ const CORE_ROLE_PATTERNS = {
     rx('Ask only when the acceptance target is materially unclear|Ask only when blocked'),
     rx('product-facing claims.*primary action.*success state.*failure state'),
     rx('failure is disguised as success|friendly-copy failure masking'),
+    rx('explicit throw.*valid completion'),
+    rx('fallback path lacks cited requirement/boundary evidence'),
   ],
 };
 
@@ -123,9 +133,9 @@ export const PRODUCT_TASTE_CONTRACTS: GuidanceSurfaceContract[] = [
     path: 'prompts/analyst.md',
     requiredPatterns: [
       rx('testable core loop'),
-      rx('fallback, empty, degraded, and error behavior as acceptance criteria'),
+      rx('fallback, empty, degraded, and recovery behavior as acceptance criteria only when'),
       rx('Core Loop Gaps'),
-      rx('success, failure, fallback/degraded, and recovery behavior'),
+      rx('deliberate fail-fast behavior is a complete state model'),
     ],
   },
   {
@@ -133,7 +143,7 @@ export const PRODUCT_TASTE_CONTRACTS: GuidanceSurfaceContract[] = [
     path: 'prompts/code-reviewer.md',
     requiredPatterns: [
       rx('Product taste guard'),
-      rx('primary user action, success state, failure state, and recovery action'),
+      rx('primary user action, success state, and failure state.*require recovery only when'),
       rx('friendly-copy masking|polite copy'),
       rx('Product Taste Gate'),
     ],
