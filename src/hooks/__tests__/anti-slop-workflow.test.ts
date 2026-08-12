@@ -28,6 +28,7 @@ const antiSlopWorkingAgreementPatterns = [
   /^- For cleanup\/refactor\/deslop work, write a cleanup plan and lock behavior with regression tests before editing when coverage is missing\.$/m,
   /^- Prefer deletion, existing utilities, and existing patterns before new abstractions; add dependencies only when explicitly requested\.$/m,
   /^- Keep diffs small, reviewable, and reversible\.$/m,
+  /^- Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification\. Use tests, fixtures, test-only harnesses, internal dependency-injection seams, or existing supported observability and interfaces instead; any test-only surface must stay outside shipped artifacts and the product contract\.$/m,
   /^- Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks\.$/m,
 ];
 

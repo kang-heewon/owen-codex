@@ -1896,6 +1896,14 @@ describe("owx setup install mode behavior", () => {
 							/Keep OWX workflow resilience separate from authored-code behavior/,
 						);
 						assert.match(config, /Treat explicit failure as a complete and correct implementation/);
+					assert.match(
+						config,
+						/Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification/,
+					);
+					assert.match(
+						config,
+						/any test-only surface must stay outside shipped artifacts and the product contract/,
+					);
 					assert.match(config, /Prefer declarative, immutable, type-safe code/);
 					assert.match(config, /Avoid unnecessary comments/);
 					assert.doesNotMatch(
@@ -1951,6 +1959,14 @@ describe("owx setup install mode behavior", () => {
 							/Keep workflow resilience separate from authored-code behavior/,
 						);
 						assert.match(agentsMd, /Explicit failure is a complete and correct implementation/);
+					assert.match(
+						agentsMd,
+						/Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification/,
+					);
+					assert.match(
+						agentsMd,
+						/any test-only surface must stay outside shipped artifacts and the product contract/,
+					);
 					assert.match(
 						agentsMd,
 						/Prefer declarative, immutable, type-safe code/,

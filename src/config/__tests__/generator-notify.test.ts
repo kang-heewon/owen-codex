@@ -134,6 +134,8 @@ describe('config generator', () => {
       assert.match(toml, /never disguise failure as success/);
       assert.match(toml, /Keep OWX workflow resilience separate from authored-code behavior/);
       assert.match(toml, /Treat explicit failure as a complete and correct implementation/);
+      assert.match(toml, /Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification/);
+      assert.match(toml, /any test-only surface must stay outside shipped artifacts and the product contract/);
       assert.match(toml, /defensive programming, test convenience, and a desire to make an operation always succeed are not sufficient justification/);
       assert.match(toml, /Prefer declarative, immutable, type-safe code/);
       assert.match(toml, /Avoid unnecessary comments/);
