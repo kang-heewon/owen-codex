@@ -10,32 +10,32 @@
  *   3. [table] sections (shell_environment_policy.set, mcp_servers, tui)
  */
 
-import { readFile, writeFile } from "fs/promises";
-import { existsSync } from "fs";
-import { join, resolve } from "path";
 import TOML from "@iarna/toml";
+import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
+import { join, resolve } from "path";
 import { AGENT_DEFINITIONS } from "../agents/definitions.js";
-import { DEFAULT_FRONTIER_MODEL } from "./models.js";
-import type { UnifiedMcpRegistryServer } from "./mcp-registry.js";
+import type { HudPreset } from "../hud/types.js";
 import {
-  DEFAULT_CODEX_HOOK_FEATURE_FLAG,
   CODEX_HOOK_FEATURE_FLAGS,
   CODEX_PLUGIN_SCOPED_HOOKS_FEATURE_FLAG,
+  type CodexHookFeatureFlag,
+  DEFAULT_CODEX_HOOK_FEATURE_FLAG,
   formatCodexHookFeatureFlagLine,
   normalizeCodexHookFeatureFlag,
-  type CodexHookFeatureFlag,
 } from "./codex-feature-flags.js";
-import {
-  OWX_FIRST_PARTY_MCP_SERVER_NAMES,
-  getOmxFirstPartySetupMcpServers,
-} from "./owx-first-party-mcp.js";
 import {
   buildManagedCodexHookTrustState,
   escapeTomlBasicString,
-  type ManagedCodexHookTrustState,
   type ManagedCodexHookOptions,
+  type ManagedCodexHookTrustState,
 } from "./codex-hooks.js";
-import type { HudPreset } from "../hud/types.js";
+import type { UnifiedMcpRegistryServer } from "./mcp-registry.js";
+import { DEFAULT_FRONTIER_MODEL } from "./models.js";
+import {
+  getOmxFirstPartySetupMcpServers,
+  OWX_FIRST_PARTY_MCP_SERVER_NAMES,
+} from "./owx-first-party-mcp.js";
 
 interface MergeOptions {
   includeTui?: boolean;
@@ -73,27 +73,9 @@ const OWX_TOP_LEVEL_KEYS = [
   "developer_instructions",
 ] as const;
 
-export interface ModelContextRecommendation {
-  model: string;
-  modelContextWindow: number;
-  modelAutoCompactTokenLimit: number;
-}
-
 export const DEFAULT_SETUP_MODEL = DEFAULT_FRONTIER_MODEL;
-export const DEFAULT_SETUP_MODEL_CONTEXT_WINDOW = 250000;
-export const DEFAULT_SETUP_MODEL_AUTO_COMPACT_TOKEN_LIMIT = 200000;
-
-export function getModelContextRecommendation(
-  model: string,
-): ModelContextRecommendation | null {
-  if (model !== DEFAULT_SETUP_MODEL) return null;
-
-  return {
-    model,
-    modelContextWindow: DEFAULT_SETUP_MODEL_CONTEXT_WINDOW,
-    modelAutoCompactTokenLimit: DEFAULT_SETUP_MODEL_AUTO_COMPACT_TOKEN_LIMIT,
-  };
-}
+const LEGACY_SEEDED_MODEL_CONTEXT_WINDOW = 250000;
+const LEGACY_SEEDED_MODEL_AUTO_COMPACT_TOKEN_LIMIT = 200000;
 const OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER =
   "# owen-codex seeded behavioral defaults (uninstall removes unchanged defaults)";
 const OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER =
@@ -468,102 +450,214 @@ function getOmxTopLevelLines(
     ...(notifyCommand === false
       ? []
       : [`notify = ${formatTomlStringArray(notifyCommand)}`]),
-    'model_reasoning_effort = "medium"',
     `developer_instructions = "${escapeTomlString(OWX_DEVELOPER_INSTRUCTIONS)}"`,
   ];
 
-  const existingModel = rootValues.get("model");
-  const existingContextWindow = rootValues.get("model_context_window");
-  const existingAutoCompact = rootValues.get("model_auto_compact_token_limit");
-  const selectedModel =
-    modelOverride ?? unwrapTomlString(existingModel) ?? DEFAULT_SETUP_MODEL;
-
-  if (modelOverride || !existingModel) {
-    lines.push(`model = "${selectedModel}"`);
+  if (!rootValues.has("model_reasoning_effort")) {
+    lines.push('model_reasoning_effort = "medium"');
   }
 
-  if (selectedModel === DEFAULT_SETUP_MODEL) {
-    const seededBehavioralDefaults: string[] = [];
-    if (!existingContextWindow) {
-      seededBehavioralDefaults.push(
-        `model_context_window = ${DEFAULT_SETUP_MODEL_CONTEXT_WINDOW}`,
-      );
-    }
-    if (!existingAutoCompact) {
-      seededBehavioralDefaults.push(
-        `model_auto_compact_token_limit = ${DEFAULT_SETUP_MODEL_AUTO_COMPACT_TOKEN_LIMIT}`,
-      );
-    }
-    if (seededBehavioralDefaults.length > 0) {
-      lines.push(OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER);
-      lines.push(...seededBehavioralDefaults);
-      lines.push(OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER);
-    }
+  const existingModel = rootValues.get("model");
+
+  if (modelOverride && unwrapTomlString(existingModel) !== modelOverride) {
+    lines.push(`model = "${modelOverride}"`);
   }
 
   return lines;
 }
 
-function isUnchangedOmxSeededBehavioralDefaultsBlock(lines: string[]): boolean {
-  const relevant = lines.filter((line) => {
-    const trimmed = line.trim();
-    return trimmed.length > 0 && !trimmed.startsWith("#");
-  });
-  if (relevant.length !== 2) return false;
+type SeededBehavioralDefaultsState =
+  | "absent"
+  | "exact-pair"
+  | "exact-context-singleton"
+  | "exact-auto-singleton"
+  | "bounded-nonremovable"
+  | "malformed-or-ambiguous";
 
-  const parsed = parseRootKeyValues(relevant.join("\n"));
-  return (
-    parsed.size === 2 &&
-    parsed.get("model_context_window") ===
-      String(DEFAULT_SETUP_MODEL_CONTEXT_WINDOW) &&
-    parsed.get("model_auto_compact_token_limit") ===
-      String(DEFAULT_SETUP_MODEL_AUTO_COMPACT_TOKEN_LIMIT)
+type SourceSpan = Readonly<{ start: number; end: number }>;
+type SourceLine = Readonly<{ content: string; start: number; end: number }>;
+
+interface SeededBehavioralDefaultsAnalysis {
+  state: SeededBehavioralDefaultsState;
+  spans: readonly SourceSpan[];
+}
+
+function sourceLines(config: string): SourceLine[] {
+  const lines: SourceLine[] = [];
+  let start = 0;
+  for (let index = 0; index < config.length; index += 1) {
+    if (config[index] !== "\n") continue;
+    lines.push({
+      content: config.slice(
+        start,
+        index - (index > start && config[index - 1] === "\r" ? 1 : 0),
+      ),
+      start,
+      end: index + 1,
+    });
+    start = index + 1;
+  }
+  if (start < config.length) {
+    lines.push({ content: config.slice(start), start, end: config.length });
+  }
+  return lines;
+}
+
+function analyzeOmxSeededBehavioralDefaults(
+  config: string,
+): SeededBehavioralDefaultsAnalysis {
+  const lines = sourceLines(config);
+  const firstTable = lines.findIndex((line) =>
+    TOML_TABLE_HEADER_PATTERN.test(line.content),
   );
+  const boundary = firstTable < 0 ? lines.length : firstTable;
+  const starts = lines
+    .map((line, index) => ({ line, index }))
+    .filter(
+      ({ line }) =>
+        line.content === OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER,
+    );
+  const ends = lines
+    .map((line, index) => ({ line, index }))
+    .filter(
+      ({ line }) => line.content === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER,
+    );
+  if (starts.length === 0 && ends.length === 0) {
+    return { state: "absent", spans: [] };
+  }
+  if (
+    starts.length !== 1 ||
+    ends.length !== 1 ||
+    starts[0].index >= ends[0].index
+  ) {
+    return { state: "malformed-or-ambiguous", spans: [] };
+  }
+
+  const rootText = lines
+    .slice(0, boundary)
+    .map((line) => line.content)
+    .join("\n");
+  let entryStart = 0;
+  const rootEntries = splitRootLevelEntries(rootText).entries.map((entry) => {
+    const indexed = {
+      entry,
+      start: entryStart,
+      end: entryStart + entry.lines.length,
+    };
+    entryStart = indexed.end;
+    return indexed;
+  });
+  const isStandaloneRootMarker = (index: number): boolean =>
+    index < boundary &&
+    rootEntries.some(
+      ({ entry, start, end }) =>
+        !entry.key && start === index && end === index + 1,
+    );
+
+  const start = starts[0];
+  const end = ends[0];
+  if (
+    !isStandaloneRootMarker(start.index) ||
+    !isStandaloneRootMarker(end.index)
+  ) {
+    return { state: "malformed-or-ambiguous", spans: [] };
+  }
+
+  const block = lines.slice(start.index, end.index + 1);
+  const exact = (body: readonly string[]): boolean =>
+    block.length === body.length + 2 &&
+    block[0].content === OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER &&
+    block.at(-1)?.content === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER &&
+    body.every((line, index) => block[index + 1].content === line);
+  const blockSpan = [{ start: start.line.start, end: end.line.end }];
+  const markerSpans = [
+    { start: start.line.start, end: start.line.end },
+    { start: end.line.start, end: end.line.end },
+  ];
+  if (
+    exact([
+      `model_context_window = ${LEGACY_SEEDED_MODEL_CONTEXT_WINDOW}`,
+      `model_auto_compact_token_limit = ${LEGACY_SEEDED_MODEL_AUTO_COMPACT_TOKEN_LIMIT}`,
+    ])
+  ) {
+    const hasOutsideDuplicate = rootEntries.some(
+      ({ entry, start: entryStart, end: entryEnd }) =>
+        (entryEnd <= start.index || entryStart > end.index) &&
+        (entry.key === "model_context_window" ||
+          entry.key === "model_auto_compact_token_limit"),
+    );
+    return hasOutsideDuplicate
+      ? { state: "malformed-or-ambiguous", spans: [] }
+      : { state: "exact-pair", spans: blockSpan };
+  }
+
+  type SingletonState =
+    | "exact"
+    | "bounded-nonremovable"
+    | "malformed-or-ambiguous";
+  const singletonState = (
+    singletonKey: string,
+    siblingKey: string,
+  ): SingletonState => {
+    let singletonDuplicates = 0;
+    let siblingCount = 0;
+    let invalidSibling = false;
+    for (const { entry, start: entryStart, end: entryEnd } of rootEntries) {
+      const outside = entryEnd <= start.index || entryStart > end.index;
+      if (outside && entry.key === singletonKey) singletonDuplicates += 1;
+      if (outside && entry.key === siblingKey) {
+        siblingCount += 1;
+        invalidSibling ||= !parseStandaloneToml(entry.lines.join("\n"));
+      }
+    }
+    if (singletonDuplicates > 0 || siblingCount > 1 || invalidSibling) {
+      return "malformed-or-ambiguous";
+    }
+    return siblingCount === 1 ? "exact" : "bounded-nonremovable";
+  };
+
+  if (exact([`model_context_window = ${LEGACY_SEEDED_MODEL_CONTEXT_WINDOW}`])) {
+    const state = singletonState(
+      "model_context_window",
+      "model_auto_compact_token_limit",
+    );
+    return state === "exact"
+      ? { state: "exact-context-singleton", spans: blockSpan }
+      : state === "bounded-nonremovable"
+        ? { state, spans: markerSpans }
+        : { state, spans: [] };
+  }
+  if (
+    exact([
+      `model_auto_compact_token_limit = ${LEGACY_SEEDED_MODEL_AUTO_COMPACT_TOKEN_LIMIT}`,
+    ])
+  ) {
+    const state = singletonState(
+      "model_auto_compact_token_limit",
+      "model_context_window",
+    );
+    return state === "exact"
+      ? { state: "exact-auto-singleton", spans: blockSpan }
+      : state === "bounded-nonremovable"
+        ? { state, spans: markerSpans }
+        : { state, spans: [] };
+  }
+  return { state: "bounded-nonremovable", spans: markerSpans };
+}
+
+export function hasExactOmxSeededBehavioralDefaultsPair(
+  config: string,
+): boolean {
+  return analyzeOmxSeededBehavioralDefaults(config).state === "exact-pair";
 }
 
 export function stripOmxSeededBehavioralDefaults(config: string): string {
-  const lines = config.split(/\r?\n/);
-  const firstTable = lines.findIndex((line) => /^\s*\[/.test(line));
-  const boundary = firstTable >= 0 ? firstTable : lines.length;
-  const result: string[] = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const trimmed = lines[index].trim();
-
-    if (
-      index < boundary &&
-      trimmed === OWX_SEEDED_BEHAVIORAL_DEFAULTS_START_MARKER
-    ) {
-      const endIndex = lines.findIndex(
-        (line, candidateIndex) =>
-          candidateIndex > index &&
-          candidateIndex < boundary &&
-          line.trim() === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER,
-      );
-
-      if (endIndex < 0) {
-        continue;
-      }
-
-      const blockLines = lines.slice(index + 1, endIndex);
-      if (!isUnchangedOmxSeededBehavioralDefaultsBlock(blockLines)) {
-        result.push(...blockLines);
-      }
-      index = endIndex;
-      continue;
-    }
-
-    if (
-      index < boundary &&
-      trimmed === OWX_SEEDED_BEHAVIORAL_DEFAULTS_END_MARKER
-    ) {
-      continue;
-    }
-
-    result.push(lines[index]);
-  }
-
-  return result.join("\n");
+  return [...analyzeOmxSeededBehavioralDefaults(config).spans]
+    .sort((left, right) => right.start - left.start)
+    .reduce(
+      (result, span) => result.slice(0, span.start) + result.slice(span.end),
+      config,
+    );
 }
 
 function stripRootLevelKeys(config: string, keys: readonly string[]): string {
@@ -631,7 +725,12 @@ function stripOrphanedManagedNotify(config: string, pkgRoot: string): string {
  * cleanly. Also removes the comment line that precedes them.
  */
 export function stripOmxTopLevelKeys(config: string): string {
-  return stripRootLevelKeys(config, OWX_TOP_LEVEL_KEYS);
+  const reasoningEffort = parseRootKeyValues(config).get(
+    "model_reasoning_effort",
+  );
+  const stripped = stripRootLevelKeys(config, OWX_TOP_LEVEL_KEYS);
+  if (!reasoningEffort || reasoningEffort === '"medium"') return stripped;
+  return `model_reasoning_effort = ${reasoningEffort}\n${stripped.trimStart()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1749,10 +1848,7 @@ export function extractFirstPartyOmxMcpSections(config: string): string {
 
   while (i < lines.length) {
     const tableMatch = lines[i].match(/^\s*\[([^\]]+)\]\s*$/);
-    if (
-      !tableMatch ||
-      !isOmxFirstPartyMcpSection(tableMatch[1])
-    ) {
+    if (!tableMatch || !isOmxFirstPartyMcpSection(tableMatch[1])) {
       i += 1;
       continue;
     }
@@ -2434,7 +2530,7 @@ export function buildMergedConfig(
   pkgRoot: string,
   options: MergeOptions = {},
 ): string {
-  let existing = existingConfig;
+  let existing = stripOmxSeededBehavioralDefaults(existingConfig);
   const preservedFirstPartyMcpSections =
     options.preserveExistingFirstPartyMcp === true &&
     options.includeFirstPartyMcp !== true
@@ -2551,8 +2647,7 @@ export async function repairConfigIfNeeded(
   const tuiCount = (content.match(/^\s*\[tui\]\s*$/gm) || []).length;
   const hasLauncherTimeoutGap =
     findLauncherTimeoutRepairTargets(content).length > 0;
-  if (tuiCount <= 1 && !hasLauncherTimeoutGap)
-    return false;
+  if (tuiCount <= 1 && !hasLauncherTimeoutGap) return false;
 
   // Managed config compatibility issue detected — run full merge to repair
   const repaired = buildMergedConfig(content, pkgRoot, options);

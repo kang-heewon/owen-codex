@@ -756,7 +756,7 @@ describe("config generator idempotency (#384)", () => {
       await rm(wd, { recursive: true, force: true });
     }
   });
-  it("seeds context keys when root model is missing and both context keys are absent", async () => {
+  it("does not seed model or context keys when root model is missing", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
@@ -765,40 +765,31 @@ describe("config generator idempotency (#384)", () => {
       await mergeConfig(configPath, wd);
       const toml = await readFile(configPath, "utf-8");
 
-      assert.match(toml, /^model = "gpt-5.5"$/m);
-      assert.match(
-        toml,
-        /^# owen-codex seeded behavioral defaults \(uninstall removes unchanged defaults\)$/m,
-      );
-      assert.match(toml, /^model_context_window = 250000$/m);
-      assert.match(toml, /^model_auto_compact_token_limit = 200000$/m);
-      assert.match(toml, /^# End owen-codex seeded behavioral defaults$/m);
+      assert.doesNotMatch(toml, /^model\s*=/m);
+      assert.doesNotMatch(toml, /^model_context_window\s*=/m);
+      assert.doesNotMatch(toml, /^model_auto_compact_token_limit\s*=/m);
+      assert.doesNotMatch(toml, /seeded behavioral defaults/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it("can override gpt-5.3-codex to gpt-5.5 and seed 250k context defaults", async () => {
+  it("can override a legacy model without seeding context defaults", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const toml = buildMergedConfig('model = \"gpt-5.3-codex\"\n', wd, {
-        modelOverride: "gpt-5.5",
+        modelOverride: "gpt-5.6-sol",
       });
 
-      assert.match(toml, /^model = "gpt-5\.5"$/m);
+      assert.match(toml, /^model = "gpt-5\.6-sol"$/m);
       assert.doesNotMatch(toml, /^model = "gpt-5\.3-codex"$/m);
-      assert.match(
-        toml,
-        /^# owen-codex seeded behavioral defaults \(uninstall removes unchanged defaults\)$/m,
-      );
-      assert.match(toml, /^model_context_window = 250000$/m);
-      assert.match(toml, /^model_auto_compact_token_limit = 200000$/m);
-      assert.match(toml, /^# End owen-codex seeded behavioral defaults$/m);
+      assert.doesNotMatch(toml, /^model_context_window\s*=/m);
+      assert.doesNotMatch(toml, /^model_auto_compact_token_limit\s*=/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
-  it("does not seed 250k context defaults for non-gpt-5.5 models", async () => {
+  it("does not seed context defaults for explicit models", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
@@ -815,53 +806,53 @@ describe("config generator idempotency (#384)", () => {
     }
   });
 
-  it("seeds missing auto compact limit without overwriting an existing context window", async () => {
+  it("preserves an existing context window without adding auto compact", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
       await writeFile(
         configPath,
-        ['model = "gpt-5.5"', "model_context_window = 640000", ""].join("\n"),
+        ['model = "gpt-5.6-sol"', "model_context_window = 640000", ""].join("\n"),
       );
 
       await mergeConfig(configPath, wd);
       const toml = await readFile(configPath, "utf-8");
 
-      assert.match(toml, /^model = "gpt-5\.5"$/m);
+      assert.match(toml, /^model = "gpt-5\.6-sol"$/m);
       assert.match(toml, /^model_context_window = 640000$/m);
-      assert.match(toml, /^model_auto_compact_token_limit = 200000$/m);
+      assert.doesNotMatch(toml, /^model_auto_compact_token_limit\s*=/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it("seeds missing context window without overwriting an existing auto compact limit", async () => {
+  it("preserves an existing auto compact limit without adding a context window", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
       await writeFile(
         configPath,
-        ['model = "gpt-5.5"', "model_auto_compact_token_limit = 150000", ""].join("\n"),
+        ['model = "gpt-5.6-sol"', "model_auto_compact_token_limit = 150000", ""].join("\n"),
       );
 
       await mergeConfig(configPath, wd);
       const toml = await readFile(configPath, "utf-8");
 
-      assert.match(toml, /^model = "gpt-5\.5"$/m);
-      assert.match(toml, /^model_context_window = 250000$/m);
+      assert.match(toml, /^model = "gpt-5\.6-sol"$/m);
+      assert.doesNotMatch(toml, /^model_context_window\s*=/m);
       assert.match(toml, /^model_auto_compact_token_limit = 150000$/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it("does not duplicate independently seeded defaults across reruns", async () => {
+  it("does not add context defaults across reruns", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
       await writeFile(
         configPath,
-        ['model = "gpt-5.5"', "model_context_window = 640000", ""].join("\n"),
+        ['model = "gpt-5.6-sol"', "model_context_window = 640000", ""].join("\n"),
       );
 
       await mergeConfig(configPath, wd);
@@ -869,14 +860,13 @@ describe("config generator idempotency (#384)", () => {
 
       const toml = await readFile(configPath, "utf-8");
       assert.equal(count(toml, /^model_context_window = 640000$/gm), 1);
-      assert.equal(count(toml, /^model_auto_compact_token_limit = 200000$/gm), 1);
-      assert.doesNotMatch(toml, /^model_context_window = 250000$/m);
+      assert.doesNotMatch(toml, /^model_auto_compact_token_limit\s*=/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
   });
 
-  it("does not duplicate seeded model defaults across reruns", async () => {
+  it("does not introduce model or context defaults across reruns", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-idem-"));
     try {
       const configPath = join(wd, "config.toml");
@@ -884,37 +874,68 @@ describe("config generator idempotency (#384)", () => {
       await mergeConfig(configPath, wd);
 
       const toml = await readFile(configPath, "utf-8");
-      assert.equal(
-        count(toml, /^model = "gpt-5\.5"$/gm),
-        1,
-        "seeded model should appear once",
-      );
-      assert.equal(
-        count(toml, /^model_context_window = 250000$/gm),
-        1,
-        "seeded context window should appear once",
-      );
-      assert.equal(
-        count(toml, /^model_auto_compact_token_limit = 200000$/gm),
-        1,
-        "seeded auto compact limit should appear once",
-      );
-      assert.equal(
-        count(
-          toml,
-          /^# owen-codex seeded behavioral defaults \(uninstall removes unchanged defaults\)$/gm,
-        ),
-        1,
-        "seeded defaults start marker should appear once",
-      );
-      assert.equal(
-        count(toml, /^# End owen-codex seeded behavioral defaults$/gm),
-        1,
-        "seeded defaults end marker should appear once",
-      );
+      assert.doesNotMatch(toml, /^model\s*=/m);
+      assert.doesNotMatch(toml, /^model_context_window\s*=/m);
+      assert.doesNotMatch(toml, /^model_auto_compact_token_limit\s*=/m);
+      assert.doesNotMatch(toml, /seeded behavioral defaults/);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
+  });
+
+  it("removes unchanged legacy OWX-seeded context defaults during refresh", () => {
+    const migrated = buildMergedConfig([
+      'model = "gpt-5.5"',
+      '# owen-codex seeded behavioral defaults (uninstall removes unchanged defaults)',
+      'model_context_window = 250000',
+      'model_auto_compact_token_limit = 200000',
+      '# End owen-codex seeded behavioral defaults',
+      '',
+    ].join("\n"), "/tmp/owx");
+
+    assert.match(migrated, /^model = "gpt-5\.5"$/m);
+    assert.doesNotMatch(migrated, /seeded behavioral defaults/);
+    assert.doesNotMatch(migrated, /^model_context_window\s*=/m);
+    assert.doesNotMatch(migrated, /^model_auto_compact_token_limit\s*=/m);
+  });
+
+  it("removes legacy singleton defaults when the sibling setting is user-owned", () => {
+    const start = "# owen-codex seeded behavioral defaults (uninstall removes unchanged defaults)";
+    const end = "# End owen-codex seeded behavioral defaults";
+    const contextSingleton = buildMergedConfig([
+      "model_auto_compact_token_limit = 150000",
+      start,
+      "model_context_window = 250000",
+      end,
+      "",
+    ].join("\n"), "/tmp/owx");
+    const autoCompactSingleton = buildMergedConfig([
+      "model_context_window = 640000",
+      start,
+      "model_auto_compact_token_limit = 200000",
+      end,
+      "",
+    ].join("\n"), "/tmp/owx");
+
+    assert.match(contextSingleton, /^model_auto_compact_token_limit = 150000$/m);
+    assert.doesNotMatch(contextSingleton, /^model_context_window\s*=/m);
+    assert.match(autoCompactSingleton, /^model_context_window = 640000$/m);
+    assert.doesNotMatch(autoCompactSingleton, /^model_auto_compact_token_limit\s*=/m);
+  });
+
+  it("leaves malformed or ambiguous legacy default markers untouched", () => {
+    const start = "# owen-codex seeded behavioral defaults (uninstall removes unchanged defaults)";
+    const malformed = `${start}\nmodel_context_window = 250000`;
+    const ambiguous = [
+      start,
+      "model_context_window = 250000",
+      "# End owen-codex seeded behavioral defaults",
+      "model_auto_compact_token_limit = 1",
+      "model_auto_compact_token_limit = 2",
+    ].join("\n");
+
+    assert.ok(buildMergedConfig(malformed, "/tmp/owx").includes(start));
+    assert.ok(buildMergedConfig(ambiguous, "/tmp/owx").includes(start));
   });
 
   it("writes only the global [agents] defaults into config", async () => {

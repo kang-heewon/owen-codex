@@ -421,7 +421,7 @@ describe("owx setup refresh summary and dry-run behavior", () => {
     }
   });
 
-  it("offers an upgrade from gpt-5.3-codex to gpt-5.5 when accepted", async () => {
+  it("offers an upgrade from gpt-5.3-codex to gpt-5.6-sol when accepted", async () => {
     const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-"));
     try {
       await mkdir(join(wd, ".owx", "state"), { recursive: true });
@@ -437,22 +437,43 @@ describe("owx setup refresh summary and dry-run behavior", () => {
         modelUpgradePrompt: async (currentModel, targetModel) => {
           promptCalls += 1;
           assert.equal(currentModel, "gpt-5.3-codex");
-          assert.equal(targetModel, "gpt-5.5");
+          assert.equal(targetModel, "gpt-5.6-sol");
           return true;
         },
       });
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
       assert.equal(promptCalls, 1);
-      assert.match(config, /^model = "gpt-5\.5"$/m);
+      assert.match(config, /^model = "gpt-5\.6-sol"$/m);
       assert.doesNotMatch(config, /^model = "gpt-5\.3-codex"$/m);
-      assert.match(
-        config,
-        /^# owen-codex seeded behavioral defaults \(uninstall removes unchanged defaults\)$/m,
-      );
-      assert.match(config, /^model_context_window = 250000$/m);
-      assert.match(config, /^model_auto_compact_token_limit = 200000$/m);
-      assert.match(config, /^# End owen-codex seeded behavioral defaults$/m);
+      assert.doesNotMatch(config, /^model_context_window\s*=/m);
+      assert.doesNotMatch(config, /^model_auto_compact_token_limit\s*=/m);
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it("offers an upgrade from gpt-5.5 to gpt-5.6-sol when accepted", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "owx-setup-refresh-"));
+    try {
+      await mkdir(join(wd, ".owx", "state"), { recursive: true });
+      await mkdir(join(wd, ".codex"), { recursive: true });
+      await writeFile(join(wd, ".codex", "config.toml"), 'model = "gpt-5.5"\n');
+
+      await runSetupInTempDir(wd, {
+        scope: "project",
+        modelUpgradePrompt: async (currentModel, targetModel) => {
+          assert.equal(currentModel, "gpt-5.5");
+          assert.equal(targetModel, "gpt-5.6-sol");
+          return true;
+        },
+      });
+
+      const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
+      assert.match(config, /^model = "gpt-5\.6-sol"$/m);
+      assert.doesNotMatch(config, /^model = "gpt-5\.5"$/m);
+      assert.doesNotMatch(config, /^model_context_window\s*=/m);
+      assert.doesNotMatch(config, /^model_auto_compact_token_limit\s*=/m);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }
@@ -475,7 +496,7 @@ describe("owx setup refresh summary and dry-run behavior", () => {
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
       assert.match(config, /^model = "gpt-5\.3-codex"$/m);
-      assert.doesNotMatch(config, /^model = "gpt-5\.5"$/m);
+      assert.doesNotMatch(config, /^model = "gpt-5\.6-sol"$/m);
       assert.doesNotMatch(config, /^model_context_window = 250000$/m);
       assert.doesNotMatch(config, /^model_auto_compact_token_limit = 200000$/m);
     } finally {
@@ -497,7 +518,7 @@ describe("owx setup refresh summary and dry-run behavior", () => {
 
       const config = await readFile(join(wd, ".codex", "config.toml"), "utf-8");
       assert.match(config, /^model = "gpt-5\.3-codex"$/m);
-      assert.doesNotMatch(config, /^model = "gpt-5\.5"$/m);
+      assert.doesNotMatch(config, /^model = "gpt-5\.6-sol"$/m);
       assert.doesNotMatch(config, /^model_context_window = 250000$/m);
       assert.doesNotMatch(config, /^model_auto_compact_token_limit = 200000$/m);
     } finally {

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { dirname, join, resolve } from "path";
 
 export const SETUP_SCOPES = ["user", "project"] as const;
 export type SetupScope = (typeof SETUP_SCOPES)[number];
@@ -119,4 +119,29 @@ export function readPersistedSetupScopeSync(
 	projectRoot: string,
 ): SetupScope | undefined {
 	return readPersistedSetupPreferencesSync(projectRoot)?.scope;
+}
+
+export interface NearestPersistedSetupScope {
+	projectRoot: string;
+	scope: SetupScope;
+}
+
+/**
+ * Finds the nearest persisted setup scope, stopping at the first marker even
+ * when it is malformed so a parent project cannot capture a nested launch.
+ */
+export function resolveNearestPersistedSetupScopeSync(
+	startDir: string,
+): NearestPersistedSetupScope | undefined {
+	let current = resolve(startDir);
+	while (true) {
+		if (existsSync(getSetupScopeFilePath(current))) {
+			const scope = readPersistedSetupScopeSync(current);
+			return scope === undefined ? undefined : { projectRoot: current, scope };
+		}
+
+		const parent = dirname(current);
+		if (parent === current) return undefined;
+		current = parent;
+	}
 }

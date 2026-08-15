@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import {
   DEFAULT_FRONTIER_MODEL,
   DEFAULT_SPARK_MODEL,
+  DEFAULT_STANDARD_MODEL,
   getAgentReasoningOverride,
   getEnvConfiguredStandardDefaultModel,
   getMainDefaultModel,
@@ -72,6 +73,9 @@ describe('getModelForMode', () => {
   }
 
   it('returns frontier default when config file does not exist', () => {
+    assert.equal(DEFAULT_FRONTIER_MODEL, 'gpt-5.6-sol');
+    assert.equal(DEFAULT_STANDARD_MODEL, 'gpt-5.6-sol');
+    assert.equal(DEFAULT_SPARK_MODEL, 'gpt-5.3-codex-spark');
     assert.equal(getModelForMode('ralph'), DEFAULT_FRONTIER_MODEL);
   });
 

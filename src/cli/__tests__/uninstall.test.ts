@@ -308,6 +308,33 @@ describe('owx uninstall', () => {
     }
   });
 
+  it('preserves a user-owned non-default reasoning effort during uninstall', async () => {
+    const wd = await mkdtemp(join(tmpdir(), 'owx-uninstall-'));
+    try {
+      const home = join(wd, 'home');
+      const codexDir = join(home, '.codex');
+      await mkdir(codexDir, { recursive: true });
+      await writeFile(
+        join(codexDir, 'config.toml'),
+        buildOmxConfig().replace(
+          'model_reasoning_effort = "medium"',
+          'model_reasoning_effort = "xhigh"',
+        ),
+      );
+
+      const res = runOmx(wd, ['uninstall'], { HOME: home });
+      if (shouldSkipForSpawnPermissions(res.error)) return;
+      assert.equal(res.status, 0, res.stderr || res.stdout);
+
+      const config = await readFile(join(codexDir, 'config.toml'), 'utf-8');
+      assert.match(config, /^model_reasoning_effort = "xhigh"$/m);
+      assert.doesNotMatch(config, /developer_instructions\s*=/);
+      assert.doesNotMatch(config, /owen-codex \(OWX\) Configuration/);
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
 
   it('does not restore stale OWX dispatcher metadata as notify', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-uninstall-stale-notify-'));

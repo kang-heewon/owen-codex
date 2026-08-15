@@ -3,6 +3,7 @@ import { codexConfigPath } from "../utils/paths.js";
 import {
 	readPersistedSetupPreferencesSync,
 	readPersistedSetupScopeSync,
+	resolveNearestPersistedSetupScopeSync,
 } from "./setup-preferences.js";
 
 export const readPersistedSetupPreferences = readPersistedSetupPreferencesSync;
@@ -13,9 +14,9 @@ export function resolveProjectLocalCodexHomeForLaunch(
 	env: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
 	if (env.CODEX_HOME && env.CODEX_HOME.trim() !== "") return undefined;
-	const persistedScope = readPersistedSetupScope(cwd);
-	if (persistedScope === "project") {
-		return join(cwd, ".codex");
+	const nearest = resolveNearestPersistedSetupScopeSync(cwd);
+	if (nearest?.scope === "project") {
+		return join(nearest.projectRoot, ".codex");
 	}
 	return undefined;
 }

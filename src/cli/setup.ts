@@ -303,7 +303,7 @@ type PersistedSetupReviewDecision = "keep" | "review" | "reset";
 
 const DEFAULT_SETUP_SCOPE: SetupScope = "user";
 const DEFAULT_SETUP_INSTALL_MODE: SetupInstallMode = "legacy";
-const LEGACY_SETUP_MODEL = "gpt-5.3-codex";
+const LEGACY_SETUP_MODELS = new Set(["gpt-5.3-codex", "gpt-5.5"]);
 const DEFAULT_SETUP_MODEL = DEFAULT_FRONTIER_MODEL;
 const OBSOLETE_NATIVE_AGENT_FIELD = ["skill", "ref"].join("_");
 
@@ -3520,7 +3520,7 @@ async function updateManagedConfig(
 	let modelOverride: string | undefined;
 	const owxManagesTui = true;
 
-	if (currentModel === LEGACY_SETUP_MODEL) {
+	if (currentModel && LEGACY_SETUP_MODELS.has(currentModel)) {
 		const shouldPrompt =
 			typeof options.modelUpgradePrompt === "function" ||
 			(process.stdin.isTTY && process.stdout.isTTY);
