@@ -4,11 +4,12 @@ import {
   LEGACY_PROMPT_CONTRACTS,
   PRODUCT_TASTE_CONTRACTS,
   SPECIALIZED_PROMPT_CONTRACTS,
+  WRITER_TECHNICAL_CONTRACTS,
 } from '../prompt-guidance-contract.js';
 import { assertContractSurface } from './prompt-guidance-test-helpers.js';
 
 describe('prompt guidance catalog coverage', () => {
-  for (const contract of [...CATALOG_CONTRACTS, ...LEGACY_PROMPT_CONTRACTS, ...SPECIALIZED_PROMPT_CONTRACTS, ...PRODUCT_TASTE_CONTRACTS]) {
+  for (const contract of [...CATALOG_CONTRACTS, ...LEGACY_PROMPT_CONTRACTS, ...SPECIALIZED_PROMPT_CONTRACTS, ...PRODUCT_TASTE_CONTRACTS, ...WRITER_TECHNICAL_CONTRACTS]) {
     it(`${contract.id} satisfies catalog prompt-guidance coverage`, () => {
       assertContractSurface(contract);
     });

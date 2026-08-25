@@ -256,13 +256,16 @@ export function buildRalphAppendInstructions(
     'Final deslop guidance:',
     options.noDeslop
       ? '- `--no-deslop` is active for this Ralph run, so skip the mandatory ai-slop-cleaner final pass and use the latest successful pre-deslop verification evidence.'
-      : `- Step 7.5 must run owen-codex:ai-slop-cleaner in standard mode on changed files only, using the repo-relative paths listed in \`${options.changedFilesPath}\`.`,
+      : `- Step 7.5 must run owen-codex:ai-slop-cleaner exactly once for the stable candidate, using the automatic finalization profile on changed files only and the repo-relative paths listed in \`${options.changedFilesPath}\`.`,
     options.noDeslop
       ? '- Do not run ai-slop-cleaner unless the user explicitly re-enables the deslop pass.'
       : '- Keep the cleaner scope bounded to that file list; do not widen the pass to the full codebase or unrelated files.',
     options.noDeslop
       ? '- Step 7.6 stays satisfied by the latest successful pre-deslop verification evidence because this run opted out of the deslop pass.'
-      : '- Step 7.6 must rerun the current tests/build/lint verification after ai-slop-cleaner; if regression fails, roll back cleaner changes or fix and retry before completion.',
+      : '- Step 7.6 must rerun the current tests/build/lint verification after ai-slop-cleaner; if the cleaner causes a regression, repair or revert that cleaner change and rerun the affected verification without blindly repeating the cleaner.',
+    options.noDeslop
+      ? '- Final architect verification still reviews the exact diff proven by the preserved Step 6 evidence.'
+      : '- Final architect verification must occur after Step 7.6 and review the exact post-clean diff; any later source change makes that approval stale.',
     '</ralph_native_subagents>',
   ].join('\n');
 }

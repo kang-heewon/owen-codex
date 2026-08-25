@@ -67,28 +67,30 @@ Complex tasks often fail silently: partial implementations get declared "done", 
    - Persist verdict to `.owx/state/{scope}/ralph-progress.json` including numeric + qualitative feedback.
    - Default pass threshold: `score >= 90`.
    - **URL-based visual cloning tasks**: When the task description contains a target URL (e.g., "clone https://example.com"), route the work through `$visual-ralph`. `$web-clone` is hard-deprecated; Visual Ralph owns the migrated live-URL visual implementation use case and uses its built-in visual verdict step for measured visual scoring.
-6. **Verify completion with fresh evidence**:
+6. **Verify the stable final candidate with fresh evidence**:
    - If Codex goal mode is available, call `get_goal` before final verification to restate the active objective and include it in the evidence checklist.
    a. Identify what command proves the task is complete
    b. Run verification (test, build, lint)
    c. Read the output -- confirm it actually passed
    d. Check: zero pending/in_progress TODO items
-7. **Architect verification** (native role):
+7.5 **Mandatory Deslop Pass** (changed files):
+   - Run `owen-codex:ai-slop-cleaner` exactly once on **all files changed during the Ralph session** for this stable final candidate.
+   - Scope the cleaner to **changed files only**; do not widen the pass beyond Ralph-owned edits.
+   - Use the cleaner's **automatic finalization profile**, not the explicit cleanup profile or review mode.
+   - If the prompt contains `--no-deslop`, skip this step and preserve the Step 6 verification evidence.
+7.6 **Regression Re-verification** (post-clean):
+   - After the deslop pass, re-run all tests/build/lint and read the output to confirm they still pass.
+   - If the cleaner causes a regression, roll back cleaner changes or fix and retry verification. Do not blindly rerun the cleaner in a loop solely because its changes failed verification.
+   - Do not proceed until the exact resulting diff is green. With `--no-deslop`, Step 6 supplies this evidence.
+8. **Final architect verification of the exact cleaned diff** (native role):
    - <5 files, <100 lines with full tests: `task(agent_type="architect", reasoning_effort="medium", prompt="...")` minimum
    - Standard changes: `task(agent_type="architect", reasoning_effort="medium", prompt="...")`
    - >20 files or security/architectural changes: `task(agent_type="architect", reasoning_effort="xhigh", prompt="...")`
    - Ralph floor: always run an explicit `architect` native subagent, even for small changes
-7.5 **Mandatory Deslop Pass**:
-   - After Step 7 passes, run `owen-codex:ai-slop-cleaner` on **all files changed during the Ralph session**.
-   - Scope the cleaner to **changed files only**; do not widen the pass beyond Ralph-owned edits.
-   - Run the cleaner in **standard mode** (not `--review`).
-   - If the prompt contains `--no-deslop`, skip Step 7.5 entirely and proceed with the most recent successful verification evidence.
-7.6 **Regression Re-verification**:
-   - After the deslop pass, re-run all tests/build/lint and read the output to confirm they still pass.
-   - If post-deslop regression fails, roll back cleaner changes or fix and retry. Then rerun Step 7.5 and Step 7.6 until the regression is green.
-   - Do not proceed to completion until post-deslop regression is green (unless `--no-deslop` explicitly skipped the deslop pass).
-8. **On approval**: If Codex goal mode is active, call `update_goal({status: "complete"})` before `/cancel`; report final elapsed time and token-budget usage when the tool returns it. Then run `/cancel` to cleanly exit and clean up all state files.
-9. **On rejection**: Fix the issues raised, then re-verify with the same `agent_type` and `reasoning_effort` profile
+   - Approval applies only to the exact diff reviewed after Step 7.6. Any source change after approval makes that approval stale.
+9. **Completion audit**: After approval, run the prompt-to-artifact completion audit against the approved diff and its fresh post-clean verification evidence.
+10. **On approval and a passing audit**: If Codex goal mode is active, call `update_goal({status: "complete"})` before `/cancel`; report final elapsed time and token-budget usage when the tool returns it. Then run `/cancel` to cleanly exit and clean up all state files.
+11. **On rejection**: Fix the issues raised, then start a new finalization cycle at Step 6, including a new single cleaner pass for the new stable candidate and architect review of that candidate's exact post-clean diff.
 </Steps>
 
 <Tool_Usage>
@@ -126,10 +128,10 @@ Use the CLI-first state surface for Ralph lifecycle state (`owx state write/read
   `owx state write --input '{"mode":"ralph","iteration":<current>,"current_phase":"executing"}' --json`
 - **On verification/fix transition**:
   `owx state write --input '{"mode":"ralph","current_phase":"verifying"}' --json` or `owx state write --input '{"mode":"ralph","current_phase":"fixing"}' --json`
-- **On completion** (only after the completion audit passes with real evidence):
+- **On completion** (only after post-clean verification, architect approval of that exact diff, and the completion audit pass with real evidence):
   `owx state write --input '{"mode":"ralph","active":false,"current_phase":"complete","completed_at":"<now>","completion_audit":{"passed":true,"prompt_to_artifact_checklist":["<requirement mapped to artifact/evidence>"],"verification_evidence":["<fresh test/build/lint command and result>"]}}' --json`
 - **Before the final answer**:
-  1. Run fresh verification and read the output.
+  1. Confirm the finalization cycle's fresh post-clean verification still describes the exact architect-approved diff; any later source change makes the approval stale and requires a new cycle from Step 6.
   2. Build `prompt_to_artifact_checklist` entries that map every user requirement, workflow gate, named file, command, PR/delivery requirement, and stop condition to a concrete artifact or evidence item.
   3. Build `verification_evidence` entries with concrete commands, exit status, files inspected, PR URLs, or other machine-checkable evidence.
   4. Write the Ralph completion state with a top-level `completion_audit` field on the Ralph state object. Do not write bare top-level `prompt_to_artifact_checklist` or `verification_evidence` fields by themselves; the Stop gate will reject them.
@@ -201,10 +203,11 @@ Why bad: These are independent tasks that should run in parallel, not sequential
 - [ ] Fresh test run output shows all tests pass
 - [ ] Fresh build output shows success
 - [ ] lsp_diagnostics shows 0 errors on affected files
-- [ ] Architect verification passed through explicit `task(agent_type="architect", reasoning_effort="medium"...)` minimum
-- [ ] Codex goal-mode completion audit passed, and `update_goal({status: "complete"})` was called when an active goal exists
 - [ ] ai-slop-cleaner pass completed on changed files (or --no-deslop specified)
 - [ ] Post-deslop regression tests pass
+- [ ] Architect verification of the exact post-clean diff passed through explicit `task(agent_type="architect", reasoning_effort="medium"...)` minimum
+- [ ] No source change occurred after architect approval; otherwise a new finalization cycle passed
+- [ ] Codex goal-mode completion audit passed after architect approval, and `update_goal({status: "complete"})` was called when an active goal exists
 - [ ] `/cancel` run for clean state cleanup
 </Final_Checklist>
 
@@ -223,7 +226,7 @@ explicit PRD-gated path.
 
 ### Detecting `--no-deslop`
 Check if `{{PROMPT}}` contains `--no-deslop`.
-If `--no-deslop` is present, skip the deslop pass entirely after Step 7 and continue using the latest successful pre-deslop verification evidence.
+If `--no-deslop` is present, skip the deslop pass entirely at Step 7.5 and continue using the latest successful pre-deslop verification evidence.
 
 ### Visual Reference Flags (Optional)
 Ralph execution supports visual reference flags for screenshot tasks:

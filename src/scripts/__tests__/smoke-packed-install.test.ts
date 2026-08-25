@@ -63,7 +63,7 @@ test('packed install native hook stdout validation allows empty or JSON output o
 
 test('parseNpmPackJsonOutput ignores prepack logs before npm pack JSON', () => {
   const parsed = parseNpmPackJsonOutput([
-    '[sync-plugin-mirror] synced 29 canonical skill directories and plugin metadata',
+    '[sync-plugin-mirror] synced 28 canonical skill directories and plugin metadata',
     '[',
     '  {',
     '    "filename": "owen-codex-0.15.0.tgz"',

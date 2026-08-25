@@ -1,6 +1,6 @@
 {
   "name": "owen-codex",
-  "version": "0.0.1+codex.20260809051413",
+  "version": "0.0.1+codex.20260825163831",
   "description": "Durable workflow and verification toolkit for OpenAI Codex",
   "author": {
     "name": "Owen",

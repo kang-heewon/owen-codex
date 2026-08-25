@@ -3,9 +3,24 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMergedConfig, mergeConfig, OWX_DEVELOPER_INSTRUCTIONS, upsertPluginModeRuntimeFeatureFlags } from '../generator.js';
+import {
+  buildMergedConfig,
+  HUMAN_COMMUNICATION_INSTRUCTIONS,
+  mergeConfig,
+  OWX_DEVELOPER_INSTRUCTIONS,
+  OWX_PLUGIN_DEVELOPER_INSTRUCTIONS,
+  upsertPluginModeRuntimeFeatureFlags,
+} from '../generator.js';
 
 describe('config generator', () => {
+  it('shares one human communication contract across setup modes', () => {
+    assert.ok(OWX_DEVELOPER_INSTRUCTIONS.includes(HUMAN_COMMUNICATION_INSTRUCTIONS));
+    assert.ok(OWX_PLUGIN_DEVELOPER_INSTRUCTIONS.includes(HUMAN_COMMUNICATION_INSTRUCTIONS));
+    assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /reader's task, not for an evaluator/i);
+    assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /Never invent specificity, examples, numbers, personal experience, or opinions/i);
+    assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /Korean practitioners use in that context/i);
+  });
+
   it('places top-level keys before [features]', async () => {
     const wd = await mkdtemp(join(tmpdir(), 'owx-config-gen-'));
     try {
@@ -81,6 +96,10 @@ describe('config generator', () => {
       assert.match(toml, /visible `role_identity_unavailable` blocker/);
       assert.match(toml, /Use native subagents directly for independent, bounded work with explicit ownership/);
       assert.match(toml, /Treat installed prompts as narrower execution surfaces under AGENTS\.md authority/);
+      assert.match(toml, /Write for the reader's task, not for an evaluator/);
+      assert.match(toml, /use structure only when it improves scannability/);
+      assert.match(toml, /Never invent specificity, examples, numbers, personal experience, or opinions merely to sound human/);
+      assert.match(toml, /vocabulary Korean practitioners use in that context/);
       assert.match(toml, /When shaping product behavior, make the core user loop stronger before adding breadth/);
       assert.match(toml, /define explicit success and failure states/);
       assert.match(toml, /never disguise failure as success/);

@@ -3,10 +3,17 @@ import { describe, it } from 'node:test';
 import {
   PROMPT_REFACTOR_INVARIANT_CONTRACTS,
   PROMPT_REFACTOR_MARKER_CONTRACTS,
+  ROOT_TEMPLATE_CONTRACTS,
 } from '../prompt-guidance-contract.js';
 import { assertContractSurface, loadSurface } from './prompt-guidance-test-helpers.js';
 
 describe('prompt refactor contract locks', () => {
+  for (const contract of ROOT_TEMPLATE_CONTRACTS) {
+    it(`${contract.id} keeps its global guidance contract`, () => {
+      assertContractSurface(contract);
+    });
+  }
+
   const retainedInvariantContracts = PROMPT_REFACTOR_INVARIANT_CONTRACTS.filter(
     ({ id }) => id !== 'deep-interview-question-gate' && id !== 'cancel-safety-boundary',
   );

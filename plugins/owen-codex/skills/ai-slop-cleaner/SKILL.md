@@ -5,7 +5,7 @@ description: Run an anti-slop cleanup/refactor/deslop workflow
 
 # AI Slop Cleaner Skill
 
-Reduce AI-generated slop with a regression-tests-first, smell-by-smell cleanup workflow that preserves behavior and raises signal quality.
+Reduce AI-generated slop with a cleanup profile that matches the caller's intent while preserving behavior and raising signal quality.
 
 ## When to Use
 
@@ -26,9 +26,28 @@ Use this skill when:
 
 - This skill can accept a **file list scope** instead of a whole feature area.
 - When the caller provides a changed-files list (for example, Ralph session-owned edits), keep the cleanup strictly bounded to those files.
-- In the **Ralph workflow**, the mandatory deslop pass should run this skill on Ralph's changed files only, in standard mode unless the caller explicitly requests otherwise.
+- In the **Ralph workflow**, the mandatory deslop pass should run this skill on Ralph's changed files only, using the automatic finalization profile unless the caller explicitly requests the explicit cleanup profile.
 
-## Procedure
+## Choose a Profile
+
+### Explicit cleanup profile
+
+Use this profile when the user directly asks to clean up, refactor, or deslop code. It is a planned cleanup workflow: lock behavior, write a cleanup plan, inventory fallback and UI/design findings, then execute one verified smell pass at a time. Follow the full procedure below.
+
+### Automatic finalization profile
+
+Use this profile when a parent OWX workflow or direct coding workflow invokes the cleaner as a final quality gate after implementation is stable. This is a bounded final-candidate review, not a new refactor project.
+
+1. Scope the review to the caller's changed-files list. If the caller does not provide one, derive it from the current task's owned diff; do not include unrelated worktree changes.
+2. Reuse the behavior locks and verification commands already established by the parent workflow. Record a concise inventory of relevant cleanup, fallback-like, and UI/design findings in the changed files.
+3. Do not add or rerun redundant pre-cleaner tests. Add the narrowest regression coverage first only when a behavior-sensitive cleanup candidate lacks coverage needed to prove preservation. A grounded compatibility/fail-safe fallback remains behavior-sensitive and requires coverage of both primary and fallback behavior before it is changed.
+4. Make at most one cleanup pass for each stable final candidate. Prefer deletion, reuse, boundary repair, and explicit failure. Do not introduce dependencies, broaden architecture, create speculative abstractions, or absorb deferred findings into the finalization scope.
+5. Treat cleanup as subordinate to correctness. After edits, rerun the existing relevant verification set. If a cleaner edit causes a regression, repair that edit or revert only that cleaner-induced change, then rerun the verification affected by the repair. Do not blindly repeat an unchanged failing command without changing the candidate or diagnosis.
+6. Report a passed no-op when the changed files contain no justified cleanup candidate. Record broad, ambiguous, cross-layer, or architectural findings for the parent workflow instead of expanding scope or starting a nested planning workflow.
+
+The automatic finalization profile stops when every accepted stable candidate has received one pass and the relevant post-cleaner verification is green, or when a no-op inventory finds no justified candidate. It also stops without changing the candidate when preservation cannot be proved inside the changed-files scope; report that finding to the parent workflow. A cleaner-induced regression is not a valid stopping state: repair or revert the cleaner change and obtain fresh passing evidence.
+
+## Explicit Cleanup Procedure
 
 1. **Lock behavior with regression tests first**
    - Identify the behavior that must not change
@@ -95,7 +114,11 @@ Use this skill when:
    - Remaining risks
    - Residual follow-ups or consciously deferred cleanup
 
+The explicit cleanup profile stops when the planned smell passes are complete, all applicable quality gates pass, and remaining findings are explicitly deferred or escalated. If a proposed cleanup would require architectural expansion or cannot preserve behavior within the approved scope, leave it unchanged and report the blocker or handoff. Never stop with a cleaner-induced regression; repair or revert the cleanup change first.
+
 ## Output Format
+
+Use the detailed report for the explicit cleanup profile:
 
 ```text
 AI SLOP CLEANUP REPORT
@@ -131,6 +154,21 @@ Fallback Review:
 
 Remaining Risks:
 - [none or short deferred item]
+```
+
+For the automatic finalization profile, keep the report concise:
+
+```text
+AI SLOP FINALIZATION REPORT
+===========================
+
+Scope: [changed files only]
+Inventory: [accepted candidates, deferred findings, or no-op]
+Cleanup: [one-pass simplifications, or no changes]
+Fallback/UI Review: [concise classifications and actions, or N/A]
+Verification Reused: [existing commands/behavior locks]
+Post-Cleaner Verification: [PASS/FAIL with fresh evidence]
+Stop Condition: [candidates completed and green | passed no-op | preservation blocker handed off]
 ```
 
 ## Scenario Examples

@@ -44,6 +44,14 @@ const ROOT_TEMPLATE_PATTERNS = [
   rx('workflow resilience separate from authored-code behavior'),
   rx('Explicit failure is a complete and correct implementation'),
   rx('Defensive programming.*not sufficient justification'),
+  rx("reader's task.*not for an evaluator"),
+  rx('Korean practitioners.*contextual evidence.*word blacklist'),
+  rx('machine contracts.*user format.*factual and technical correctness'),
+  rx('Ordinary conversation.*quick self-read.*separate prose workflow'),
+  rx('Durable prose.*one bounded finalization pass.*final artifact boundary'),
+  rx('Technical documents.*writer.*repository-local evidence.*conservative readability pass'),
+  rx('Machine-readable payloads.*protected'),
+  rx('Source-code changes never receive prose cleanup.*ai-slop-cleaner'),
 ];
 
 const CORE_ROLE_PATTERNS = {
@@ -290,6 +298,25 @@ export const CATALOG_CONTRACTS: GuidanceSurfaceContract[] = [
   path: `prompts/${name}.md`,
   requiredPatterns: CATALOG_PATTERNS,
 }));
+
+export const WRITER_TECHNICAL_CONTRACTS: GuidanceSurfaceContract[] = [
+  {
+    id: 'writer-technical-quality',
+    path: 'prompts/writer.md',
+    requiredPatterns: [
+      rx('correctness.*precision.*completeness.*traceability.*readability.*brevity'),
+      rx('exact identifiers.*commands.*API paths.*schema.*config.*versions.*numbers'),
+      rx('normative language.*preconditions.*exceptions.*compatibility constraints.*failure behavior.*uncertainty'),
+      rx('cause, mechanism, and tradeoffs.*generic benefit language'),
+      rx('Korean practitioners.*target domain.*literal translationese'),
+      rx('repository-local source.*tests.*fixtures.*builds.*syntax'),
+      rx('Do not call production services.*documentation evidence'),
+      rx('one conservative readability pass'),
+      rx('Preserve passive voice.*actor is irrelevant.*unknown.*intentionally omitted'),
+      rx('headings, lists, tables, and code blocks only when.*navigation or precision'),
+    ],
+  },
+];
 
 export const LEGACY_PROMPT_CONTRACTS: GuidanceSurfaceContract[] = [
   {

@@ -25,7 +25,7 @@ function assertCanonicalPluginParity(path: string): void {
 
 const antiSlopWorkingAgreementPatterns = [
   /^## Working agreements$/m,
-  /^- For cleanup\/refactor\/deslop work, write a cleanup plan and lock behavior with regression tests before editing when coverage is missing\.$/m,
+  /user-requested cleanup\/refactor\/deslop[\s\S]{0,120}cleanup plan[\s\S]{0,180}automatic finalization[\s\S]{0,120}reuses the owning workflow's verification/i,
   /^- Prefer deletion, existing utilities, and existing patterns before new abstractions; add dependencies only when explicitly requested\.$/m,
   /^- Keep diffs small, reviewable, and reversible\.$/m,
   /^- Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification\. Use tests, fixtures, test-only harnesses, internal dependency-injection seams, or existing supported observability and interfaces instead; any test-only surface must stay outside shipped artifacts and the product contract\.$/m,
@@ -35,7 +35,11 @@ const antiSlopWorkingAgreementPatterns = [
 const antiSlopWorkflowPatterns = [
   /^Anti-slop workflow:$/m,
   /^- Cleanup\/refactor\/deslop work still follows the same `\$deep-interview` -> `\$ralplan` -> `\$ultragoal` or explicit `\$ralph` path; use `\$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow\.$/m,
-  /^- Write a cleanup plan before modifying code; lock existing behavior with regression tests first, then make one smell-focused pass at a time\.$/m,
+  /direct material authored-source change[\s\S]{0,160}targeted verification[\s\S]{0,160}one automatic-finalization `ai-slop-cleaner` pass[\s\S]{0,120}rerun verification/i,
+  /Explicit cleanup tasks[\s\S]{0,120}cleanup plan and behavior lock[\s\S]{0,160}Automatic finalization reuses existing verification[\s\S]{0,160}narrow test/i,
+  /Exactly one active workflow owns final code cleanup[\s\S]{0,180}Ralph[\s\S]{0,80}Ultragoal[\s\S]{0,80}Autopilot/i,
+  /^- Limit automatic finalization to one pass per stable candidate revision\./m,
+  /^- If a cleaner change causes a regression, repair or revert that cleaner-induced change and rerun the affected verification\./m,
   /^- Prefer deletion over addition, and prefer reuse plus boundary repair over new layers\.$/m,
   /^- No new dependencies without explicit request\.$/m,
   /^- Run lint, typecheck, tests, and static analysis before claiming completion\.$/m,
@@ -43,10 +47,20 @@ const antiSlopWorkflowPatterns = [
 ];
 
 const aiSlopCleanerWorkflowPatterns = [
-  /^Reduce AI-generated slop with a regression-tests-first, smell-by-smell cleanup workflow that preserves behavior and raises signal quality\.$/m,
+  /^Reduce AI-generated slop with a cleanup profile that matches the caller's intent while preserving behavior and raising signal quality\.$/m,
   /^## Scoped File Lists and Ralph Workflow$/m,
   /^- This skill can accept a \*\*file list scope\*\* instead of a whole feature area\.$/m,
-  /^- In the \*\*Ralph workflow\*\*, the mandatory deslop pass should run this skill on Ralph's changed files only, in standard mode unless the caller explicitly requests otherwise\.$/m,
+  /^- In the \*\*Ralph workflow\*\*, the mandatory deslop pass should run this skill on Ralph's changed files only, using the automatic finalization profile unless the caller explicitly requests the explicit cleanup profile\.$/m,
+  /^### Explicit cleanup profile$/m,
+  /^### Automatic finalization profile$/m,
+  /Reuse the behavior locks and verification commands already established by the parent workflow/i,
+  /Do not add or rerun redundant pre-cleaner tests/i,
+  /behavior-sensitive cleanup candidate lacks coverage/i,
+  /at most one cleanup pass for each stable final candidate/i,
+  /Do not introduce dependencies, broaden architecture, create speculative abstractions/i,
+  /cleanup as subordinate to correctness/i,
+  /repair that edit or revert only that cleaner-induced change/i,
+  /passed no-op when the changed files contain no justified cleanup candidate/i,
   /^1\. \*\*Lock behavior with regression tests first\*\*$/m,
   /^   - For fallback-like code, cover the primary path and any preserved compatibility\/fail-safe fallback before cleanup$/m,
   /^2\. \*\*Create a cleanup plan before code\*\*$/m,
@@ -175,5 +189,33 @@ describe('anti-slop workflow surfaces', () => {
     assert.match(skill, /Fallback Findings/i);
     assert.match(skill, /classifications/i);
     assert.match(skill, /escalation status/i);
+  });
+
+  it('keeps final cleanup single-owner and reviews the cleaned verified diff', () => {
+    const ralph = read('skills/ralph/SKILL.md');
+    const ultragoal = read('skills/ultragoal/SKILL.md');
+    const autopilot = read('skills/autopilot/SKILL.md');
+    const codeSimplifier = read('src/hooks/code-simplifier/index.ts');
+
+    const ralphStages = [
+      '6. **Verify the stable final candidate with fresh evidence**',
+      '7.5 **Mandatory Deslop Pass**',
+      '7.6 **Regression Re-verification**',
+      '8. **Final architect verification of the exact cleaned diff**',
+      '9. **Completion audit**',
+    ].map((stage) => ralph.indexOf(stage));
+    assert.ok(ralphStages.every((index) => index >= 0));
+    assert.deepEqual([...ralphStages].sort((a, b) => a - b), ralphStages);
+    assert.match(ralph, /Any source change after approval makes that approval stale/i);
+    assert.match(ralph, /new finalization cycle at Step 6/i);
+    assert.match(ralph, /Do not blindly rerun the cleaner in a loop/i);
+
+    assert.match(ultragoal, /ai-slop-cleaner` exactly once for that candidate/i);
+    assert.match(ultragoal, /independent review path on the exact post-clean diff/i);
+    assert.match(ultragoal, /do not blindly loop the cleaner/i);
+    assert.match(ultragoal, /new stable final candidate and run one new Steps 1-4 cycle/i);
+
+    assert.match(autopilot, /must not run an additional parent-level `ai-slop-cleaner` pass/i);
+    assert.match(codeSimplifier, /Disabled by default — requires explicit opt-in/i);
   });
 });

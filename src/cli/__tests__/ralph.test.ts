@@ -266,8 +266,11 @@ describe('ralph deslop launch wiring', () => {
     assert.match(instructions, /ai-slop-cleaner/i);
     assert.match(instructions, /changed files only/i);
     assert.match(instructions, /\.owx\/ralph\/changed-files\.txt/);
-    assert.match(instructions, /standard mode/i);
+    assert.match(instructions, /automatic finalization profile/i);
+    assert.match(instructions, /exactly once for the stable candidate/i);
     assert.match(instructions, /rerun the current tests\/build\/lint verification/i);
+    assert.match(instructions, /Final architect verification must occur after Step 7\.6/i);
+    assert.match(instructions, /any later source change makes that approval stale/i);
   });
 
   it('documents the --no-deslop opt-out when enabled', () => {

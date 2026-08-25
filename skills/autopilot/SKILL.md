@@ -46,6 +46,7 @@ Autopilot must not run a separate broad expansion/planning/execution/QA/validati
 3. **Phase `ultragoal`** — durable implementation + verification loop
    - Run `$ultragoal` from the approved ralplan artifacts.
    - Ultragoal owns durable Codex goal handoffs, `.owx/ultragoal` ledger checkpoints, implementation, tests, build/lint/typecheck evidence, cleanup, and final review gate discipline.
+   - Inherit Ultragoal's changed-files cleanup evidence and candidate lifecycle. Autopilot must not run an additional parent-level `ai-slop-cleaner` pass before or after the Ultragoal handoff.
    - Use Codex native subagents directly for independent bounded lanes when that materially improves delivery. Give each child explicit ownership; the leader keeps the goal/ledger state, integrates results, and owns final verification.
    - Required handoff artifact: implementation evidence, changed-file summary, verification evidence, and Ultragoal ledger/checkpoint references suitable for `$code-review`.
 

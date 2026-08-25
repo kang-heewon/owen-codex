@@ -53,6 +53,7 @@ type PackageJson = {
 };
 
 const PLUGIN_NAME = "owen-codex";
+const PLUGIN_CACHEBUSTER_PATTERN = /^codex\.\d{14}$/;
 const SETUP_OWNED_PLUGIN_MANIFEST_FIELDS = [
 	"agents",
 	"prompts",
@@ -73,6 +74,20 @@ async function readJsonFile<T>(path: string): Promise<T> {
 
 function stringifyJson(value: unknown): string {
 	return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function isPackageCompatiblePluginVersion(
+	version: string | undefined,
+	packageVersion: string | undefined,
+): boolean {
+	if (!version || !packageVersion) return false;
+	const [pluginPackageVersion, cachebuster, ...extraVersionParts] =
+		version.split("+");
+	return (
+		pluginPackageVersion === packageVersion &&
+		extraVersionParts.length === 0 &&
+		(cachebuster === undefined || PLUGIN_CACHEBUSTER_PATTERN.test(cachebuster))
+	);
 }
 
 function commandHook(timeout?: number): JsonValue {
@@ -249,7 +264,9 @@ async function buildExpectedPluginManifest(
 	return {
 		...manifest,
 		name: PLUGIN_NAME,
-		version: pkg.version,
+		version: isPackageCompatiblePluginVersion(manifest.version, pkg.version)
+			? manifest.version
+			: pkg.version,
 		skills: "./skills/",
 		mcpServers: "./.mcp.json",
 		apps: "./.app.json",
@@ -264,15 +281,27 @@ async function assertPluginManifestPolicy(
 	const pkg = await readJsonFile<PackageJson>(join(root, "package.json"));
 	const expectedFields: Pick<
 		PluginManifest,
-		"name" | "version" | "skills" | "mcpServers" | "apps" | "hooks"
+		"name" | "skills" | "mcpServers" | "apps" | "hooks"
 	> = {
 		name: PLUGIN_NAME,
-		version: pkg.version,
 		skills: "./skills/",
 		mcpServers: "./.mcp.json",
 		apps: "./.app.json",
 		hooks: "./hooks/hooks.json",
 	};
+	if (
+		!isPackageCompatiblePluginVersion(manifest.version, pkg.version)
+	) {
+		throw new Error(
+			[
+				"plugin_bundle_metadata_out_of_sync",
+				"kind=plugin-manifest",
+				"field=version",
+				`expected=${JSON.stringify(`${pkg.version} or ${pkg.version}+codex.<14 digits>`)}`,
+				`actual=${JSON.stringify(manifest.version)}`,
+			].join("\n"),
+		);
+	}
 
 	for (const [field, expectedValue] of Object.entries(expectedFields)) {
 		if (manifest[field] !== expectedValue) {

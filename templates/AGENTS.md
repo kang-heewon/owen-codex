@@ -46,7 +46,7 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 </operating_principles>
 
 ## Working agreements
-- For cleanup/refactor/deslop work, write a cleanup plan and lock behavior with regression tests before editing when coverage is missing.
+- For user-requested cleanup/refactor/deslop work, write a cleanup plan and lock behavior with regression tests before editing when coverage is missing. An automatic finalization pass reuses the owning workflow's verification and does not create redundant plans or tests.
 - Prefer deletion, existing utilities, and existing patterns before new abstractions; add dependencies only when explicitly requested.
 - Keep diffs small, reviewable, and reversible.
 - Keep workflow resilience separate from authored-code behavior. Instructions to retry tools, recover workflow state, continue execution, or finish the task apply only to agent orchestration and must not become fallback branches, silent defaults, compatibility shims, retries, degraded modes, or alternate execution paths in source code.
@@ -56,6 +56,25 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - Prefer declarative, immutable, type-safe code with precise types, exhaustive handling, validated boundaries, and explicit failure behavior.
 - Avoid unnecessary comments; use clear names, types, and structure instead.
 - Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks.
+
+<communication_quality>
+- Write for the reader's task, not for an evaluator. Lead with the answer or result instead of restating the prompt or announcing the topic.
+- Prefer concrete language, match the user's terminology and requested technical depth, and use headings, lists, or tables only when they improve retrieval or scannability.
+- Do not inflate simple points with framing, filler, repeated summaries, decorative contrast, or generic benefit language.
+- Preserve precision, uncertainty, domain terms, required formats, deliberate user voice, and established repository or destination style. Never invent specificity, examples, numbers, experience, or opinions merely to make prose sound human.
+- When writing Korean, prefer idiomatic Korean and the vocabulary Korean practitioners use in the relevant domain over literal English-to-Korean mappings. Treat candidate translationese as contextual evidence, never as a word blacklist.
+- When writing rules conflict, apply this precedence: safety, security, and explicit machine contracts; explicit user format and fidelity; factual and technical correctness with evidence; repository or destination conventions; source or user voice; then general communication preferences.
+- Readability preferences never authorize changing machine-consumed output, exact quotations, literal translations, code, commands, identifiers, schema fields, URLs, citations, or normative force unless the user explicitly requests that change.
+</communication_quality>
+
+<artifact_quality_routing>
+- Ordinary conversation uses the always-on communication contract plus one quick self-read. Do not start a separate prose workflow for a normal answer.
+- Durable prose that will be saved, posted, committed, submitted, or reused gets one bounded finalization pass at the final artifact boundary. Preserve facts, intent, voice, and formatting; stop when remaining differences are preference rather than defect.
+- Technical documents remain owned by the `writer` role: ground them in repository-local evidence, verify technical content safely, then make one conservative readability pass that cannot weaken conditions, failures, exceptions, uncertainty, identifiers, commands, or normative language.
+- Machine-readable payloads, fenced or inline code, commands, identifiers, URLs and link targets, exact quotations, and literal translations are protected. In hybrid Markdown, edit prose regions only.
+- Intermediate notes, raw exploration, logs, test output, state snapshots, and internal handoffs normally skip full prose finalization; repeated rewriting can erase evidence.
+- Source-code changes never receive prose cleanup. The active code workflow owns one bounded `ai-slop-cleaner` pass after correctness verification, reruns verification afterward, and prevents parent or child workflows from duplicating that cleanup gate.
+</artifact_quality_routing>
 
 <product_taste_contract>
 Product taste is a delivery constraint, not decorative advice.
@@ -164,7 +183,12 @@ Output contract: Default update/final shape: state current mode, action/result, 
 
 Anti-slop workflow:
 - Cleanup/refactor/deslop work still follows the same `$deep-interview` -> `$ralplan` -> `$ultragoal` or explicit `$ralph` path; use `$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow.
-- Write a cleanup plan before modifying code; lock existing behavior with regression tests first, then make one smell-focused pass at a time.
+- For a direct material authored-source change outside a cleanup-owning parent workflow: implement, run targeted verification, run one automatic-finalization `ai-slop-cleaner` pass on owned changed source files, rerun verification, then review or report.
+- Explicit cleanup tasks require a cleanup plan and behavior lock where coverage is missing. Automatic finalization reuses existing verification, records a concise candidate inventory, and adds a narrow test only when a behavior-sensitive cleanup candidate lacks sufficient coverage.
+- Exactly one active workflow owns final code cleanup. A parent does not repeat a cleaner already owned by Ralph, Ultragoal, or an Ultragoal phase inside Autopilot.
+- Limit automatic finalization to one pass per stable candidate revision. A material product or review fix creates a new candidate; optional style ideas or a prior cleanup edit do not.
+- If a cleaner change causes a regression, repair or revert that cleaner-induced change and rerun the affected verification. Do not blindly repeat the cleaner on the same stable revision.
+- Skip or limit automatic cleanup for docs-only work, generated or vendor files, lockfile-only changes, pure data fixtures, read-only reviews, an owning parent workflow, or an explicit user request to skip deslop.
 - Prefer deletion over addition, and prefer reuse plus boundary repair over new layers.
 - No new dependencies without explicit request.
 - Run lint, typecheck, tests, and static analysis before claiming completion.

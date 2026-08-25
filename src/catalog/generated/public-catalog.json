@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-07-22T21:18:53.000Z",
+  "generatedAt": "2026-08-25T16:20:00.000Z",
   "version": "2026.02.28.1",
   "counts": {
-    "skillCount": 47,
+    "skillCount": 48,
     "promptCount": 33,
-    "activeSkillCount": 27,
+    "activeSkillCount": 28,
     "activeAgentCount": 20
   },
   "coreSkills": [
@@ -151,6 +151,13 @@
     },
     {
       "name": "ai-slop-cleaner",
+      "category": "shortcut",
+      "status": "active",
+      "core": false,
+      "internalRequired": false
+    },
+    {
+      "name": "prose-quality",
       "category": "shortcut",
       "status": "active",
       "core": false,

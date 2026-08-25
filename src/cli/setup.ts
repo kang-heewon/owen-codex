@@ -102,6 +102,7 @@ import {
 	OWX_LOCAL_MARKETPLACE_NAME,
 	OWX_PLUGIN_NAME,
 	materializePackagedOmxPluginCache,
+	packagedOmxPluginVersion,
 	resolvePackagedOmxMarketplace,
 	upsertLocalOmxMarketplaceRegistration,
 	upsertLocalOmxPluginEnablement,
@@ -1007,14 +1008,11 @@ async function refreshOmxPluginDiscoveryCache(
 		return { status: "unavailable", staleDirs: [] };
 	}
 
-	const [pkg, expectedSkillNames, cachedDirs] = await Promise.all([
-		readFile(join(pkgRoot, "package.json"), "utf-8").then(
-			(raw) => JSON.parse(raw) as { version?: unknown },
-		),
+	const [expectedVersion, expectedSkillNames, cachedDirs] = await Promise.all([
+		packagedOmxPluginVersion(packagedMarketplace),
 		listChildDirectoryNames(join(packagedMarketplace.pluginRoot, "skills")),
 		discoverOmxPluginCacheDirs(join(codexHomeDir, "plugins", "cache")),
 	]);
-	const expectedVersion = typeof pkg.version === "string" ? pkg.version : null;
 	const staleDirs: string[] = [];
 
 	for (const cacheDir of cachedDirs) {

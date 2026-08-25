@@ -124,6 +124,94 @@ describe("plugin bundle SSOT contract", () => {
 		}
 	});
 
+	it("preserves a package-compatible plugin cachebuster during sync", async () => {
+		const fixtureRoot = await copyBundleFixture();
+		try {
+			const pkg = JSON.parse(
+				await readFile(join(fixtureRoot, "package.json"), "utf-8"),
+			) as { version: string };
+			const manifestPath = join(
+				fixtureRoot,
+				"plugins",
+				"owen-codex",
+				".codex-plugin",
+				"plugin.json",
+			);
+			const manifest = JSON.parse(await readFile(manifestPath, "utf-8")) as {
+				version: string;
+			};
+			manifest.version = `${pkg.version}+codex.20260825163831`;
+			await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+			await syncPluginMirror({ root: fixtureRoot });
+			const syncedManifest = JSON.parse(
+				await readFile(manifestPath, "utf-8"),
+			) as { version: string };
+
+			assert.equal(syncedManifest.version, manifest.version);
+			await syncPluginMirror({ root: fixtureRoot, check: true });
+		} finally {
+			await rm(fixtureRoot, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects a plugin cachebuster for a different package version", async () => {
+		const fixtureRoot = await copyBundleFixture();
+		try {
+			const manifestPath = join(
+				fixtureRoot,
+				"plugins",
+				"owen-codex",
+				".codex-plugin",
+				"plugin.json",
+			);
+			const manifest = JSON.parse(await readFile(manifestPath, "utf-8")) as {
+				version: string;
+			};
+			manifest.version = "9.9.9+codex.20260825163831";
+			await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+			await assert.rejects(
+				() => syncPluginMirror({ root: fixtureRoot, check: true }),
+				/plugin_bundle_metadata_out_of_sync[\s\S]*field=version/,
+			);
+		} finally {
+			await rm(fixtureRoot, { recursive: true, force: true });
+		}
+	});
+
+	it("repairs an incompatible plugin version during sync", async () => {
+		const fixtureRoot = await copyBundleFixture();
+		try {
+			const pkg = JSON.parse(
+				await readFile(join(fixtureRoot, "package.json"), "utf-8"),
+			) as { version: string };
+			const manifestPath = join(
+				fixtureRoot,
+				"plugins",
+				"owen-codex",
+				".codex-plugin",
+				"plugin.json",
+			);
+			const manifest = JSON.parse(await readFile(manifestPath, "utf-8")) as {
+				version: string;
+			};
+			manifest.version = "9.9.9+codex.20260825163831";
+			await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+			const result = await syncPluginMirror({ root: fixtureRoot });
+			const repairedManifest = JSON.parse(
+				await readFile(manifestPath, "utf-8"),
+			) as { version: string };
+
+			assert.equal(result.changed, true);
+			assert.equal(repairedManifest.version, pkg.version);
+			await syncPluginMirror({ root: fixtureRoot, check: true });
+		} finally {
+			await rm(fixtureRoot, { recursive: true, force: true });
+		}
+	});
+
 	it("allows catalog-deprecated root skill dirs as non-installed compatibility shims", async () => {
 		const fixtureRoot = await copyBundleFixture();
 		try {

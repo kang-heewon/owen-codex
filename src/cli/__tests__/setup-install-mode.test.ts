@@ -964,16 +964,8 @@ describe("owx setup install mode behavior", () => {
 					});
 				});
 
-				const pkg = JSON.parse(
-					await readFile(join(packageRoot, "package.json"), "utf-8"),
-				) as { version: string };
 				const cacheSkillsDir = join(
-					codexHomeDir,
-					"plugins",
-					"cache",
-					"owen-codex-local",
-					"owen-codex",
-					pkg.version,
+					await packagedPluginCacheDir(codexHomeDir),
 					"skills",
 				);
 				assert.equal(
@@ -1268,6 +1260,49 @@ describe("owx setup install mode behavior", () => {
 						false,
 					);
 				});
+			});
+		} finally {
+			await rm(wd, { recursive: true, force: true });
+		}
+	});
+
+	it("keeps a cachebusted plugin discovery cache unchanged on repeated setup", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-setup-install-mode-"));
+		try {
+			await withIsolatedUserHome(wd, async (codexHomeDir) => {
+				const cacheDir = await packagedPluginCacheDir(codexHomeDir);
+				assert.match(cacheDir, /\+codex\.\d{14}$/);
+
+				await withTempCwd(wd, async () => {
+					await setup({
+						scope: "user",
+						installMode: "plugin",
+						codexFeaturesProbe: pluginScopedHooksFeatureProbe,
+					});
+				});
+
+				let output = "";
+				await withTempCwd(wd, async () => {
+					output = await captureConsoleOutput(() =>
+						setup({
+							scope: "user",
+							installMode: "plugin",
+							codexFeaturesProbe: pluginScopedHooksFeatureProbe,
+						}),
+					);
+				});
+
+				assert.equal(existsSync(cacheDir), true);
+				assert.match(
+					output,
+					/Codex plugin discovery cache already matches packaged plugin metadata/,
+				);
+				assert.match(
+					output,
+					/Local Codex plugin cache already exposes packaged OWX skills/,
+				);
+				assert.doesNotMatch(output, /Invalidated .* plugin discovery cache/);
+				assert.doesNotMatch(output, /Installed local Codex plugin cache/);
 			});
 		} finally {
 			await rm(wd, { recursive: true, force: true });

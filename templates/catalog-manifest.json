@@ -144,6 +144,13 @@
       "internalRequired": false
     },
     {
+      "name": "prose-quality",
+      "category": "shortcut",
+      "status": "active",
+      "core": false,
+      "internalRequired": false
+    },
+    {
       "name": "code-review",
       "category": "shortcut",
       "status": "active",

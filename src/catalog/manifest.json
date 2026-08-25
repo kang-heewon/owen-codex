@@ -118,6 +118,11 @@
       "status": "active"
     },
     {
+      "name": "prose-quality",
+      "category": "shortcut",
+      "status": "active"
+    },
+    {
       "name": "code-review",
       "category": "shortcut",
       "status": "active",

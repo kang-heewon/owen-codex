@@ -340,7 +340,7 @@ describe('official Codex plugin layout', () => {
     assert.deepEqual(codexPluginEntries.sort(), ['plugin.json']);
     assert.equal(manifest.name, pluginName);
     assert.equal(manifest.name, pluginRoot.split(sep).at(-1));
-    assert.equal(manifest.version, pkg.version);
+    assert.match(manifest.version ?? '', new RegExp(`^${escapeRegex(pkg.version)}(?:\\+codex\\.\\d{14})?$`));
     assert.equal(manifest.skills, './skills/');
     assert.equal(manifest.mcpServers, './.mcp.json');
     assert.equal(manifest.apps, './.app.json');
