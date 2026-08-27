@@ -108,6 +108,85 @@ const CORE_ROLE_PATTERNS = {
   ],
 };
 
+export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
+  {
+    id: 'frontend-visual-evidence-root',
+    path: 'templates/AGENTS.md',
+    requiredPatterns: [
+      rx('execution invariant.*does not depend on a design skill'),
+      rx('every frontend-visible change.*real browser'),
+      rx('DOM bounding boxes or computed styles'),
+      rx('Capture a final screenshot'),
+      rx('absolute paths'),
+      rx('do not claim the frontend work is complete'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-developer-defaults',
+    path: 'src/config/generator.ts',
+    requiredPatterns: [
+      rx('FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS'),
+      rx('does not depend on a design skill'),
+      rx('real browser'),
+      rx('Capture final screenshots'),
+      rx('absolute paths'),
+      rx('do not claim the frontend work is complete'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-designer',
+    path: 'prompts/designer.md',
+    requiredPatterns: [
+      rx('Browser verification is required.*even when no design or visual skill was invoked'),
+      rx('real browser'),
+      rx('\.owx/artifacts/frontend/<task>/'),
+      rx('absolute paths'),
+      rx('Source-only verification'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-executor',
+    path: 'prompts/executor.md',
+    requiredPatterns: [
+      rx('frontend-visible changes'),
+      rx('real browser'),
+      rx('capture final screenshots'),
+      rx('absolute paths'),
+      rx('do not claim completion'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-verifier',
+    path: 'prompts/verifier.md',
+    requiredPatterns: [
+      rx('PASS requires fresh real-browser evidence'),
+      rx('final screenshots'),
+      rx('insufficient visual proof'),
+      rx('absolute screenshot paths'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-ralph',
+    path: 'skills/ralph/SKILL.md',
+    requiredPatterns: [
+      rx('Frontend evidence gate'),
+      rx('even without a reference image'),
+      rx('real browser'),
+      rx('absolute paths'),
+      rx('do not declare the frontend work complete'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-visual-ralph',
+    path: 'skills/visual-ralph/SKILL.md',
+    requiredPatterns: [
+      rx('Final generated screenshots'),
+      rx('absolute local paths'),
+      rx('route, state, and viewport'),
+    ],
+  },
+];
+
 export const PRODUCT_TASTE_CONTRACTS: GuidanceSurfaceContract[] = [
   {
     id: 'product-manager-taste',

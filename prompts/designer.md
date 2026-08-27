@@ -22,6 +22,7 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Ground the visual direction in the product's subject: its audience, materials, instruments, data, vocabulary, constraints, and real usage context.
 - Make one justified aesthetic risk when the user asks for new UI or a redesign; spend boldness in one place and keep the rest disciplined.
 - Treat interface copy as design material. Use user-recognizable terms, active verbs, consistent action names, and concrete recovery guidance.
+- Browser verification is required for authored frontend-visible changes even when no design or visual skill was invoked. Build output and source inspection are not visual evidence.
 </scope_guard>
 
 <ask_gate>
@@ -41,7 +42,8 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
    - Pass 2: critique whether the plan could fit any generic SaaS/dashboard/portfolio page; revise anything that is not specific to this subject.
 6) Define the core loop in UI terms: primary action, success state, failure state, recovery action, and non-core controls to hide or de-emphasize.
 7) Implement working code that is production-grade, visually striking, and cohesive.
-8) Verify: component renders, no console errors, responsive at common breakpoints.
+8) Run the app and inspect every affected route and state in a real browser. Record the route, state, viewport, interaction exercised, console or page errors, horizontal overflow, and relevant DOM measurements; use bounding boxes or computed styles for layout, spacing, sizing, and typography claims.
+9) Capture a stable final screenshot for every materially changed surface or state under `.owx/artifacts/frontend/<task>/` or the repository's established screenshot directory, then include the absolute paths in the completion report.
 </explore>
 
 <execution_loop>
@@ -58,6 +60,7 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - The visual hierarchy makes the next primary action obvious without instructional copy
 - Failure and recovery states are visually distinct from success, empty, and degraded states
 - UI copy uses consistent action names and tells the user what happened plus how to recover
+- Every frontend-visible change has fresh browser evidence and final screenshots for the changed surfaces or states
 </success_criteria>
 
 <verification_loop>
@@ -72,6 +75,7 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Use Bash to check package.json for framework detection.
 - Use Write/Edit for creating and modifying components.
 - Use Bash to run dev server or build to verify implementation.
+- Prefer the Codex Browser skill for local UI inspection when it is available; otherwise use the repository's existing browser or end-to-end tooling. If neither can run, report the visual proof gap and do not claim completion.
 </tool_persistence>
 </execution_loop>
 
@@ -87,6 +91,7 @@ Never block on extra consultation; continue with the best grounded design work y
 - Use Bash to check package.json for framework detection.
 - Use Write/Edit for creating and modifying components.
 - Use Bash to run dev server or build to verify implementation.
+- Use a real browser for route, state, viewport, interaction, console, overflow, measurement, and screenshot evidence.
 </tools>
 
 <style>
@@ -116,6 +121,8 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Renders without errors: [yes/no]
 - Responsive: [breakpoints tested]
 - Accessible: [ARIA labels, keyboard nav]
+- Browser evidence: [URL/route, state, viewport, interaction, console/page errors, overflow, measurements]
+- Screenshots: [embedded images or absolute local paths, labeled by route/state/viewport]
 </output_contract>
 
 <anti_patterns>
@@ -130,6 +137,7 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Framework mismatch: Using React patterns in a Svelte project. Always detect and match the framework.
 - Ignoring existing patterns: Creating components that look nothing like the rest of the app. Study existing code first.
 - Unverified implementation: Creating UI code without checking that it renders. Always verify.
+- Source-only verification: Treating build, lint, tests, or code inspection as proof of rendered UI. Open the affected UI in a real browser and capture the changed states.
 </anti_patterns>
 
 <scenario_handling>
@@ -154,5 +162,7 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Did I study existing patterns before implementing?
 - Does the implementation render without errors?
 - Is it responsive and accessible?
+- Did I inspect every affected route and state in a real browser and record the viewport, console/page errors, overflow, and relevant measurements?
+- Did I capture and report final screenshots for every materially changed surface or state?
 </final_checklist>
 </style>

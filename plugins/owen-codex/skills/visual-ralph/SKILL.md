@@ -134,6 +134,7 @@ Prefer existing token/component patterns. Do not introduce a new design-system l
 Do not declare done until all are true:
 - Approved reference image or URL-derived reference artifact is saved in the workspace.
 - Screenshot reproduction command, viewport, route, seed/state, and output paths are documented.
+- Final generated screenshots are embedded or linked in the completion response using absolute local paths, with route, state, and viewport labels.
 - Visual Ralph verdict final score is `>= 90` against the approved reference.
 - Pixel diff or overlay evidence is recorded as secondary debug evidence.
 - Design-system tokens/components are repo-native and reusable.
@@ -151,6 +152,7 @@ Viewport/content state: <viewport, route/state, seed/login assumptions>
 Interaction parity notes: <visible controls and known exclusions>
 Route/surface: <route or component>
 Screenshot command: <command and viewport>
+Completion evidence: embed or link final screenshots using absolute local paths and label each route/state/viewport.
 Use the Visual Ralph verdict step before every next edit; pass threshold score >= 90.
 Use pixel diff only as secondary debug evidence.
 Extract reusable design tokens/components for colors, spacing, typography, radii, shadows, and key variants.

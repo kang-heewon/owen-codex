@@ -36,6 +36,8 @@ describe('visual-ralph skill contract', () => {
 
   it('requires reproducibility and repo-native design system artifacts', () => {
     assert.match(skill, /screenshot reproduction command|viewport|output paths/i);
+    assert.match(skill, /Final generated screenshots.*completion response/i);
+    assert.match(skill, /absolute local paths/i);
     assert.match(skill, /repo-native reusable artifacts|repo-native and reusable/i);
     for (const token of ['colors', 'spacing', 'typography', 'radii', 'shadows']) {
       assert.match(skill, new RegExp(token, 'i'));

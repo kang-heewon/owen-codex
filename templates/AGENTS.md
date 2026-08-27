@@ -57,6 +57,16 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - Avoid unnecessary comments; use clear names, types, and structure instead.
 - Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks.
 
+<frontend_visual_evidence>
+Frontend verification is an execution invariant and does not depend on a design skill being invoked.
+- Treat a change as frontend-visible when it can alter rendered UI, interaction state, responsive behavior, accessibility presentation, or user-facing copy. Do not trigger this contract for frontend files whose rendered behavior is demonstrably unchanged.
+- For every frontend-visible change, run the app with its repository-native command and inspect each affected route and state in a real browser. Prefer the Codex Browser skill when it is available; otherwise use the repository's existing browser or end-to-end tooling. Do not add a new browser dependency solely for verification unless the user authorizes it.
+- Verify the relevant viewport or viewports and record the URL or route, viewport, state or fixture, exercised interaction, console or page errors, horizontal overflow, and any claimed visual measurements. For layout, spacing, sizing, or typography claims, inspect DOM bounding boxes or computed styles instead of inferring from source code.
+- Capture a final screenshot for every materially changed surface or state after the UI reaches a stable state. Store evidence under `.owx/artifacts/frontend/<task>/` or the repository's established screenshot directory; keep local evidence uncommitted unless the repository explicitly requires it.
+- In the completion response, embed or link the final screenshots with absolute paths and label each route, state, and viewport. Build, lint, typecheck, and unit-test results do not replace browser evidence.
+- If browser inspection or screenshot capture cannot run, report the exact blocker and mark the visual verification incomplete. Do not claim the frontend work is complete. Reference scoring and pixel-diff loops remain the responsibility of `$visual-ralph` when a visual reference exists; ordinary frontend changes do not require that skill.
+</frontend_visual_evidence>
+
 <communication_quality>
 - Write for the reader's task, not for an evaluator. Lead with the answer or result instead of restating the prompt or announcing the topic.
 - Prefer concrete language, match the user's terminology and requested technical depth, and use headings, lists, or tables only when they improve retrieval or scannability.

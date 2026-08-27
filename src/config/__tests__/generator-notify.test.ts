@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   buildMergedConfig,
+  FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS,
   HUMAN_COMMUNICATION_INSTRUCTIONS,
   mergeConfig,
   OWX_DEVELOPER_INSTRUCTIONS,
@@ -19,6 +20,16 @@ describe('config generator', () => {
     assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /reader's task, not for an evaluator/i);
     assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /Never invent specificity, examples, numbers, personal experience, or opinions/i);
     assert.match(HUMAN_COMMUNICATION_INSTRUCTIONS, /Korean practitioners use in that context/i);
+  });
+
+  it('shares one frontend visual evidence contract across setup modes', () => {
+    assert.ok(OWX_DEVELOPER_INSTRUCTIONS.includes(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS));
+    assert.ok(OWX_PLUGIN_DEVELOPER_INSTRUCTIONS.includes(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS));
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /does not depend on a design skill/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /real browser/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /Capture final screenshots/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /absolute paths/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /do not claim the frontend work is complete/i);
   });
 
   it('places top-level keys before [features]', async () => {
@@ -103,6 +114,10 @@ describe('config generator', () => {
       assert.match(toml, /When shaping product behavior, make the core user loop stronger before adding breadth/);
       assert.match(toml, /define explicit success and failure states/);
       assert.match(toml, /never disguise failure as success/);
+      assert.match(toml, /Frontend visual verification does not depend on a design skill being invoked/);
+      assert.match(toml, /inspect every affected route and state in a real browser/);
+      assert.match(toml, /Capture final screenshots for every materially changed surface or state/);
+      assert.match(toml, /embed or link them in the completion response with absolute paths/);
       assert.match(toml, /Keep OWX workflow resilience separate from authored-code behavior/);
       assert.match(toml, /Treat explicit failure as a complete and correct implementation/);
       assert.match(toml, /Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification/);

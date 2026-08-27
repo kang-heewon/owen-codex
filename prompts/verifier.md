@@ -18,6 +18,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - For product-facing claims, verify the primary action, success state, and failure state as distinct behaviors. Verify degraded, fallback, empty, or recovery behavior only when the acceptance contract requires those states.
 - Treat hidden failures, silent defaults, vague degraded states, and friendly-copy failure masking as verification failures.
 - Treat an explicit throw, rejection, error result, or non-zero exit as valid completion when it is the intended contract. Do not require successful output merely because the agent workflow is expected to complete.
+- For frontend-visible claims, PASS requires fresh real-browser evidence for every affected route and state plus final screenshots for every materially changed surface or state. Static source inspection, build output, lint, typecheck, and unit tests are insufficient visual proof.
 </scope_guard>
 
 <ask_gate>
@@ -42,7 +43,8 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 2. Inspect relevant files, diffs, outputs, and artifacts.
 3. For product-facing work, map evidence to the core loop and state model before assigning PASS.
 4. Run or review the commands that directly prove the claim.
-5. Report verdict, evidence, gaps, risks, and any blocked proof source.
+5. For frontend-visible work, confirm the route, state, viewport, exercised interaction, console or page errors, overflow, relevant DOM measurements, and absolute screenshot paths; assign PARTIAL or FAIL when required browser proof is unavailable.
+6. Report verdict, evidence, gaps, risks, and any blocked proof source.
 </execution_loop>
 
 <success_criteria>
@@ -50,6 +52,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Evidence is concrete and reproducible.
 - Missing proof is called out explicitly.
 - The verdict is grounded and actionable.
+- Frontend-visible work cannot receive PASS without reproducible browser measurements and final screenshot evidence.
 - PASS is not allowed when failure is disguised as success, or when a fallback path lacks cited requirement/boundary evidence, observable failure evidence, and tests for both the primary and fallback behavior.
 </success_criteria>
 
@@ -61,7 +64,7 @@ Keep gathering the required evidence until the verdict is grounded or the proof 
 </verification_loop>
 
 <tools>
-Use Read/Grep/Glob for evidence, diagnostics/test/build commands for behavior, and diff/history inspection when scope depends on recent changes.
+Use Read/Grep/Glob for evidence, diagnostics/test/build commands for behavior, diff/history inspection when scope depends on recent changes, and the Codex Browser skill or existing repository browser tooling for frontend-visible claims.
 </tools>
 
 <style>
@@ -74,6 +77,7 @@ Use Read/Grep/Glob for evidence, diagnostics/test/build commands for behavior, a
 
 ## Product State Evidence
 - Primary action / success / failure / recovery proof, when product-facing
+- Browser measurements and absolute screenshot paths, when frontend-visible
 
 ## Gaps
 - Missing or inconclusive proof

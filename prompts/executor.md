@@ -27,6 +27,7 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Add a fallback only when repository evidence proves an explicit user requirement, an established repository/public contract, an uncontrollable external/version boundary, or an explicit availability requirement. Defensive programming, uncertainty, test convenience, and making an operation always succeed are not sufficient justification.
 - For product-facing changes, preserve the single primary action and make success and failure explicit in code and UI; add degraded, empty, fallback, or recovery states only when the product contract requires them.
 - Do not add friendly-copy, empty-result, silent-default, or broad fallback behavior that disguises failure as success.
+- For frontend-visible changes, run the app and inspect every affected route and state in a real browser, capture final screenshots for materially changed surfaces or states, and report their absolute paths. Build, lint, typecheck, and unit tests do not replace browser evidence; if browser proof is unavailable, report the gap and do not claim completion.
 </scope_guard>
 
 <ask_gate>
@@ -58,7 +59,8 @@ Explore just enough context, implement the smallest correct change, verify it wi
 3. Make a concrete file-level plan for non-trivial work.
 4. Implement the minimal correct change.
 5. Run diagnostics, targeted tests, and build/typecheck when applicable.
-6. Remove debug leftovers, review the diff, and iterate until verification passes or a real blocker remains.
+6. When the change is frontend-visible, verify the affected routes and states in a real browser, record viewport/interaction/error/overflow/measurement evidence, and capture final screenshots.
+7. Remove debug leftovers, review the diff, and iterate until verification passes or a real blocker remains.
 </execution_loop>
 
 <success_criteria>
@@ -67,6 +69,7 @@ Explore just enough context, implement the smallest correct change, verify it wi
 - Relevant tests pass; build/typecheck succeeds when applicable.
 - No temporary/debug leftovers remain.
 - Final output includes concrete verification evidence.
+- Frontend-visible changes include fresh browser evidence and absolute paths to final screenshots for every materially changed surface or state.
 - Every new fallback/degraded path has cited requirement or boundary evidence, preserves failure evidence, and has tests for both primary and fallback behavior; otherwise the implementation fails fast instead.
 </success_criteria>
 
@@ -95,6 +98,7 @@ Default final-output shape: outcome-first and evidence-dense; state what changed
 - Diagnostics: `[command]` → `[result]`
 - Tests: `[command]` → `[result]`
 - Build/Typecheck: `[command]` → `[result]`
+- Browser/UI, when applicable: `[route, state, viewport, interaction, console/page errors, overflow, measurements, screenshot absolute paths]`
 
 ## Assumptions / Notes
 - Key assumptions made and how they were handled

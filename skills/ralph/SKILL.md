@@ -67,6 +67,12 @@ Complex tasks often fail silently: partial implementations get declared "done", 
    - Persist verdict to `.owx/state/{scope}/ralph-progress.json` including numeric + qualitative feedback.
    - Default pass threshold: `score >= 90`.
    - **URL-based visual cloning tasks**: When the task description contains a target URL (e.g., "clone https://example.com"), route the work through `$visual-ralph`. `$web-clone` is hard-deprecated; Visual Ralph owns the migrated live-URL visual implementation use case and uses its built-in visual verdict step for measured visual scoring.
+5.5 **Frontend evidence gate (when implementation affects rendered UI, even without a reference image)**:
+   - Run the app with its repository-native command and inspect every affected route and state in a real browser. Prefer the Codex Browser skill when available; otherwise use existing repository browser or end-to-end tooling.
+   - Record the route, state, viewport, exercised interaction, console or page errors, horizontal overflow, and relevant DOM measurements. Use bounding boxes or computed styles for layout, spacing, sizing, and typography claims.
+   - Capture a stable final screenshot for every materially changed surface or state under `.owx/artifacts/frontend/<task>/` or the repository's established screenshot directory.
+   - Embed or link the final screenshots in the completion response with absolute paths and route/state/viewport labels. Build, lint, typecheck, and unit tests do not replace browser evidence.
+   - If browser inspection or screenshot capture cannot run, report the proof gap and do not declare the frontend work complete.
 6. **Verify the stable final candidate with fresh evidence**:
    - If Codex goal mode is available, call `get_goal` before final verification to restate the active objective and include it in the evidence checklist.
    a. Identify what command proves the task is complete
