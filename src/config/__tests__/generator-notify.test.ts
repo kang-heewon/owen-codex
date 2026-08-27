@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   buildMergedConfig,
+  FRONTEND_PR_MEDIA_INSTRUCTIONS,
   FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS,
   HUMAN_COMMUNICATION_INSTRUCTIONS,
   mergeConfig,
@@ -28,8 +29,33 @@ describe('config generator', () => {
     assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /does not depend on a design skill/i);
     assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /real browser/i);
     assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /Capture final screenshots/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /Treat a change as UX-visible/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /interaction sequence.*navigation.*state transition/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /For every UX-visible change, capture a short screen recording/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /starting state.*changed interaction.*outcome/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /Screenshots do not replace the required recording/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /recordings.*absolute paths/i);
     assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /absolute paths/i);
-    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /do not claim the frontend work is complete/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /required recording cannot run/i);
+    assert.match(FRONTEND_VISUAL_EVIDENCE_INSTRUCTIONS, /do not claim the frontend or UX work is complete/i);
+  });
+
+  it('shares one frontend PR media contract across setup modes', () => {
+    assert.ok(OWX_DEVELOPER_INSTRUCTIONS.includes(FRONTEND_PR_MEDIA_INSTRUCTIONS));
+    assert.ok(OWX_PLUGIN_DEVELOPER_INSTRUCTIONS.includes(FRONTEND_PR_MEDIA_INSTRUCTIONS));
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /## Visual evidence/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /GitHub-hosted URLs/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /route, state, and viewport labels/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /local filesystem paths are not valid PR evidence/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /Screenshots are required baseline evidence/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /Every UX-visible change also requires its screen recording/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /starting state, changed interaction, and outcome/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /A recording is optional only for a purely visual change/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /H\.264 MP4/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /without secrets, tokens, personal data, or unrelated user content/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /verify every image and recording renders/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /do not claim the PR handoff is complete or merge-ready/i);
+    assert.match(FRONTEND_PR_MEDIA_INSTRUCTIONS, /When no pull request exists, keep the labeled absolute local paths/i);
   });
 
   it('places top-level keys before [features]', async () => {
@@ -118,6 +144,22 @@ describe('config generator', () => {
       assert.match(toml, /inspect every affected route and state in a real browser/);
       assert.match(toml, /Capture final screenshots for every materially changed surface or state/);
       assert.match(toml, /embed or link them in the completion response with absolute paths/);
+      assert.match(toml, /Treat a change as UX-visible/);
+      assert.match(toml, /For every UX-visible change, capture a short screen recording/);
+      assert.match(toml, /starting state.*changed interaction.*outcome/);
+      assert.match(toml, /Screenshots do not replace the required recording/);
+      assert.match(toml, /recordings.*absolute paths/);
+      assert.match(toml, /add a `## Visual evidence` section to the PR body/);
+      assert.match(toml, /resulting GitHub-hosted URLs/);
+      assert.match(toml, /route, state, and viewport labels/);
+      assert.match(toml, /local filesystem paths are not valid PR evidence/);
+      assert.match(toml, /Screenshots are required baseline evidence/);
+      assert.match(toml, /Every UX-visible change also requires its screen recording/);
+      assert.match(toml, /A recording is optional only for a purely visual change/);
+      assert.match(toml, /preferably H\.264 MP4/);
+      assert.match(toml, /without secrets, tokens, personal data, or unrelated user content/);
+      assert.match(toml, /do not claim the PR handoff is complete or merge-ready/);
+      assert.match(toml, /When no pull request exists, keep the labeled absolute local paths/);
       assert.match(toml, /Keep OWX workflow resilience separate from authored-code behavior/);
       assert.match(toml, /Treat explicit failure as a complete and correct implementation/);
       assert.match(toml, /Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification/);

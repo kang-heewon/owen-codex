@@ -108,6 +108,14 @@ const CORE_ROLE_PATTERNS = {
   ],
 };
 
+const FRONTEND_UX_EVIDENCE_SHARED_PATTERNS = [
+  rx('UX-visible'),
+  rx('short screen recording'),
+  rx('(?:For )?Every UX-visible change(?: has| requires|, capture).*short screen recording|For UX-visible claims, PASS requires a short screen recording'),
+  rx('starting state.*changed interaction.*outcome'),
+  rx('Screenshots do not replace'),
+];
+
 export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
   {
     id: 'frontend-visual-evidence-root',
@@ -117,8 +125,14 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
       rx('every frontend-visible change.*real browser'),
       rx('DOM bounding boxes or computed styles'),
       rx('Capture a final screenshot'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('Treat a change as UX-visible'),
+      rx('For every UX-visible change.*short screen recording'),
+      rx('Screenshots do not replace the required recording'),
+      rx('recordings.*absolute paths'),
       rx('absolute paths'),
-      rx('do not claim the frontend work is complete'),
+      rx('required recording cannot run'),
+      rx('do not claim the frontend or UX work is complete'),
     ],
   },
   {
@@ -129,8 +143,14 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
       rx('does not depend on a design skill'),
       rx('real browser'),
       rx('Capture final screenshots'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('Treat a change as UX-visible'),
+      rx('For every UX-visible change.*short screen recording'),
+      rx('Screenshots do not replace the required recording'),
+      rx('recordings.*absolute paths'),
       rx('absolute paths'),
-      rx('do not claim the frontend work is complete'),
+      rx('required recording cannot run'),
+      rx('do not claim the frontend or UX work is complete'),
     ],
   },
   {
@@ -140,6 +160,9 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
       rx('Browser verification is required.*even when no design or visual skill was invoked'),
       rx('real browser'),
       rx('\.owx/artifacts/frontend/<task>/'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('For every UX-visible change.*short screen recording'),
+      rx('recording absolute paths'),
       rx('absolute paths'),
       rx('Source-only verification'),
     ],
@@ -151,6 +174,9 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
       rx('frontend-visible changes'),
       rx('real browser'),
       rx('capture final screenshots'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('For every UX-visible change.*short screen recording'),
+      rx('recording absolute paths'),
       rx('absolute paths'),
       rx('do not claim completion'),
     ],
@@ -161,6 +187,9 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
     requiredPatterns: [
       rx('PASS requires fresh real-browser evidence'),
       rx('final screenshots'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('UX-visible.*PASS requires.*screen recording'),
+      rx('recording paths'),
       rx('insufficient visual proof'),
       rx('absolute screenshot paths'),
     ],
@@ -172,8 +201,10 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
       rx('Frontend evidence gate'),
       rx('even without a reference image'),
       rx('real browser'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('recording.*absolute paths'),
       rx('absolute paths'),
-      rx('do not declare the frontend work complete'),
+      rx('do not declare the frontend or UX work complete'),
     ],
   },
   {
@@ -181,8 +212,137 @@ export const FRONTEND_VISUAL_EVIDENCE_CONTRACTS: GuidanceSurfaceContract[] = [
     path: 'skills/visual-ralph/SKILL.md',
     requiredPatterns: [
       rx('Final generated screenshots'),
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('recording.*absolute local paths'),
       rx('absolute local paths'),
       rx('route, state, and viewport'),
+    ],
+  },
+  {
+    id: 'frontend-visual-evidence-sisyphus-lite',
+    path: 'prompts/sisyphus-lite.md',
+    requiredPatterns: [
+      ...FRONTEND_UX_EVIDENCE_SHARED_PATTERNS,
+      rx('recording.*absolute local path'),
+    ],
+  },
+];
+
+const FRONTEND_PR_MEDIA_SHARED_PATTERNS = [
+  rx('route, state, and viewport'),
+  rx('Screenshots are (?:the |required )?(?:baseline PR|baseline|default) evidence|Final screenshots are the default evidence'),
+  rx('Every UX-visible change.*requires.*(?:screen recording|video)'),
+  rx('starting state.*changed interaction.*outcome'),
+  rx('recording is optional only.*purely visual change'),
+  rx('secrets.*personal data.*(?:sensitive information|unrelated user content)'),
+  rx('When (?:there is no PR|no pull request exists).*labeled absolute local'),
+];
+
+export const FRONTEND_PR_MEDIA_CONTRACTS: GuidanceSurfaceContract[] = [
+  {
+    id: 'frontend-pr-media-root',
+    path: 'templates/AGENTS.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('authenticated GitHub PR editor or comment attachment flow'),
+      rx('GitHub-hosted URLs'),
+      rx('Local filesystem paths are not valid PR evidence'),
+      rx('H\\.264 MP4'),
+      rx('verify that every image and recording renders'),
+      rx('do not claim the PR handoff is complete or merge-ready'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-developer-defaults',
+    path: 'src/config/generator.ts',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('FRONTEND_PR_MEDIA_INSTRUCTIONS'),
+      rx('## Visual evidence'),
+      rx('GitHub-hosted URLs'),
+      rx('local filesystem paths are not valid PR evidence'),
+      rx('H\\.264 MP4'),
+      rx('verify every image and recording renders'),
+      rx('do not claim the PR handoff is complete or merge-ready'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-designer',
+    path: 'prompts/designer.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted attachment URLs'),
+      rx('instead of local absolute paths'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('do not claim the PR handoff or merge-ready state is complete'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-executor',
+    path: 'prompts/executor.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted attachment URLs'),
+      rx('instead of local absolute paths'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('do not claim the PR handoff or merge-ready state is complete'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-sisyphus-lite',
+    path: 'prompts/sisyphus-lite.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted URLs'),
+      rx('never local absolute paths'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('blocks a PR handoff or merge-ready completion claim'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-verifier',
+    path: 'prompts/verifier.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted attachment URL'),
+      rx('never a local absolute path'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('blocking proof gap'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-ralph',
+    path: 'skills/ralph/SKILL.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted attachment URLs'),
+      rx('replace local absolute paths'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('PR handoff and merge-ready gates remain incomplete'),
+    ],
+  },
+  {
+    id: 'frontend-pr-media-visual-ralph',
+    path: 'skills/visual-ralph/SKILL.md',
+    requiredPatterns: [
+      ...FRONTEND_PR_MEDIA_SHARED_PATTERNS,
+      rx('## Visual evidence'),
+      rx('GitHub-hosted URL'),
+      rx('instead of a local absolute path'),
+      rx('GitHub UI in a real browser'),
+      rx('H\\.264'),
+      rx('blocks PR handoff and merge-ready completion'),
     ],
   },
 ];

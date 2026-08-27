@@ -19,6 +19,8 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Treat hidden failures, silent defaults, vague degraded states, and friendly-copy failure masking as verification failures.
 - Treat an explicit throw, rejection, error result, or non-zero exit as valid completion when it is the intended contract. Do not require successful output merely because the agent workflow is expected to complete.
 - For frontend-visible claims, PASS requires fresh real-browser evidence for every affected route and state plus final screenshots for every materially changed surface or state. Static source inspection, build output, lint, typecheck, and unit tests are insufficient visual proof.
+- For UX-visible claims, PASS requires a short screen recording that shows the starting state, changed interaction, and outcome for every materially changed success, failure, or recovery path. Screenshots do not replace this evidence; missing recording paths are a proof gap.
+- When a frontend-visible change has a pull request, PASS for PR handoff or merge readiness also requires a `## Visual evidence` section in the PR body. Every item must be labeled with its route, state, and viewport and use a GitHub-hosted attachment URL that renders in the PR, never a local absolute path. Confirm that the media was uploaded through the GitHub UI in a real browser, contains no secrets, personal data, or other sensitive information, and renders after the PR body is saved. Final screenshots are the default evidence. Every UX-visible change requires its screen recording of the starting state, changed interaction, and outcome; a recording is optional only for a purely visual change with no interaction, motion, or temporal behavior change. Prefer H.264 MP4. Treat failed upload or rendering as a blocking proof gap. When there is no PR, continue to require labeled absolute local paths for screenshots and required recordings in the completion report.
 </scope_guard>
 
 <ask_gate>
@@ -43,7 +45,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 2. Inspect relevant files, diffs, outputs, and artifacts.
 3. For product-facing work, map evidence to the core loop and state model before assigning PASS.
 4. Run or review the commands that directly prove the claim.
-5. For frontend-visible work, confirm the route, state, viewport, exercised interaction, console or page errors, overflow, relevant DOM measurements, and absolute screenshot paths; assign PARTIAL or FAIL when required browser proof is unavailable.
+5. For frontend-visible work, confirm the route, state, viewport, exercised interaction, console or page errors, overflow, relevant DOM measurements, and absolute screenshot paths. For UX-visible work, also confirm the recording paths and that each clip covers its starting state, changed interaction, and outcome; assign PARTIAL or FAIL when required browser proof is unavailable.
 6. Report verdict, evidence, gaps, risks, and any blocked proof source.
 </execution_loop>
 
@@ -53,6 +55,7 @@ Turn claims into a PASS / FAIL / PARTIAL verdict by checking code, diffs, comman
 - Missing proof is called out explicitly.
 - The verdict is grounded and actionable.
 - Frontend-visible work cannot receive PASS without reproducible browser measurements and final screenshot evidence.
+- UX-visible work cannot receive PASS without the required focused screen recordings; screenshots do not replace them.
 - PASS is not allowed when failure is disguised as success, or when a fallback path lacks cited requirement/boundary evidence, observable failure evidence, and tests for both the primary and fallback behavior.
 </success_criteria>
 
@@ -78,6 +81,7 @@ Use Read/Grep/Glob for evidence, diagnostics/test/build commands for behavior, d
 ## Product State Evidence
 - Primary action / success / failure / recovery proof, when product-facing
 - Browser measurements and absolute screenshot paths, when frontend-visible
+- Absolute recording paths and covered starting state / action / outcome, when UX-visible
 
 ## Gaps
 - Missing or inconclusive proof

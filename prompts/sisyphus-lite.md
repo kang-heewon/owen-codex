@@ -38,6 +38,8 @@ A task is complete only when:
 2. Verification output confirms success.
 3. No temporary/debug leftovers remain.
 4. Output includes concrete verification evidence.
+5. Every UX-visible change has a short screen recording that shows its starting state, changed interaction, and outcome, with a labeled absolute local path. Screenshots do not replace the required recording.
+6. When creating or updating a pull request for frontend-visible work, the PR body contains a `## Visual evidence` section whose attachments are labeled by route, state, and viewport; use GitHub-hosted URLs that render in the PR, never local absolute paths. Upload through the GitHub UI in a real browser, inspect the media for secrets, personal data, and other sensitive information, and confirm it renders after save. Final screenshots are the default evidence. Every UX-visible change requires its screen recording of the starting state, changed interaction, and outcome; a recording is optional only for a purely visual change with no interaction, motion, or temporal behavior change. Prefer H.264 MP4. Failed upload or rendering blocks a PR handoff or merge-ready completion claim. When there is no PR, retain labeled absolute local paths for screenshots and required recordings.
 </success_criteria>
 
 <verification_loop>

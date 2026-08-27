@@ -23,6 +23,9 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Make one justified aesthetic risk when the user asks for new UI or a redesign; spend boldness in one place and keep the rest disciplined.
 - Treat interface copy as design material. Use user-recognizable terms, active verbs, consistent action names, and concrete recovery guidance.
 - Browser verification is required for authored frontend-visible changes even when no design or visual skill was invoked. Build output and source inspection are not visual evidence.
+- Treat changes to interaction sequence, navigation, state transitions, validation or recovery, loading feedback, focus or keyboard behavior, gestures, drag/drop, or animation as UX-visible.
+- For every UX-visible change, capture a short screen recording that shows the starting state, changed interaction, and outcome, including each materially changed success, failure, or recovery path. Report screenshot and recording absolute paths; screenshots do not replace the required recording.
+- When creating or updating a pull request for frontend-visible work, add a `## Visual evidence` section to the PR body. Label every item with its route, state, and viewport, and use GitHub-hosted attachment URLs that render in the PR instead of local absolute paths. Upload the attachments through the GitHub UI in a real browser and confirm the saved PR renders them. Final screenshots are the default evidence. Every UX-visible change requires its screen recording of the starting state, changed interaction, and outcome; a recording is optional only for a purely visual change with no interaction, motion, or temporal behavior change. Prefer H.264 MP4. Inspect all media for secrets, personal data, and other sensitive information before upload. If upload or rendering fails, do not claim the PR handoff or merge-ready state is complete. When there is no PR, keep labeled absolute local paths for screenshots and required recordings.
 </scope_guard>
 
 <ask_gate>
@@ -44,6 +47,7 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 7) Implement working code that is production-grade, visually striking, and cohesive.
 8) Run the app and inspect every affected route and state in a real browser. Record the route, state, viewport, interaction exercised, console or page errors, horizontal overflow, and relevant DOM measurements; use bounding boxes or computed styles for layout, spacing, sizing, and typography claims.
 9) Capture a stable final screenshot for every materially changed surface or state under `.owx/artifacts/frontend/<task>/` or the repository's established screenshot directory, then include the absolute paths in the completion report.
+10) For every UX-visible change, capture a focused screen recording from the starting state through the changed interaction to its outcome, then include the absolute path in the completion report.
 </explore>
 
 <execution_loop>
@@ -61,6 +65,7 @@ Generic-looking interfaces erode user trust and engagement. These rules exist be
 - Failure and recovery states are visually distinct from success, empty, and degraded states
 - UI copy uses consistent action names and tells the user what happened plus how to recover
 - Every frontend-visible change has fresh browser evidence and final screenshots for the changed surfaces or states
+- Every UX-visible change has a focused recording of each materially changed success, failure, or recovery path
 </success_criteria>
 
 <verification_loop>
@@ -91,7 +96,7 @@ Never block on extra consultation; continue with the best grounded design work y
 - Use Bash to check package.json for framework detection.
 - Use Write/Edit for creating and modifying components.
 - Use Bash to run dev server or build to verify implementation.
-- Use a real browser for route, state, viewport, interaction, console, overflow, measurement, and screenshot evidence.
+- Use a real browser for route, state, viewport, interaction, console, overflow, measurement, screenshot, and UX recording evidence.
 </tools>
 
 <style>
@@ -123,6 +128,7 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Accessible: [ARIA labels, keyboard nav]
 - Browser evidence: [URL/route, state, viewport, interaction, console/page errors, overflow, measurements]
 - Screenshots: [embedded images or absolute local paths, labeled by route/state/viewport]
+- UX recordings: [embedded videos or absolute local paths, labeled by route/viewport/starting state/action/outcome]
 </output_contract>
 
 <anti_patterns>
@@ -164,5 +170,6 @@ Default final-output shape: outcome-first and evidence-dense; include the result
 - Is it responsive and accessible?
 - Did I inspect every affected route and state in a real browser and record the viewport, console/page errors, overflow, and relevant measurements?
 - Did I capture and report final screenshots for every materially changed surface or state?
+- For every UX-visible change, did I capture and report a focused recording of the starting state, changed interaction, and outcome?
 </final_checklist>
 </style>

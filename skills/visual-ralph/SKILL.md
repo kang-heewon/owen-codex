@@ -135,6 +135,8 @@ Do not declare done until all are true:
 - Approved reference image or URL-derived reference artifact is saved in the workspace.
 - Screenshot reproduction command, viewport, route, seed/state, and output paths are documented.
 - Final generated screenshots are embedded or linked in the completion response using absolute local paths, with route, state, and viewport labels.
+- Every UX-visible change has a short screen recording that shows the starting state, changed interaction, and outcome for each materially changed success, failure, or recovery path. Screenshots do not replace the required recording; recordings are embedded or linked with labeled absolute local paths.
+- When creating or updating a pull request, its body contains a `## Visual evidence` section. Each attachment is labeled with its route, state, and viewport and uses a GitHub-hosted URL that renders in the PR instead of a local absolute path. The attachments were uploaded through the GitHub UI in a real browser, inspected for secrets, personal data, and other sensitive information, and confirmed to render after save. Final screenshots are the default evidence. Every UX-visible change requires its screen recording of the starting state, changed interaction, and outcome; a recording is optional only for a purely visual change with no interaction, motion, or temporal behavior change. Prefer H.264 MP4. A failed upload or render blocks PR handoff and merge-ready completion. When there is no PR, the completion response retains labeled absolute local paths for screenshots and required recordings.
 - Visual Ralph verdict final score is `>= 90` against the approved reference.
 - Pixel diff or overlay evidence is recorded as secondary debug evidence.
 - Design-system tokens/components are repo-native and reusable.
@@ -153,6 +155,8 @@ Interaction parity notes: <visible controls and known exclusions>
 Route/surface: <route or component>
 Screenshot command: <command and viewport>
 Completion evidence: embed or link final screenshots using absolute local paths and label each route/state/viewport.
+UX evidence: for every UX-visible change, embed or link a short screen recording using an absolute local path and label its route/viewport/starting state/action/outcome; screenshots do not replace it.
+PR evidence (when creating or updating a PR): add `## Visual evidence` to the PR body; upload sanitized screenshots and required UX recordings through the GitHub UI in a real browser, label each route/state/viewport, use GitHub-hosted attachment URLs, and confirm they render after save. Every UX-visible change requires its recording of the starting state, changed interaction, and outcome; a recording is optional only for a purely visual change with no interaction, motion, or temporal behavior change. Prefer H.264 MP4. Treat upload/render failure as an incomplete PR handoff or merge-ready gate. If there is no PR, keep labeled absolute local paths for screenshots and required recordings in the completion response.
 Use the Visual Ralph verdict step before every next edit; pass threshold score >= 90.
 Use pixel diff only as secondary debug evidence.
 Extract reusable design tokens/components for colors, spacing, typography, radii, shadows, and key variants.
