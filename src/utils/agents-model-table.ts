@@ -122,8 +122,8 @@ export function buildAgentsModelTable(
     buildTableRow(
       'Spark (explorer/fast)',
       context.sparkModel,
-      'low',
-      'Fast triage, explore, lightweight synthesis, and low-latency routing.',
+      'max',
+      'Focused triage, explore, repository synthesis, and routing.',
     ),
     buildTableRow(
       'Standard (subagent default)',

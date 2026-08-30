@@ -157,7 +157,7 @@ fn summary_mode_uses_local_api_and_model_override() {
     let request = request_log.lock().expect("request log");
     assert!(request.starts_with("POST /v1/responses HTTP/1.1"));
     assert!(request.contains("\"model\":\"spark-test-model\""));
-    assert!(request.contains("\"reasoning\":{\"effort\":\"low\"}"));
+    assert!(request.contains("\"reasoning\":{\"effort\":\"max\"}"));
     assert!(request.contains("Command family: generic-shell"));
     assert!(request.contains("<<<STDOUT"));
     assert!(request.contains("one\\ntwo"));
@@ -227,7 +227,7 @@ fn summary_mode_injects_model_instructions_file_override() {
 
     assert!(output.status.success());
     let request = request_log.lock().expect("request log");
-    assert!(request.contains("\"reasoning\":{\"effort\":\"low\"}"));
+    assert!(request.contains("\"reasoning\":{\"effort\":\"max\"}"));
     assert!(request.contains("\"instructions\":\"# sparkshell instructions\\n\""));
 
     let _ = fs::remove_dir_all(temp);
@@ -298,7 +298,9 @@ fn summary_mode_retries_with_fallback_model_when_spark_is_unavailable() {
     let requests = request_log.lock().expect("request log");
     assert_eq!(requests.len(), 2);
     assert!(requests[0].contains("\"model\":\"spark-test-model\""));
+    assert!(requests[0].contains("\"reasoning\":{\"effort\":\"max\"}"));
     assert!(requests[1].contains("\"model\":\"frontier-test-model\""));
+    assert!(requests[1].contains("\"reasoning\":{\"effort\":\"low\"}"));
 }
 
 #[test]

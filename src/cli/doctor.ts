@@ -1592,6 +1592,7 @@ interface InstalledAgentModelInfo {
 	exists: boolean;
 	model?: string;
 	modelProvider?: string;
+	reasoningEffort?: string;
 }
 
 function readInstalledAgentModelInfo(
@@ -1602,6 +1603,7 @@ function readInstalledAgentModelInfo(
 		const parsed = parseToml(readFileSync(tomlPath, "utf-8")) as {
 			model?: unknown;
 			model_provider?: unknown;
+			model_reasoning_effort?: unknown;
 		};
 		return {
 			exists: true,
@@ -1613,6 +1615,11 @@ function readInstalledAgentModelInfo(
 				typeof parsed.model_provider === "string" &&
 				parsed.model_provider.trim() !== ""
 					? parsed.model_provider.trim()
+					: undefined,
+			reasoningEffort:
+				typeof parsed.model_reasoning_effort === "string" &&
+				parsed.model_reasoning_effort.trim() !== ""
+					? parsed.model_reasoning_effort.trim()
 					: undefined,
 		};
 	} catch {
@@ -1656,10 +1663,10 @@ function getInstallableSparkLaneAgentNames(): string[] {
 
 /**
  * Surface effective Spark/model lane routing and flag the common reasons the
- * `gpt-5.3-codex-spark` quota stays unused even though resolution is wired
+ * `gpt-5.6-luna` usage stays absent even though resolution is wired
  * (issue #2757): a missing/stale installed Spark-lane agent toml, a model that
  * diverges from the resolved Spark default, or a non-default provider that does
- * not draw from native Spark quota.
+ * not attribute native Luna usage.
  */
 export function checkSparkRouting(paths: DoctorPaths): Check {
 	const name = "Spark routing";
@@ -1681,7 +1688,7 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 			status: "warn",
 			message:
 				`${laneSummary}; no installable Spark-eligible (fast) native agent is defined, ` +
-				`so native subagents will not consume Spark quota`,
+				`so native subagents will not use the configured fast-lane model`,
 		};
 	}
 
@@ -1709,6 +1716,22 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 			);
 			continue;
 		}
+		const expectedReasoningEffort = AGENT_DEFINITIONS[agentName]?.reasoningEffort;
+		if (!info.reasoningEffort) {
+			problems.push(
+				`${agentName}.toml has no model_reasoning_effort field (stale install; run \`owx setup --force\`)`,
+			);
+			continue;
+		}
+		if (
+			expectedReasoningEffort &&
+			info.reasoningEffort !== expectedReasoningEffort
+		) {
+			problems.push(
+				`${agentName}.toml model_reasoning_effort is \`${info.reasoningEffort}\` but the expected fast-lane effort is \`${expectedReasoningEffort}\` (stale install; run \`owx setup --force\`)`,
+			);
+			continue;
+		}
 		if (
 			info.modelProvider &&
 			rootProvider &&
@@ -1721,12 +1744,12 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 		}
 		if (info.modelProvider && info.modelProvider !== "openai") {
 			problems.push(
-				`${agentName}.toml routes Spark via non-default model_provider \`${info.modelProvider}\`; native Codex Spark quota only moves when Spark is served by the default provider`,
+				`${agentName}.toml routes the fast lane via non-default model_provider \`${info.modelProvider}\`; native Luna usage requires the default provider`,
 			);
 			continue;
 		}
 		wired.push(
-			`${agentName} -> \`${info.model}\`${
+			`${agentName} -> \`${info.model}\` (reasoning: ${info.reasoningEffort})${
 				info.modelProvider ? ` (provider: ${info.modelProvider})` : ""
 			}`,
 		);
@@ -1745,7 +1768,7 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 		status: "pass",
 		message:
 			`${laneSummary}; Spark-lane native agent(s) wired: ${wired.join(", ")}. ` +
-			`If Spark quota is still unused, the leader may not be delegating read-only lookups to the Spark lane, or the Codex usage view may lag.`,
+			`If Luna usage is still absent, the leader may not be delegating read-only lookups to the Spark lane, or the Codex usage view may lag.`,
 	};
 }
 

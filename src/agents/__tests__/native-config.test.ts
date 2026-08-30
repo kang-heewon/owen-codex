@@ -106,6 +106,13 @@ describe("agents/native-config", () => {
     );
   });
 
+  it("generates the fast explore lane with Luna and max reasoning", () => {
+    const toml = generateAgentToml(AGENT_DEFINITIONS.explore, "Explore prompt");
+
+    assert.match(toml, /model = "gpt-5\.6-luna"/);
+    assert.match(toml, /model_reasoning_effort = "max"/);
+  });
+
   it("applies per-agent reasoning overrides when generating native TOML", async () => {
     const codexHome = await mkdtemp(join(tmpdir(), "owx-native-config-reasoning-"));
     try {

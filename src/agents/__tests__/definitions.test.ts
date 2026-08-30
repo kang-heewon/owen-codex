@@ -82,6 +82,7 @@ describe('agents/definitions', () => {
     assert.equal(AGENT_DEFINITIONS.vision.modelClass, 'frontier');
 
     assert.equal(AGENT_DEFINITIONS.explore.modelClass, 'fast');
+    assert.equal(AGENT_DEFINITIONS.explore.reasoningEffort, 'max');
 
     for (const name of [
       'researcher',

@@ -7,7 +7,7 @@
 export interface AgentDefinition {
   name: string;
   description: string;
-  reasoningEffort: 'low' | 'medium' | 'high';
+  reasoningEffort: 'low' | 'medium' | 'high' | 'max';
   /** Optional exact model pin for roles that should bypass tier defaults. */
   exactModel?: 'gpt-5.4-mini';
   posture: 'frontier-orchestrator' | 'deep-worker' | 'fast-lane';
@@ -43,7 +43,7 @@ export const AGENT_DEFINITIONS: Record<string, AgentDefinition> = {
   'explore': {
     name: 'explore',
     description: 'Fast codebase search and file/symbol mapping',
-    reasoningEffort: 'low',
+    reasoningEffort: 'max',
     posture: 'fast-lane',
     modelClass: 'fast',
     routingRole: 'specialist',
@@ -106,7 +106,7 @@ export const AGENT_DEFINITIONS: Record<string, AgentDefinition> = {
   'style-reviewer': {
     name: 'style-reviewer',
     description: 'Formatting, naming, idioms, lint conventions',
-    reasoningEffort: 'low',
+    reasoningEffort: 'max',
     posture: 'fast-lane',
     modelClass: 'fast',
     routingRole: 'specialist',

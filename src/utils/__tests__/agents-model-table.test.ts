@@ -63,7 +63,7 @@ describe('agents model table', () => {
 
     assert.deepEqual(context, {
       frontierModel: 'frontier-config',
-      sparkModel: 'gpt-5.3-codex-spark',
+      sparkModel: 'gpt-5.6-luna',
       subagentDefaultModel: 'frontier-config',
     });
   });
@@ -76,9 +76,9 @@ describe('agents model table', () => {
     });
 
     assert.match(table, /\| Frontier \(leader\) \| `gpt-frontier` \| high \|/);
-    assert.match(table, /\| Spark \(explorer\/fast\) \| `gpt-spark` \| low \|/);
+    assert.match(table, /\| Spark \(explorer\/fast\) \| `gpt-spark` \| max \|/);
     assert.match(table, /\| Standard \(subagent default\) \| `gpt-standard` \| high \|/);
-    assert.match(table, /\| `explore` \| `gpt-spark` \| low \| Fast codebase search and file\/symbol mapping \(fast-lane, fast\) \|/);
+    assert.match(table, /\| `explore` \| `gpt-spark` \| max \| Fast codebase search and file\/symbol mapping \(fast-lane, fast\) \|/);
     assert.match(table, /\| `planner` \| `gpt-frontier` \| high \| Task sequencing, execution plans, risk flags \(frontier-orchestrator, frontier\) \|/);
     assert.match(table, /\| `architect` \| `gpt-frontier` \| high \| System design, boundaries, interfaces, long-horizon tradeoffs \(frontier-orchestrator, frontier\) \|/);
     assert.doesNotMatch(table, /\| `security-reviewer` \|/);

@@ -9,8 +9,10 @@ use std::time::Duration;
 
 pub const DEFAULT_SUMMARY_TIMEOUT_MS: u64 = 60_000;
 pub const DEFAULT_API_BASE_URL: &str = "http://127.0.0.1:14510";
-pub const DEFAULT_SPARK_MODEL: &str = "gpt-5.3-codex-spark";
+pub const DEFAULT_SPARK_MODEL: &str = "gpt-5.6-luna";
 pub const DEFAULT_STANDARD_MODEL: &str = "gpt-5.4-mini";
+const PRIMARY_REASONING_EFFORT: &str = "max";
+const FALLBACK_REASONING_EFFORT: &str = "low";
 
 pub fn resolve_model() -> String {
     env::var("OWX_SPARKSHELL_MODEL")
@@ -64,7 +66,7 @@ pub fn summarize_output(
     let model = resolve_model();
     let fallback_model = resolve_fallback_model();
     let timeout_ms = read_summary_timeout_ms();
-    match request_summary(&prompt, &model, timeout_ms) {
+    match request_summary(&prompt, &model, PRIMARY_REASONING_EFFORT, timeout_ms) {
         Ok(stdout) => normalize_summary(&stdout).ok_or_else(|| {
             SparkshellError::SummaryBridge(
                 "local API returned no valid summary sections".to_string(),
@@ -73,7 +75,12 @@ pub fn summarize_output(
         Err(primary_error) => {
             let primary_message = primary_error.to_string();
             if fallback_model != model && should_retry_with_fallback(&primary_message) {
-                match request_summary(&prompt, &fallback_model, timeout_ms) {
+                match request_summary(
+                    &prompt,
+                    &fallback_model,
+                    FALLBACK_REASONING_EFFORT,
+                    timeout_ms,
+                ) {
                     Ok(fallback_stdout) => normalize_summary(&fallback_stdout).ok_or_else(|| {
                         SparkshellError::SummaryBridge(
                             "local API fallback returned no valid summary sections".to_string(),
@@ -109,10 +116,15 @@ fn should_retry_with_fallback(stderr: &str) -> bool {
     .any(|needle| normalized.contains(needle))
 }
 
-fn request_summary(prompt: &str, model: &str, timeout_ms: u64) -> Result<String, SparkshellError> {
+fn request_summary(
+    prompt: &str,
+    model: &str,
+    reasoning_effort: &str,
+    timeout_ms: u64,
+) -> Result<String, SparkshellError> {
     let api_base_url = resolve_api_base_url();
     let endpoint = join_api_path(&api_base_url, "/v1/responses");
-    let request = build_responses_request(prompt, model)?;
+    let request = build_responses_request(prompt, model, reasoning_effort)?;
     let response_body = post_json(&endpoint, &request, timeout_ms, resolve_api_bearer())?;
     extract_output_text(&response_body).ok_or_else(|| {
         SparkshellError::SummaryBridge("local API response did not include output_text".to_string())
@@ -158,11 +170,18 @@ fn resolve_api_bearer() -> Option<String> {
         })
 }
 
-fn build_responses_request(prompt: &str, model: &str) -> Result<String, SparkshellError> {
+fn build_responses_request(
+    prompt: &str,
+    model: &str,
+    reasoning_effort: &str,
+) -> Result<String, SparkshellError> {
     let mut fields = vec![
         format!("\"model\":{}", json_string(model)),
         format!("\"input\":{}", json_string(prompt)),
-        "\"reasoning\":{\"effort\":\"low\"}".to_string(),
+        format!(
+            "\"reasoning\":{{\"effort\":{}}}",
+            json_string(reasoning_effort)
+        ),
         "\"stream\":false".to_string(),
     ];
 

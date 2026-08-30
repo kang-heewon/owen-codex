@@ -90,7 +90,7 @@ function readModelsBlock(codexHomeOverride?: string): ModelsConfig | null {
 
 export const DEFAULT_FRONTIER_MODEL = 'gpt-5.6-sol';
 export const DEFAULT_STANDARD_MODEL = 'gpt-5.6-sol';
-export const DEFAULT_SPARK_MODEL = 'gpt-5.3-codex-spark';
+export const DEFAULT_SPARK_MODEL = 'gpt-5.6-luna';
 
 function normalizeConfiguredValue(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;

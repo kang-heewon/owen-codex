@@ -83,8 +83,8 @@ const MODEL_CLASS_OVERLAYS: Record<AgentDefinition["modelClass"], string> = {
   fast: [
     "<model_class_guidance>",
     "",
-    "This role is tuned for fast/low-latency models.",
-    "- Prefer quick search, synthesis, and routing over prolonged reasoning.",
+    "This role is tuned for cost-efficient specialist models.",
+    "- Use the configured reasoning budget for accurate search, synthesis, and routing.",
     "- Escalate rather than bluff when deeper work is required.",
     "",
     "</model_class_guidance>",
@@ -118,7 +118,7 @@ export interface GeneratedNativeAgentConfig {
   developerInstructions?: string;
   model?: string;
   modelProvider?: string;
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh";
+  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
 }
 
 interface AgentModelResolutionOptions {

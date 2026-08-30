@@ -75,7 +75,7 @@ describe('getModelForMode', () => {
   it('returns frontier default when config file does not exist', () => {
     assert.equal(DEFAULT_FRONTIER_MODEL, 'gpt-5.6-sol');
     assert.equal(DEFAULT_STANDARD_MODEL, 'gpt-5.6-sol');
-    assert.equal(DEFAULT_SPARK_MODEL, 'gpt-5.3-codex-spark');
+    assert.equal(DEFAULT_SPARK_MODEL, 'gpt-5.6-luna');
     assert.equal(getModelForMode('ralph'), DEFAULT_FRONTIER_MODEL);
   });
 
@@ -177,8 +177,8 @@ describe('getModelForMode', () => {
   });
 
   it('uses OWX_DEFAULT_SPARK_MODEL when low-complexity config is absent', async () => {
-    process.env.OWX_DEFAULT_SPARK_MODEL = 'gpt-5.3-codex-spark-fast';
-    assert.equal(getSparkDefaultModel(), 'gpt-5.3-codex-spark-fast');
+    process.env.OWX_DEFAULT_SPARK_MODEL = 'gpt-5.6-luna-custom';
+    assert.equal(getSparkDefaultModel(), 'gpt-5.6-luna-custom');
   });
 
   it('uses .owx-config.json env.OWX_DEFAULT_SPARK_MODEL when shell env is absent', async () => {
@@ -187,8 +187,8 @@ describe('getModelForMode', () => {
   });
 
   it('falls back to legacy OWX_SPARK_MODEL when canonical spark env is absent', async () => {
-    process.env.OWX_SPARK_MODEL = 'gpt-5.3-codex-spark-fast';
-    assert.equal(getSparkDefaultModel(), 'gpt-5.3-codex-spark-fast');
+    process.env.OWX_SPARK_MODEL = 'gpt-5.6-luna-custom';
+    assert.equal(getSparkDefaultModel(), 'gpt-5.6-luna-custom');
   });
 
   it('prefers OWX_DEFAULT_SPARK_MODEL over legacy OWX_SPARK_MODEL', () => {

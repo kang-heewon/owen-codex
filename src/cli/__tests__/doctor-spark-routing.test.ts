@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 
 import { checkSparkRouting } from '../doctor.js';
 
-const SPARK_DEFAULT = 'gpt-5.3-codex-spark';
+const SPARK_DEFAULT = 'gpt-5.6-luna';
 
 const SPARK_ENV_KEYS = [
   'OWX_DEFAULT_SPARK_MODEL',
@@ -57,7 +57,7 @@ function writeExploreToml(body: string): void {
 describe('checkSparkRouting', () => {
   it('passes and names the resolved Spark model when the lane is wired correctly', () => {
     writeExploreToml(
-      `name = "explore"\nmodel = "${SPARK_DEFAULT}"\n`,
+      `name = "explore"\nmodel = "${SPARK_DEFAULT}"\nmodel_reasoning_effort = "max"\n`,
     );
     const result = checkSparkRouting(makePaths(workDir));
     assert.equal(result.status, 'pass');
@@ -74,16 +74,26 @@ describe('checkSparkRouting', () => {
   });
 
   it('warns when the installed model diverges from the resolved Spark model', () => {
-    writeExploreToml(`name = "explore"\nmodel = "gpt-5.4-mini"\n`);
+    writeExploreToml(`name = "explore"\nmodel = "gpt-5.4-mini"\nmodel_reasoning_effort = "max"\n`);
     const result = checkSparkRouting(makePaths(workDir));
     assert.equal(result.status, 'warn');
     assert.match(result.message, /gpt-5\.4-mini/);
     assert.match(result.message, /stale install/);
   });
 
+  it('warns when the Spark-lane agent reasoning effort is not max', () => {
+    writeExploreToml(
+      `name = "explore"\nmodel = "${SPARK_DEFAULT}"\nmodel_reasoning_effort = "low"\n`,
+    );
+    const result = checkSparkRouting(makePaths(workDir));
+    assert.equal(result.status, 'warn');
+    assert.match(result.message, /model_reasoning_effort is `low`/);
+    assert.match(result.message, /expected fast-lane effort is `max`/);
+  });
+
   it('warns when the Spark-lane agent routes through a non-default provider', () => {
     writeExploreToml(
-      `name = "explore"\nmodel = "${SPARK_DEFAULT}"\nmodel_provider = "my-proxy"\n`,
+      `name = "explore"\nmodel = "${SPARK_DEFAULT}"\nmodel_reasoning_effort = "max"\nmodel_provider = "my-proxy"\n`,
     );
     const result = checkSparkRouting(makePaths(workDir));
     assert.equal(result.status, 'warn');

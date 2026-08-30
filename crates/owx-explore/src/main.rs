@@ -21,6 +21,8 @@ const TEMP_ALLOWLIST_DIR_PREFIX: &str = "owx-explore-allowlist-";
 const DEFAULT_CODEX_TIMEOUT_MS: u64 = 180_000;
 const DEFAULT_PROCESS_LIMIT: usize = 96;
 const DEFAULT_CODEX_OUTPUT_LIMIT_BYTES: usize = 8 * 1024 * 1024;
+const PRIMARY_REASONING_EFFORT: &str = "max";
+const FALLBACK_REASONING_EFFORT: &str = "low";
 const PROCESS_LIMIT_POLL_MS: u64 = 100;
 const PROCESS_TERMINATION_GRACE_MS: u64 = 500;
 const PIPE_READER_READY_GRACE_MS: u64 = 25;
@@ -290,6 +292,11 @@ fn invoke_codex(args: &Args, model: &str, prompt_contract: &str) -> io::Result<A
         prepare_allowlist_environment().map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
     let output_path = temp_output_path();
     let final_prompt = compose_exec_prompt(&args.prompt, prompt_contract);
+    let reasoning_effort = if model == args.spark_model {
+        PRIMARY_REASONING_EFFORT
+    } else {
+        FALLBACK_REASONING_EFFORT
+    };
     let mut command = Command::new(&codex_launch.program);
     command.args(&codex_launch.leading_args);
     command
@@ -302,7 +309,7 @@ fn invoke_codex(args: &Args, model: &str, prompt_contract: &str) -> io::Result<A
         .arg("-s")
         .arg("read-only")
         .arg("-c")
-        .arg("model_reasoning_effort=\"low\"")
+        .arg(format!("model_reasoning_effort=\"{reasoning_effort}\""))
         .arg("-c")
         .arg(format!(
             "model_instructions_file=\"{}\"",
@@ -1554,7 +1561,7 @@ mod tests {
                 "--instructions-file",
                 "/tmp/explore-agents.md",
                 "--model-spark",
-                "gpt-5.3-codex-spark",
+                "gpt-5.6-luna",
                 "--model-fallback",
                 "gpt-5.5",
             ]
@@ -1567,7 +1574,7 @@ mod tests {
         assert_eq!(args.prompt, "find auth");
         assert_eq!(args.prompt_file, Path::new("/tmp/explore.md"));
         assert_eq!(args.instructions_file, Path::new("/tmp/explore-agents.md"));
-        assert_eq!(args.spark_model, "gpt-5.3-codex-spark");
+        assert_eq!(args.spark_model, "gpt-5.6-luna");
         assert_eq!(args.fallback_model, "gpt-5.5");
     }
 
@@ -2476,6 +2483,7 @@ printf '# Answer\nok\n' > "$output_path"
             "model_instructions_file=\"{}\"",
             escape_toml_string(&instructions_path.display().to_string())
         );
+        assert!(captured.contains("model_reasoning_effort=\"max\""));
         assert!(
             captured.contains(&expected),
             "expected {:?} in {:?}",
