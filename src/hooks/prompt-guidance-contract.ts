@@ -654,7 +654,12 @@ export const PROMPT_REFACTOR_INVARIANT_CONTRACTS: GuidanceSurfaceContract[] = [
   {
     id: 'cancel-safety-boundary',
     path: 'skills/cancel/SKILL.md',
-    requiredPatterns: [rx('Strip AGENTS\\.md'), rx('shutdown'), rx('state')],
+    requiredPatterns: [
+      rx('terminal state'),
+      rx('native agent controls'),
+      rx('Preserve unrelated sessions'),
+      rx('generic state write/clear does not cancel that ledger or the Codex goal'),
+    ],
   },
   {
     id: 'ultraqa-verification-loop',

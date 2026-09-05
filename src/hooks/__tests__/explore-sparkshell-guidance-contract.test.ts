@@ -1,9 +1,10 @@
+import { loadRalplanInstructions } from './ralplan-instructions-test-helper.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { listTrackedAgentSurfaces, loadSurface } from './prompt-guidance-test-helpers.js';
 
 function expectPatterns(path: string, patterns: RegExp[]): void {
-  const content = loadSurface(path);
+  const content = path === 'skills/ralplan/SKILL.md' ? loadRalplanInstructions() : loadSurface(path);
   for (const pattern of patterns) {
     assert.match(content, pattern, `${path} missing required pattern: ${pattern}`);
   }

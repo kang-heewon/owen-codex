@@ -15,7 +15,7 @@ describe('prompt refactor contract locks', () => {
   }
 
   const retainedInvariantContracts = PROMPT_REFACTOR_INVARIANT_CONTRACTS.filter(
-    ({ id }) => id !== 'deep-interview-question-gate' && id !== 'cancel-safety-boundary',
+    ({ id }) => id !== 'deep-interview-question-gate',
   );
 
   for (const contract of retainedInvariantContracts) {

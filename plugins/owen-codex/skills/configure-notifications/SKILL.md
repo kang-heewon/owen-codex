@@ -93,45 +93,82 @@ Use AskUserQuestion to collect:
 - Optional event list (`session-end`, `ask-user-question`, `session-start`, `session-idle`, `stop`)
 - Optional instruction template
 
-Write:
+Encode collected events as a JSON array in `EVENTS_JSON`; use `["session-end","ask-user-question"]` only when omitted. An explicit empty or invalid event list is an error. Set `INSTRUCTION` only when supplied; the example supplies the default when unset.
+
+Encode supplied headers as a string-valued JSON object in `HEADERS_JSON`; use `{}` when omitted. Do not print secret header values.
+
+Write to an existing valid config (create `{}` first only if the config file does not exist). Validation failures leave the original file intact; stop and report the error.
 
 ```bash
-jq \
+set -e
+if [ "${EVENTS_JSON+x}" != x ]; then EVENTS_JSON='["session-end","ask-user-question"]'; fi
+if [ "${HEADERS_JSON+x}" != x ]; then HEADERS_JSON='{}'; fi
+if [ "${INSTRUCTION+x}" != x ]; then INSTRUCTION='OWX event {{event}} for {{projectPath}}'; fi
+CONFIG_TMP=$(mktemp "${CONFIG_FILE}.XXXXXX")
+trap 'rm -f "$CONFIG_TMP"' EXIT
+jq -e \
   --arg url "$URL" \
   --arg method "${METHOD:-POST}" \
-  --arg instruction "${INSTRUCTION:-OWX event {{event}} for {{projectPath}}}" \
-  '.notifications = (.notifications // {enabled: true}) |
+  --argjson headers "$HEADERS_JSON" \
+  --argjson events "$EVENTS_JSON" \
+  --arg instruction "$INSTRUCTION" \
+  'if type != "object" then error("config must be an object") else . end |
+   if ($events | type) != "array" then error("events must be an array")
+   elif ($events | length) == 0 then error("events must not be empty")
+   elif ($events | all(. == "session-end" or . == "ask-user-question" or . == "session-start" or . == "session-idle" or . == "stop") | not)
+   then error("unsupported event") else . end |
+   if ($headers | type) != "object" then error("headers must be an object")
+   elif ($headers | all(.[]; type == "string") | not) then error("header values must be strings") else . end |
+   if ($method != "POST" and $method != "PUT") then error("method must be POST or PUT") else . end |
+   if ($url | test("^https?://[^/[:space:]]+" ) | not) then error("URL must be HTTP(S)") else . end |
+   .notifications = (.notifications // {}) |
    .notifications.enabled = true |
    .notifications.custom_webhook_command = {
      enabled: true,
      url: $url,
      method: $method,
+     headers: $headers,
      instruction: $instruction,
-     events: ["session-end", "ask-user-question"]
-   }' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+     events: $events
+   }' "$CONFIG_FILE" > "$CONFIG_TMP"
+mv "$CONFIG_TMP" "$CONFIG_FILE"
+trap - EXIT
 ```
 
 ### 4b) `custom_cli_command`
 
-Use AskUserQuestion to collect:
-- Command template (supports `{{event}}`, `{{instruction}}`, `{{sessionId}}`, `{{projectPath}}`)
-- Optional event list
-- Optional instruction template
+Collect the command template (supports `{{event}}`, `{{instruction}}`, `{{sessionId}}`, `{{projectPath}}`), optional event list, and optional instruction template.
 
-Write:
+Encode collected events as a JSON array in `EVENTS_JSON`; use `["session-end","ask-user-question"]` only when omitted. An explicit empty or invalid event list is an error. Set `INSTRUCTION` only when supplied; the example supplies the default when unset.
+
+Write to an existing valid config (create `{}` first only if the config file does not exist). Validation failures leave the original file intact; stop and report the error.
 
 ```bash
-jq \
+set -e
+if [ "${EVENTS_JSON+x}" != x ]; then EVENTS_JSON='["session-end","ask-user-question"]'; fi
+if [ "${INSTRUCTION+x}" != x ]; then INSTRUCTION='OWX event {{event}} for {{projectPath}}'; fi
+CONFIG_TMP=$(mktemp "${CONFIG_FILE}.XXXXXX")
+trap 'rm -f "$CONFIG_TMP"' EXIT
+jq -e \
   --arg command "$COMMAND_TEMPLATE" \
-  --arg instruction "${INSTRUCTION:-OWX event {{event}} for {{projectPath}}}" \
-  '.notifications = (.notifications // {enabled: true}) |
+  --argjson events "$EVENTS_JSON" \
+  --arg instruction "$INSTRUCTION" \
+  'if type != "object" then error("config must be an object") else . end |
+   if ($events | type) != "array" then error("events must be an array")
+   elif ($events | length) == 0 then error("events must not be empty")
+   elif ($events | all(. == "session-end" or . == "ask-user-question" or . == "session-start" or . == "session-idle" or . == "stop") | not)
+   then error("unsupported event") else . end |
+   if ($command | test("[^[:space:]]") | not) then error("command must not be empty") else . end |
+   .notifications = (.notifications // {}) |
    .notifications.enabled = true |
    .notifications.custom_cli_command = {
      enabled: true,
      command: $command,
      instruction: $instruction,
-     events: ["session-end", "ask-user-question"]
-   }' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+     events: $events
+   }' "$CONFIG_FILE" > "$CONFIG_TMP"
+mv "$CONFIG_TMP" "$CONFIG_FILE"
+trap - EXIT
 ```
 
 > Activation gate: OpenClaw-backed dispatch is active only when `OWX_OPENCLAW=1`.
@@ -258,11 +295,7 @@ jq '.notifications.enabled = false' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" && mv "$
 
 ## Step 7: Verification Guidance
 
-After writing config, run a smoke check:
-
-```bash
-npm run build
-```
+After writing config, validate its JSON with `jq -e . "$CONFIG_FILE"` and compare the saved non-secret values against the requested settings. Confirm headers are preserved without printing credentials. A repository build does not validate a user configuration. Send a delivery test only when the user has authorized that external message; report configuration validation separately from delivery verification.
 
 For OpenClaw-like HTTP integrations, verify both:
 - `/hooks/wake` smoke test

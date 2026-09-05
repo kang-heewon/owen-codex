@@ -51,7 +51,7 @@ Keep runtime marker contracts stable and non-destructive when overlays are appli
 - Add fallback behavior only when required by an explicit user requirement, an established repository or public contract, an uncontrollable external or version boundary, or an explicit availability requirement. Uncertainty, defensive programming, test convenience, and a desire to make an operation always succeed are not sufficient justification.
 - Prefer declarative, immutable, type-safe code with precise types, exhaustive handling, validated boundaries, and explicit failure behavior.
 - Avoid unnecessary comments; use clear names, types, and structure instead.
-- Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks.
+- Select tests, lint, typecheck, and static analysis according to the changed contract and repository requirements. Reuse passing evidence for unchanged inputs; final reports include changed files, verification, and remaining risks.
 
 <frontend_visual_evidence>
 Frontend verification is an execution invariant and does not depend on a design skill being invoked.
@@ -103,6 +103,7 @@ Product taste is a delivery constraint, not decorative advice.
 Default posture: work directly.
 
 Choose the lane before acting:
+- Use a workflow when the user requests it or the task needs its specific decision or verification process. A cleanup keyword alone does not require an interview, consensus plan, or goal workflow.
 - `$deep-interview` for unclear intent, missing boundaries, or explicit "don't assume" requests. It clarifies and hands off; it does not implement.
 - `$ralplan` when requirements are clear enough but plan, tradeoff, architecture, or test-shape review is still needed.
 - `$ralph` when an approved plan needs a persistent single-owner completion and verification loop.
@@ -133,12 +134,13 @@ Match role to task shape: `explore` for repo lookup, `researcher` for official d
 <specialist_routing>
 Leader/workflow routing contract:
 <!-- OWX:GUIDANCE:SPECIALIST-ROUTING:START -->
+- Apply these role mappings when an independent specialist task materially improves throughput or correctness. Handle a focused lookup directly when delegation would add overhead.
 - Route to `explore` for repo-local file / symbol / pattern / relationship lookup, current implementation discovery, or mapping how this repo currently uses a dependency. `explore` owns facts about this repo, not external docs or dependency recommendations.
 - Route to `researcher` when the main need is official docs, external API behavior, version-aware framework guidance, release-note history, or citation-backed reference gathering. The technology is already chosen; `researcher` answers “how does this chosen thing work?” and is not the default dependency-comparison role.
 - Route to `dependency-expert` when the main need is package / SDK selection or a comparative dependency decision: whether / which package, SDK, or framework to adopt, upgrade, replace, or migrate; candidate comparison; maintenance, license, security, or risk evaluation across options.
 - Use mixed routing deliberately: `explore` -> `researcher` for current local usage plus official-doc confirmation; `explore` -> `dependency-expert` for current dependency usage plus upgrade / replacement / migration evaluation; `researcher` -> `explore` when docs are clear but repo usage or impact still needs confirmation; `dependency-expert` -> `explore` when a dependency decision is clear but the local migration surface still needs mapping.
 - Specialists should report boundary crossings upward instead of silently absorbing adjacent work.
-- When external evidence materially affects the answer, do not keep the leader in the main lane on recall alone; route to the relevant specialist first, then return to planning or execution.
+- When external evidence materially affects the answer, verify it from primary sources. Use the relevant specialist when independent research would help; a small official-documentation lookup can stay with the leader.
 <!-- OWX:GUIDANCE:SPECIALIST-ROUTING:END -->
 </specialist_routing>
 
@@ -194,8 +196,8 @@ Stop / escalate: stop when the task is verified complete, the user says stop/can
 Output contract: Default update/final shape: state current mode, action/result, and evidence or blocker/next step. Keep rationale once; do not restate the full plan every turn; expand only for risk, handoff, or explicit request.
 
 Anti-slop workflow:
-- Cleanup/refactor/deslop work still follows the same `$deep-interview` -> `$ralplan` -> `$ultragoal` or explicit `$ralph` path; use `$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow.
-- For a direct material authored-source change outside a cleanup-owning parent workflow: implement, run targeted verification, run one automatic-finalization `ai-slop-cleaner` pass on owned changed source files, rerun verification, then review or report.
+- Execute scoped cleanup/refactor/deslop work directly with a cleanup plan and the needed behavior locks. Use `$deep-interview` only for material ambiguity, `$ralplan` for unresolved tradeoffs, and `$ultragoal` or `$ralph` when the user selects that execution workflow. Keep `$ai-slop-cleaner` inside the chosen lane.
+- For a direct material authored-source change outside a cleanup-owning parent workflow: implement, run targeted verification, then run one automatic-finalization `ai-slop-cleaner` pass on owned changed source files. If that pass changes code, rerun affected verification before review or reporting; a no-op pass reuses the passing evidence.
 - Explicit cleanup tasks require a cleanup plan and behavior lock where coverage is missing. Automatic finalization reuses existing verification, records a concise candidate inventory, and adds a narrow test only when a behavior-sensitive cleanup candidate lacks sufficient coverage.
 - Exactly one active workflow owns final code cleanup. A parent does not repeat a cleaner already owned by Ralph, Ultragoal, or an Ultragoal phase inside Autopilot.
 - Limit automatic finalization to one pass per stable candidate revision. A material product or review fix creates a new candidate; optional style ideas or a prior cleanup edit do not.
@@ -203,7 +205,7 @@ Anti-slop workflow:
 - Skip or limit automatic cleanup for docs-only work, generated or vendor files, lockfile-only changes, pure data fixtures, read-only reviews, an owning parent workflow, or an explicit user request to skip deslop.
 - Prefer deletion over addition, and prefer reuse plus boundary repair over new layers.
 - No new dependencies without explicit request.
-- Run lint, typecheck, tests, and static analysis before claiming completion.
+- Run only the validation selected by the changed contract and repository requirements. Repeat a passing check only after relevant inputs change or a new failure or coverage gap justifies it.
 - Keep writer/reviewer pass separation for cleanup plans and approvals; preserve writer/reviewer pass separation explicitly.
 
 Continuation: before concluding, confirm no pending work remains, features work, tests pass or gaps are explicit, and verification evidence is collected. If not, continue.
@@ -219,4 +221,4 @@ Hooks own normal skill-active and workflow-state persistence under `.owx/state/`
 
 ## Setup
 
-Execute `owx setup` to install all components. Execute `owx doctor` to verify installation.
+For installation or setup changes, use `owx setup` and verify with `owx doctor`. Ordinary project work does not require rerunning setup.

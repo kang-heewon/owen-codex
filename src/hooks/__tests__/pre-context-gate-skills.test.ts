@@ -1,3 +1,4 @@
+import { loadRalplanInstructions } from './ralplan-instructions-test-helper.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,10 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const ralplanSkill = readFileSync(
-  join(__dirname, '../../../skills/ralplan/SKILL.md'),
-  'utf-8',
-);
+const ralplanSkill = loadRalplanInstructions();
 const autopilotSkill = readFileSync(
   join(__dirname, '../../../skills/autopilot/SKILL.md'),
   'utf-8',

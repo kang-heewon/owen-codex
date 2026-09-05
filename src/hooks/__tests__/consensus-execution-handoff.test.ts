@@ -1,3 +1,4 @@
+import { loadRalplanInstructions } from './ralplan-instructions-test-helper.js';
 /**
  * Consensus mode execution handoff regression tests
  *
@@ -26,9 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const planSkill = readFileSync(
   join(__dirname, '../../../skills/plan/SKILL.md'), 'utf-8'
 );
-const ralplanSkill = readFileSync(
-  join(__dirname, '../../../skills/ralplan/SKILL.md'), 'utf-8'
-);
+const ralplanSkill = loadRalplanInstructions();
 const plannerPrompt = readFileSync(
   join(__dirname, '../../../prompts/planner.md'), 'utf-8'
 );
@@ -183,12 +182,12 @@ describe('User feedback step between Planner and Architect/Critic (plan/SKILL.md
     );
   });
 
-  it('should offer Proceed/Request changes/Skip review options in user feedback step', () => {
+  it('should offer review or revision without bypassing consensus evidence', () => {
     const consensusSection = extractSection(planSkill, 'Consensus Mode');
     assert.ok(consensusSection, 'Consensus Mode section should exist');
     assert.ok(consensusSection.includes('Proceed to review'));
     assert.ok(consensusSection.includes('Request changes'));
-    assert.ok(consensusSection.includes('Skip review'));
+    assert.doesNotMatch(consensusSection, /Skip review/i);
   });
 
   it('should place Critic after Architect in the consensus flow', () => {
@@ -248,7 +247,7 @@ describe('User feedback step between Planner and Architect/Critic (plan/SKILL.md
   it('should require adaptive step sizing instead of a fixed five-step template', () => {
     assert.match(planSkill, /adaptive step count|right-sized to task scope/i);
     assert.match(planSkill, /do not default to exactly five steps|not a fixed five-step template/i);
-    assert.match(ralplanSkill, /do not default to exactly five steps/i);
+    assert.match(ralplanSkill, /not a fixed five-step template/i);
   });
 
 describe('RALPLAN-DR in ralplan/SKILL.md', () => {

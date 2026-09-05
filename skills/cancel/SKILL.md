@@ -1,303 +1,69 @@
 ---
 name: cancel
-description: Cancel any active OWX mode (autopilot, ralph, ultrawork, ecomode, ultraqa, ultrapilot, pipeline)
+description: Cancel active OWX workflows in the current session, preserving terminal state and progress; reset all workflow state only when explicitly requested.
 ---
 
-# Cancel Skill
+# Cancel
 
-Intelligent cancellation that detects and cancels the active OWX mode.
+Stop the requested OWX workflow with the supported `owx state` CLI (or equivalent state tools). Default cancellation preserves progress, verification records, and terminal state. `--force` / `--all` explicitly requests a workspace-wide workflow-state reset; do not escalate to it merely because scoped cancellation failed.
 
-Use this skill to cancel an active mode or perform cleanup required by its owning workflow.
-Planning-only Ralplan completion follows its owning skill's `active:true,current_phase:"paused"` contract. Keep that implementation guard until explicit cancellation or an execution handoff; do not force-clear planning state merely because the approved plan is ready to return.
-If cancel fails or is interrupted,
-retry with `--force` flag, or wait for the 2-hour staleness timeout as
-a last resort.
+Planning-only Ralplan completion keeps its owning skill's `active:true,current_phase:"paused"` guard until explicit cancellation or execution handoff. An approved plan alone is not a cancellation request.
 
-## What It Does
+## Resolve scope and ownership
 
-Automatically detects which mode is active and cancels it:
-- **Autopilot**: Stops workflow, preserves progress for resume
-- **Ralph**: Stops persistence loop, clears linked ultrawork if applicable
-- **Ultrawork**: Stops parallel execution (standalone or linked)
-- **Ecomode**: Stops token-efficient parallel execution (standalone or linked to ralph)
-- **UltraQA**: Stops QA cycling workflow
-- **Ultrapilot**: Stops parallel autopilot workers
-- **Pipeline**: Stops sequential agent pipeline
+1. Use the known current session ID and working directory. Pass both explicitly to every operation. If no session exists, use the CLI's resolved legacy scope; never substitute another session because the current one has no active modes.
+2. Inspect `owx state list-active` and `owx state get-status` with that scope. These report modes/statuses, not an inventory of every session. Read status paths and `data` to confirm scope and ownership before writing. A malformed state is an error, not evidence that no workflow is active.
+3. Identify the owning workflow and its linked children. Autopilot owns its recorded execution/QA/planning stages, including explicit legacy Ralph handoffs. Ralph owns only Ultrawork/Ecomode linked in the same scope; preserve standalone parallel work and unrelated sessions. Cancel children and then the owner so the final owner state reflects completed cancellation.
+4. Stop any running workers through the available native agent controls, targeting only workers owned by the cancelled workflow. Marking a state record inactive does not interrupt an agent by itself.
 
-## Usage
-
-```
-/cancel
-```
-
-Or say: "cancelomc", "stopomc"
-
-## Auto-Detection
-
-`/cancel` follows the session-aware state contract:
-- By default the command inspects the current session via `state_list_active` and `state_get_status`, navigating `.owx/state/sessions/{sessionId}/…` to discover which mode is active.
-- When a session id is provided or already known, that session-scoped path is authoritative. Legacy files in `.owx/state/*.json` are consulted only as a compatibility fallback if the session id is missing or empty.
-- The default cleanup flow calls `state_clear` with the session id to remove only the matching session files; modes stay bound to their originating session.
-
-## Normative Ralph cancellation post-conditions (MUST)
-
-For Ralph-targeted cancellation (standalone or linked), completion is defined by post-conditions:
-
-1. Target Ralph state is terminalized, not silently removed:
-   - `active=false`
-   - `current_phase='cancelled'`
-   - `completed_at` is set (ISO timestamp)
-2. If Ralph is linked to Ultrawork or Ecomode in the same scope, that linked mode is also terminalized/non-active.
-4. Cancellation MUST remain scope-safe: no mutation of unrelated sessions.
-
-Active modes are still cancelled in dependency order:
-1. Autopilot (includes linked ultragoal/ultraqa/ecomode cleanup plus explicit legacy Ralph cleanup)
-2. Ralph (cleans its linked ultrawork or ecomode)
-3. Ultrawork (standalone)
-4. Ecomode (standalone)
-5. UltraQA (standalone)
-6. Ultrapilot (standalone)
-7. Pipeline (standalone)
-8. Plan Consensus (standalone)
-
-## Normative Ralph post-conditions (MUST)
-
-When cancellation targets Ralph state in a scope, completion requires all of the following:
-
-1. Ralph state is terminal in that same scope: `active=false`, `current_phase='cancelled'` (or linked terminal phase), and `completed_at` is set.
-2. Linked Ultrawork/Ecomode in the same scope is also terminal/non-active.
-4. Unrelated sessions are untouched.
-
-## Force Clear All
-
-Use `--force` or `--all` when you need to erase every session plus legacy artifacts, e.g., to reset the workspace entirely.
-
-```
-/cancel --force
-```
-
-```
-/cancel --all
-```
-
-Steps under the hood:
-1. `state_list_active` enumerates `.owx/state/sessions/{sessionId}/…` to find every known session.
-2. `state_clear` runs once per session to drop that session’s files.
-3. A global `state_clear` without `session_id` removes legacy files under `.owx/state/*.json` and compatibility artifacts (see list).
-
-Every `state_clear` command honors the `session_id` argument, so even force mode still uses the session-aware paths first before deleting legacy files.
-
-Legacy compatibility list (removed only under `--force`/`--all`):
-- `.owx/state/autopilot-state.json`
-- `.owx/state/ralph-state.json`
-- `.owx/state/ralph-plan-state.json`
-- `.owx/state/ralph-verification.json`
-- `.owx/state/ultrawork-state.json`
-- `.owx/state/ecomode-state.json`
-- `.owx/state/ultraqa-state.json`
-- `.owx/state/ultrapilot-state.json`
-- `.owx/state/ultrapilot-ownership.json`
-- `.owx/state/pipeline-state.json`
-- `.owx/state/plan-consensus.json`
-- `.owx/state/ralplan-state.json`
-- `.owx/state/boulder.json`
-- `.owx/state/hud-state.json`
-- `.owx/state/subagent-tracking.json`
-- `.owx/state/subagent-tracker.lock`
-- `.owx/state/rate-limit-daemon.pid`
-- `.owx/state/rate-limit-daemon.log`
-- `.owx/state/checkpoints/` (directory)
-- `.owx/state/sessions/` (empty directory cleanup after clearing sessions)
-
-## Implementation Steps
-
-When you invoke this skill:
-
-### 1. Parse Arguments
+Example scope inspection (set `SESSION_ID` and `WORKING_DIRECTORY` from the actual session):
 
 ```bash
-# Check for --force or --all flags
-FORCE_MODE=false
-if [[ "$*" == *"--force"* ]] || [[ "$*" == *"--all"* ]]; then
-  FORCE_MODE=true
-fi
+SCOPE=$(jq -n --arg session "$SESSION_ID" --arg cwd "$WORKING_DIRECTORY" \
+  '{session_id:$session,workingDirectory:$cwd}')
+owx state list-active --input "$SCOPE" --json
+owx state get-status --input "$SCOPE" --json
 ```
 
-### 2. Detect Active Modes
+## Preserve terminal state
 
-The skill now relies on the session-aware state contract rather than hard-coded file paths:
-1. Call `state_list_active` to enumerate `.owx/state/sessions/{sessionId}/…` and discover every active session.
-2. For each session id, call `state_get_status` to learn which mode is running (`autopilot`, `ralph`, `ultrawork`, etc.) and whether dependent modes exist.
-3. If a `session_id` was supplied to `/cancel`, skip legacy fallback entirely and operate solely within that session path; otherwise, consult legacy files in `.owx/state/*.json` only if the state tools report no active session.
-4. Any cancellation logic in this doc mirrors the dependency order discovered via state tools (autopilot → ralph → …).
+For each confirmed ordinary mode state, use `state_write`, which merges existing progress and synchronizes canonical skill activation. Do not use `state_clear` or raw file deletion for default cancellation.
 
-### 3A. Force Mode (if --force or --all)
-
-Use force mode to clear every session plus legacy artifacts via `state_clear`. Direct file removal is reserved for legacy cleanup when the state tools report no active sessions.
-
-### 3B. Smart Cancellation (default)
-
-#### If Autopilot Active
-
-Call `cancelAutopilot()` from `src/hooks/autopilot/cancel.ts:27-78`:
+The following terminal fields apply to Ralph and ordinary cancellable workflow states. Use a mode's owning workflow contract if it specifies a different terminal transition. Set `MODE` to the inspected mode; do not create a cancellation record for a nonexistent workflow.
 
 ```bash
-# Autopilot handles its own cleanup + ralph + ultraqa
-# Just mark autopilot as inactive (preserves state for resume)
-if [[ -f .owx/state/autopilot-state.json ]]; then
-  # Clean up ralph if active
-  if [[ -f .owx/state/ralph-state.json ]]; then
-    RALPH_STATE=$(cat .owx/state/ralph-state.json)
-    LINKED_UW=$(echo "$RALPH_STATE" | jq -r '.linked_ultrawork // false')
-
-    # Clean linked ultrawork first
-    if [[ "$LINKED_UW" == "true" ]] && [[ -f .owx/state/ultrawork-state.json ]]; then
-      rm -f .owx/state/ultrawork-state.json
-      echo "Cleaned up: ultrawork (linked to ralph)"
-    fi
-
-    # Clean ralph
-    rm -f .owx/state/ralph-state.json
-    rm -f .owx/state/ralph-verification.json
-    echo "Cleaned up: ralph"
-  fi
-
-  # Clean up ultraqa if active
-  if [[ -f .owx/state/ultraqa-state.json ]]; then
-    rm -f .owx/state/ultraqa-state.json
-    echo "Cleaned up: ultraqa"
-  fi
-
-  # Mark autopilot inactive but preserve state
-  CURRENT_STATE=$(cat .owx/state/autopilot-state.json)
-  CURRENT_PHASE=$(echo "$CURRENT_STATE" | jq -r '.phase // "unknown"')
-  echo "$CURRENT_STATE" | jq '.active = false' > .owx/state/autopilot-state.json
-
-  echo "Autopilot cancelled at phase: $CURRENT_PHASE. Progress preserved for resume."
-  echo "Run /autopilot to resume."
-fi
+CANCEL_INPUT=$(jq -n \
+  --arg mode "$MODE" \
+  --arg session "$SESSION_ID" \
+  --arg cwd "$WORKING_DIRECTORY" \
+  --arg completed "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  '{mode:$mode,session_id:$session,workingDirectory:$cwd,
+    active:false,current_phase:"cancelled",run_outcome:"cancelled",completed_at:$completed}')
+owx state write --input "$CANCEL_INPUT" --json
 ```
 
-#### If Ralph Active (but not Autopilot)
+After each write, read status again in the same scope. Success requires `active:false`, `current_phase:"cancelled"`, a populated `completed_at`, preserved progress/verification artifacts, and non-active linked children. Check the CLI exit code or state tool `isError`; report a failed transition rather than claiming cancellation. Preserve unrelated sessions. Report the cancelled mode and the retained progress location.
 
-Call `clearRalphState()` + `clearLinkedUltraworkState()` from `src/hooks/ralph-loop/index.ts:147-182`:
+## Goal-backed workflows
+
+Status may include `.owx/ultragoal/goals.json` with `source:"ultragoal-artifacts"`. This is a goal ledger, not an ordinary `.owx/state` mode file. A generic state write/clear does not cancel that ledger or the Codex goal.
+
+Stop owned execution and follow the owning goal workflow's supported cancellation/pause controls when available. Preserve ledgers and checkpoints. The exposed `update_goal` tool cannot pause or cancel a goal; never mark an unfinished goal complete or blocked merely to cancel it. Do not call hidden goal endpoints or manually edit Codex goal state. If cancellation requires the user's goal UI control, report that remaining step and distinguish it from completed OWX state cancellation.
+
+## Explicit workspace reset: `--force` / `--all`
+
+An explicit reset authorizes removing ordinary workflow state across sessions, including legacy mode records. It is an exception to terminal-state preservation. First stop owned workers and inspect the state directories to inventory modes, sessions, and compatibility artifacts. Do not assume `state_list_active` enumerates all sessions or inactive records.
+
+For each supported mode present, use the API's explicit all-session operation:
 
 ```bash
-if [[ -f .owx/state/ralph-state.json ]]; then
-  # Check if ultrawork is linked
-  RALPH_STATE=$(cat .owx/state/ralph-state.json)
-  LINKED_UW=$(echo "$RALPH_STATE" | jq -r '.linked_ultrawork // false')
-
-  # Clean linked ultrawork first
-  if [[ "$LINKED_UW" == "true" ]] && [[ -f .owx/state/ultrawork-state.json ]]; then
-    UW_STATE=$(cat .owx/state/ultrawork-state.json)
-    UW_LINKED=$(echo "$UW_STATE" | jq -r '.linked_to_ralph // false')
-
-    # Only clear if it was linked to ralph
-    if [[ "$UW_LINKED" == "true" ]]; then
-      rm -f .owx/state/ultrawork-state.json
-      echo "Cleaned up: ultrawork (linked to ralph)"
-    fi
-  fi
-
-  # Clean ralph state
-  rm -f .owx/state/ralph-state.json
-  rm -f .owx/state/ralph-plan-state.json
-  rm -f .owx/state/ralph-verification.json
-
-  echo "Ralph cancelled. Persistent mode deactivated."
-fi
+RESET_INPUT=$(jq -n --arg mode "$MODE" --arg cwd "$WORKING_DIRECTORY" \
+  '{mode:$mode,workingDirectory:$cwd,all_sessions:true}')
+owx state clear --input "$RESET_INPUT" --json
 ```
 
-#### If Ultrawork Active (standalone, not linked)
+`mode` is required. Omitting `session_id` alone does not request a global reset; the runtime resolves the current session. `all_sessions:true` clears the named mode's global and session-scoped records and synchronizes its canonical activation state.
 
-Call `deactivateUltrawork()` from `src/hooks/ultrawork/index.ts:150-173`:
+Inspect remaining compatibility artifacts before removing only those covered by the explicit reset (for example Ralph verification/plan-state sidecars or obsolete workflow state files). Do not delete source files, user plans, goal ledgers, checkpoints outside the requested reset scope, shared live tracking, or active process lock/PID files indiscriminately. Report unsupported modes or artifacts that could not be safely cleared. Verify the selected state paths are gone and report exactly what was reset; do not claim that a native Codex goal was cleared.
 
-```bash
-if [[ -f .owx/state/ultrawork-state.json ]]; then
-  # Check if linked to ralph
-  UW_STATE=$(cat .owx/state/ultrawork-state.json)
-  LINKED=$(echo "$UW_STATE" | jq -r '.linked_to_ralph // false')
-
-  if [[ "$LINKED" == "true" ]]; then
-    echo "Ultrawork is linked to Ralph. Use /cancel to cancel both."
-    exit 1
-  fi
-
-  # Remove local state
-  rm -f .owx/state/ultrawork-state.json
-
-  echo "Ultrawork cancelled. Parallel execution mode deactivated."
-fi
-```
-
-#### If UltraQA Active (standalone)
-
-Call `clearUltraQAState()` from `src/hooks/ultraqa/index.ts:107-120`:
-
-```bash
-if [[ -f .owx/state/ultraqa-state.json ]]; then
-  rm -f .owx/state/ultraqa-state.json
-  echo "UltraQA cancelled. QA cycling workflow stopped."
-fi
-```
-
-#### No Active Modes
-
-```bash
-echo "No active OWX modes detected."
-echo ""
-echo "Checked for:"
-echo "  - Autopilot (.owx/state/autopilot-state.json)"
-echo "  - Ralph (.owx/state/ralph-state.json)"
-echo "  - Ultrawork (.owx/state/ultrawork-state.json)"
-echo "  - UltraQA (.owx/state/ultraqa-state.json)"
-echo ""
-echo "Use --force to clear all state files anyway."
-```
-
-## Implementation Notes
-
-The cancel skill runs as follows:
-1. Parse the `--force` / `--all` flags, tracking whether cleanup should span every session or stay scoped to the current session id.
-2. Use `state_list_active` to enumerate known session ids and `state_get_status` to learn the active mode (`autopilot`, `ralph`, `ultrawork`, etc.) for each session.
-3. When operating in default mode, call `state_clear` with that session_id to remove only the session’s files, then run mode-specific cleanup (autopilot → ralph → …) based on the state tool signals.
-4. In force mode, iterate every active session, call `state_clear` per session, then run a global `state_clear` without `session_id` to drop legacy files (`.owx/state/*.json`, compatibility artifacts) and report success.
-
-State tools always honor the `session_id` argument, so even force mode still clears the session-scoped paths before deleting compatibility-only legacy state.
-
-Mode-specific subsections below describe what extra cleanup each handler performs after the state-wide operations finish.
-## Messages Reference
-
-| Mode | Success Message |
-|------|-----------------|
-| Autopilot | "Autopilot cancelled at phase: {phase}. Progress preserved for resume." |
-| Ralph | "Ralph cancelled. Persistent mode deactivated." |
-| Ultrawork | "Ultrawork cancelled. Parallel execution mode deactivated." |
-| Ecomode | "Ecomode cancelled. Token-efficient execution mode deactivated." |
-| UltraQA | "UltraQA cancelled. QA cycling workflow stopped." |
-| Ultrapilot | "Ultrapilot cancelled. Parallel autopilot workers stopped." |
-| Pipeline | "Pipeline cancelled. Sequential agent chain stopped." |
-| Plan Consensus | "Plan Consensus cancelled. Planning session ended." |
-| Force | "All OWX modes cleared. You are free to start fresh." |
-| None | "No active OWX modes detected." |
-
-## What Gets Preserved
-
-| Mode | State Preserved | Resume Command |
-|------|-----------------|----------------|
-| Autopilot | Yes (phase, files, spec, plan, verdicts) | `/autopilot` |
-| Ralph | No | N/A |
-| Ultrawork | No | N/A |
-| UltraQA | No | N/A |
-| Ultrapilot | No | N/A |
-| Pipeline | No | N/A |
-| Plan Consensus | Yes (plan file path preserved) | N/A |
-
-## Notes
-
-- **Dependency-aware**: Autopilot cancellation cleans up Ultragoal/UltraQA state and any explicit legacy Ralph state
-- **Link-aware**: Ralph cancellation cleans up linked Ultrawork or Ecomode
-- **Safe**: Only clears linked Ultrawork, preserves standalone Ultrawork
-- **Local-only**: Clears state files in `.owx/state/` directory
-- **Resume-friendly**: Autopilot state is preserved for seamless resume
+If no active modes exist in the requested scope, report that result without deleting inactive records or escalating to a workspace reset.

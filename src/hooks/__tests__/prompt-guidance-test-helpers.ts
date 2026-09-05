@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { GuidanceSurfaceContract } from '../prompt-guidance-contract.js';
+import { loadRalplanInstructions } from './ralplan-instructions-test-helper.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '../../../');
@@ -30,7 +31,9 @@ export function listTrackedAgentSurfaces(): string[] {
 }
 
 export function assertContractSurface(contract: GuidanceSurfaceContract): void {
-  const content = loadSurface(contract.path);
+  const content = contract.path === 'skills/ralplan/SKILL.md'
+    ? loadRalplanInstructions(repoRoot)
+    : loadSurface(contract.path);
   for (const pattern of contract.requiredPatterns) {
     assert.match(content, pattern, `${contract.id} missing required pattern: ${pattern}`);
   }

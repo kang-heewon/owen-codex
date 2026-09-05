@@ -29,20 +29,25 @@ const antiSlopWorkingAgreementPatterns = [
   /^- Prefer deletion, existing utilities, and existing patterns before new abstractions; add dependencies only when explicitly requested\.$/m,
   /^- Keep diffs small, reviewable, and reversible\.$/m,
   /^- Do not add runtime behavior, product features, public APIs, CLI flags, UI controls, schema fields, or other shipped interfaces solely to enable or simplify verification\. Use tests, fixtures, test-only harnesses, internal dependency-injection seams, or existing supported observability and interfaces instead; any test-only surface must stay outside shipped artifacts and the product contract\.$/m,
-  /^- Verify with lint, typecheck, tests, and static analysis after changes; final reports include changed files, simplifications, and remaining risks\.$/m,
+  /Select tests, lint, typecheck, and static analysis according to the changed contract and repository requirements/,
+  /Reuse passing evidence for unchanged inputs/,
 ];
 
 const antiSlopWorkflowPatterns = [
   /^Anti-slop workflow:$/m,
-  /^- Cleanup\/refactor\/deslop work still follows the same `\$deep-interview` -> `\$ralplan` -> `\$ultragoal` or explicit `\$ralph` path; use `\$ai-slop-cleaner` as a bounded helper inside the chosen execution lane, not as a competing top-level workflow\.$/m,
-  /direct material authored-source change[\s\S]{0,160}targeted verification[\s\S]{0,160}one automatic-finalization `ai-slop-cleaner` pass[\s\S]{0,120}rerun verification/i,
+  /Execute scoped cleanup\/refactor\/deslop work directly with a cleanup plan and the needed behavior locks/,
+  /Use `\$deep-interview` only for material ambiguity/,
+  /`\$ultragoal` or `\$ralph` when the user selects that execution workflow/,
+  /direct material authored-source change[\s\S]{0,160}targeted verification[\s\S]{0,160}one automatic-finalization `ai-slop-cleaner` pass[\s\S]{0,160}rerun affected verification/i,
+  /a no-op pass reuses the passing evidence/,
   /Explicit cleanup tasks[\s\S]{0,120}cleanup plan and behavior lock[\s\S]{0,160}Automatic finalization reuses existing verification[\s\S]{0,160}narrow test/i,
   /Exactly one active workflow owns final code cleanup[\s\S]{0,180}Ralph[\s\S]{0,80}Ultragoal[\s\S]{0,80}Autopilot/i,
   /^- Limit automatic finalization to one pass per stable candidate revision\./m,
   /^- If a cleaner change causes a regression, repair or revert that cleaner-induced change and rerun the affected verification\./m,
   /^- Prefer deletion over addition, and prefer reuse plus boundary repair over new layers\.$/m,
   /^- No new dependencies without explicit request\.$/m,
-  /^- Run lint, typecheck, tests, and static analysis before claiming completion\.$/m,
+  /Run only the validation selected by the changed contract and repository requirements/,
+  /Repeat a passing check only after relevant inputs change or a new failure or coverage gap justifies it/,
   /^- Keep writer\/reviewer pass separation for cleanup plans and approvals; preserve writer\/reviewer pass separation explicitly\.$/m,
 ];
 
