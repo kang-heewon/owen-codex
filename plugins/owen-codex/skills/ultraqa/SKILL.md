@@ -75,6 +75,7 @@ Generated harnesses are part of the QA evidence chain; until setup succeeds, the
    - Restate the goal, success criteria, safety bounds, and stop condition.
    - Inspect repository context enough to identify runnable surfaces, test commands, state files, and cleanup paths.
    - Build or update the required scenario matrix before running commands.
+   - When prior code-review evidence is supplied by Ultragoal or Autopilot, confirm its candidate/scope/base/runtime binding still matches before treating code review as a clean prerequisite. A mismatch returns the workflow to code-review or ralplan; it is not a QA skip condition.
 
 2. **RUN BASELINE VERIFICATION**
    - `--tests`: Run the project's test command.

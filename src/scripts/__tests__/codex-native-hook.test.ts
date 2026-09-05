@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 import { buildManagedCodexHooksConfig } from "../../config/codex-hooks.js";
 import { writeSessionStart } from "../../hooks/session.js";
+import { generateOverlay, writeSessionModelInstructionsFile } from "../../hooks/agents-overlay.js";
 import { resetTriageConfigCache } from "../../hooks/triage-config.js";
 import { readAllState } from "../../hud/state.js";
 import { executeStateOperation } from "../../state/operations.js";
@@ -873,6 +874,10 @@ describe("codex native hook dispatch", () => {
   it("writes SessionStart state against the long-lived session owner pid and injects environment context", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-session-start-"));
     try {
+      execFileSync("git", ["init", "--quiet"], { cwd });
+      await mkdir(join(cwd, "src"));
+      await writeFile(join(cwd, "src", "example.ts"), "export function example() {}\n");
+      execFileSync("git", ["add", "src/example.ts"], { cwd });
       const result = await dispatchCodexNativeHook(
         {
           hook_event_name: "SessionStart",
@@ -897,6 +902,11 @@ describe("codex native hook dispatch", () => {
       assert.match(additionalContext, /Codex native lifecycle \(App, IDE, or direct terminal\)/);
       assert.match(additionalContext, /use Codex native subagents directly/);
       assert.match(additionalContext, /host's native user-input capability/);
+      assert.match(additionalContext, /\[Compaction protocol\]/);
+      assert.match(additionalContext, /preserve critical state/);
+      assert.equal((additionalContext.match(/preserve critical state/g) ?? []).length, 1);
+      assert.match(additionalContext, /\[Codebase map\]/);
+      assert.match(additionalContext, /example/);
       const sessionState = JSON.parse(await readFile(join(cwd, ".owx", "state", "session.json"), "utf-8")) as {
         session_id?: string;
         native_session_id?: string;
@@ -906,6 +916,29 @@ describe("codex native hook dispatch", () => {
       assert.equal(sessionState.native_session_id, "sess-start-1");
       assert.equal(sessionState.pid, 43210);
     } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("does not duplicate map or compaction context from explicit generated replacement instructions", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-explicit-instructions-"));
+    const sessionId = "sess-explicit-instructions";
+    const previousBypass = process.env.OWX_BYPASS_DEFAULT_SYSTEM_PROMPT;
+    try {
+      const overlay = await generateOverlay(cwd, sessionId);
+      await writeSessionModelInstructionsFile(cwd, sessionId, overlay);
+      assert.match(overlay, /preserve critical state/);
+      const result = await dispatchCodexNativeHook({ hook_event_name: "SessionStart", cwd, session_id: sessionId }, { cwd });
+      const context = (result.outputJson as { hookSpecificOutput?: { additionalContext?: string } })?.hookSpecificOutput?.additionalContext ?? "";
+      assert.doesNotMatch(context, /preserve critical state|\[Codebase map\]/);
+      assert.match(context, /Execution environment/);
+      process.env.OWX_BYPASS_DEFAULT_SYSTEM_PROMPT = "1";
+      const nativeResult = await dispatchCodexNativeHook({ hook_event_name: "SessionStart", cwd, session_id: "native-different-id" }, { cwd });
+      const nativeContext = (nativeResult.outputJson as { hookSpecificOutput?: { additionalContext?: string } })?.hookSpecificOutput?.additionalContext ?? "";
+      assert.doesNotMatch(nativeContext, /preserve critical state|\[Codebase map\]/);
+    } finally {
+      if (previousBypass === undefined) delete process.env.OWX_BYPASS_DEFAULT_SYSTEM_PROMPT;
+      else process.env.OWX_BYPASS_DEFAULT_SYSTEM_PROMPT = previousBypass;
       await rm(cwd, { recursive: true, force: true });
     }
   });
@@ -7119,8 +7152,56 @@ export async function onHookEvent(event) {
       assert.equal(result.outputJson?.stopReason, "skill_ralplan_planning_continue_artifact");
       assert.match(
         String(result.outputJson?.systemMessage ?? ""),
-        /complete, paused for review, waiting for input, or still continuing/,
+        /active=true with current_phase=paused.*current_phase=waiting_for_input/,
       );
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("allows ralplan to stop in active pause states while retaining the product-write guard", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-stop-ralplan-paused-"));
+    try {
+      const stateDir = join(cwd, ".owx", "state");
+      const sessionId = "sess-stop-ralplan-paused";
+      const sessionDir = join(stateDir, "sessions", sessionId);
+      await mkdir(sessionDir, { recursive: true });
+      await writeJson(join(stateDir, "session.json"), { session_id: sessionId });
+      await writeJson(join(sessionDir, "skill-active-state.json"), {
+        active: true,
+        skill: "ralplan",
+        phase: "waiting_for_input",
+        session_id: sessionId,
+        active_skills: [{ skill: "ralplan", phase: "waiting_for_input", active: true, session_id: sessionId }],
+      });
+
+      for (const state of [
+        { active: true, mode: "ralplan", current_phase: "waiting_for_input", session_id: sessionId },
+        { active: true, mode: "ralplan", current_phase: "paused", planning_complete: true, session_id: sessionId },
+      ]) {
+        const stateWrite = await executeStateOperation("state_write", {
+          workingDirectory: cwd,
+          ...state,
+        });
+        assert.equal(stateWrite.isError, undefined, JSON.stringify(stateWrite.payload));
+        const stop = await dispatchCodexNativeHook(
+          { hook_event_name: "Stop", cwd, session_id: sessionId },
+          { cwd },
+        );
+        assert.equal(stop.outputJson, null, state.current_phase);
+
+        const productWrite = await dispatchCodexNativeHook(
+          {
+            hook_event_name: "PreToolUse",
+            cwd,
+            session_id: sessionId,
+            tool_name: "Write",
+            tool_input: { file_path: "src/runtime.ts", content: "implementation\n" },
+          },
+          { cwd },
+        );
+        assert.equal(productWrite.outputJson?.decision, "block", state.current_phase);
+      }
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
@@ -7570,7 +7651,7 @@ export async function onHookEvent(event) {
     }
   });
 
-  it("returns an explicit ralplan waiting status while subagents are still active", async () => {
+  it("keeps an active ralplan pause blocked while subagents are still active", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "owx-native-hook-stop-skill-subagent-"));
     try {
       const stateDir = join(cwd, ".owx", "state");
@@ -7583,11 +7664,11 @@ export async function onHookEvent(event) {
       await writeJson(join(stateDir, "sessions", "sess-stop-skill-subagent", "skill-active-state.json"), {
         active: true,
         skill: "ralplan",
-        phase: "planning",
+        phase: "paused",
       });
       await writeJson(join(stateDir, "sessions", "sess-stop-skill-subagent", "ralplan-state.json"), {
         active: true,
-        current_phase: "planning",
+        current_phase: "paused",
       });
       await writeJson(join(stateDir, "subagent-tracking.json"), {
         schemaVersion: 1,
@@ -7630,7 +7711,7 @@ export async function onHookEvent(event) {
       assert.match(String(result.outputJson?.reason ?? ""), /Status: waiting/);
       assert.match(String(result.outputJson?.reason ?? ""), /waiting for 1 active native subagent thread/);
       assert.match(String(result.outputJson?.reason ?? ""), /then continue from the current ralplan artifact/i);
-      assert.equal(result.outputJson?.stopReason, "skill_ralplan_planning_waiting_subagent");
+      assert.equal(result.outputJson?.stopReason, "skill_ralplan_paused_waiting_subagent");
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }
@@ -10547,6 +10628,34 @@ export async function onHookEvent(event) {
       assert.equal(
         (
           await preToolUse("Write", {
+            file_path: `.owx/state/sessions/${sessionId}/ralplan-state.json`,
+            content: JSON.stringify({
+              mode: "ralplan",
+              active: true,
+              current_phase: "waiting_for_input",
+              session_id: sessionId,
+            }),
+          })
+        ).outputJson,
+        null,
+      );
+      assert.equal(
+        (
+          await preToolUse("Write", {
+            file_path: `.owx/state/sessions/${sessionId}/ralplan-state.json`,
+            content: JSON.stringify({
+              mode: "ralplan",
+              active: false,
+              current_phase: "waiting_for_input",
+              session_id: sessionId,
+            }),
+          })
+        ).outputJson?.decision,
+        "block",
+      );
+      assert.equal(
+        (
+          await preToolUse("Write", {
             file_path: ".owx/state/ralplan-state.json",
           })
         ).outputJson?.decision,
@@ -10604,8 +10713,19 @@ export async function onHookEvent(event) {
         'echo "tee src/runtime.ts"',
         'echo "printf x > src/runtime.ts"',
         "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: .owx/context/bash.md\n+ok\n*** End Patch\nPATCH",
+        "git branch -a",
+        "git remote -v",
+        "node --version",
+        "node -v",
+        "owx state list-active --json",
+        'owx state get-status --input \'{"mode":"ralplan"}\' --json',
         'owx state read --input \'{"mode":"ralplan"}\' --json',
+        'sed -n \'1,20p\' .owx/plans/notes.md && command -v owx && owx state read --input \'{"mode":"ralplan"}\' --json',
+        "owx state write --help",
         'owx state write --input \'{"mode":"ralplan","active":true,"current_phase":"planning"}\' --json',
+        'owx state write --input \'{"mode":"ralplan","active":true,"current_phase":"paused","planning_complete":true}\' --json',
+        'owx state write --input \'{"mode":"ralplan","active":true,"current_phase":"waiting_for_input","state":{"pending_question":"Which repository contains the implementation?"}}\' --json',
+        'owx state write --input \'{"mode":"ralplan","active":true,"current_phase":"waiting_for_input","state":{"pending_question":"Which repo; branch (if any)?"}}\' --json',
         "python3 <<'PY'\nfrom pathlib import Path\nPath('.owx/plans/python.md').write_text('plan')\nPY",
       ];
       for (const command of allowedCommands) {
@@ -10622,6 +10742,22 @@ export async function onHookEvent(event) {
         '/usr/local/bin/owx state clear --input \'{"mode":"ralplan"}\' --json',
         'OWX=owx; $OWX state clear --input \'{"mode":"ralplan"}\' --json',
         'owx state write --input \'{"mode":"ralplan","active":false,"current_phase":"complete"}\' --json',
+        'owx state write --input \'{"mode":"ralplan","active":false,"current_phase":"waiting_for_input"}\' --json',
+        'owx state write --input \'{"mode":"ralplan","active":false,"current_phase":"waiting_for_input","state":{"reason":"blocked; user input (required)"}}\' --json',
+        "owx state write --unknown-option",
+        "owx state write --input '{bad-json' --json",
+        "git branch feature/implementation",
+        "git branch -D feature/implementation",
+        "git remote add origin https://example.com/repo.git",
+        "git remote remove origin",
+        "git remote set-url origin https://example.com/other.git",
+        "node --test",
+        "node -e \"console.log(process.version)\"",
+        "node --version ./scripts/mutate.js",
+        "NODE_OPTIONS=--require=./scripts/mutate.js node -v",
+        "PATH=./attacker:$PATH node --version",
+        "./attacker/node -v",
+        "env node --version",
         "node -e \"require('fs').writeFileSync('src/pwn.ts','x')\"",
         "node -e \"const fs=require('fs'); const w=fs.writeFileSync; w('src/pwn.ts','x')\"",
         "node -e \"require('fs')['writeFileSync']('src/pwn.ts','x')\"",
@@ -10710,6 +10846,10 @@ export async function onHookEvent(event) {
       for (const command of blockedCommands) {
         assert.equal((await preToolUse("Bash", { command })).outputJson?.decision, "block", command);
       }
+      const inactiveWaiting = await preToolUse("Bash", {
+        command: 'owx state write --input \'{"mode":"ralplan","active":false,"current_phase":"waiting_for_input"}\' --json',
+      });
+      assert.match(String(inactiveWaiting.outputJson?.reason), /active=true.*current_phase=paused.*current_phase=waiting_for_input/);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

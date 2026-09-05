@@ -66,6 +66,11 @@ import {
 } from "../config/generator.js";
 import type { UnifiedMcpRegistryServer } from "../config/mcp-registry.js";
 import { OWX_FIRST_PARTY_MCP_SERVER_NAMES } from "../config/owx-first-party-mcp.js";
+import {
+  CONFIGURED_AGENT_REASONING_EFFORTS,
+  parseConfiguredAgentReasoningEffort,
+  type ConfiguredAgentReasoningEffort,
+} from "../config/models.js";
 import { classifySpawnError, spawnPlatformCommandSync } from "../utils/platform-command.js";
 import {
   OWX_NOTIFY_TEMP_CONTRACT_ENV,
@@ -90,10 +95,7 @@ const REASONING_KEY = "model_reasoning_effort";
 const MODEL_INSTRUCTIONS_FILE_KEY = "model_instructions_file";
 const OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV = "OWX_BYPASS_DEFAULT_SYSTEM_PROMPT";
 const OWX_MODEL_INSTRUCTIONS_FILE_ENV = "OWX_MODEL_INSTRUCTIONS_FILE";
-const REASONING_MODES = ["low", "medium", "high", "xhigh"] as const;
-type ReasoningMode = (typeof REASONING_MODES)[number];
-const REASONING_MODE_SET = new Set<string>(REASONING_MODES);
-const REASONING_USAGE = "Usage: owx reasoning <low|medium|high|xhigh>";
+const REASONING_USAGE = `Usage: owx reasoning <${CONFIGURED_AGENT_REASONING_EFFORTS.join("|")}>`;
 const REMOVED_TERMINAL_LAUNCH_FLAG = ["--tm", "ux"].join("");
 
 const NESTED_HELP_COMMANDS = new Set<string>([
@@ -134,7 +136,7 @@ owen-codex (owx) - OpenAI Codex workflow tooling
 Usage:
   owx           Launch Codex CLI directly in the current terminal
   owx launch    Launch Codex CLI directly
-  owx exec      Run codex exec non-interactively with OWX overlay injection
+  owx exec      Run codex exec non-interactively with native OWX lifecycle context
   owx imagegen  Queue built-in image generation continuations
   owx setup     Install skills, prompts, config, and AGENTS.md
   owx update    Install stable (or --dev), then refresh setup
@@ -178,7 +180,7 @@ Usage:
   owx mcp-serve Serve a retained MCP compatibility target
   owx status    Show retained workflow status
   owx cancel    Cancel active retained workflows
-  owx reasoning <low|medium|high|xhigh>
+  owx reasoning <${CONFIGURED_AGENT_REASONING_EFFORTS.join("|")}>
   owx help      Show this help
   owx version   Show version
 
@@ -441,7 +443,7 @@ export function normalizeCodexLaunchArgs(args: string[]): string[] {
   const normalized: string[] = [];
   let wantsBypass = false;
   let hasBypass = false;
-  let reasoning: ReasoningMode | null = null;
+  let reasoning: ConfiguredAgentReasoningEffort | null = null;
   for (const arg of args) {
     if (arg === "--direct") continue;
     if (
@@ -487,16 +489,16 @@ function isModelInstructionsOverride(value: string): boolean {
 function hasModelInstructionsOverride(args: string[]): boolean {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
+    if (arg === "--") break;
     if (
       (arg === CONFIG_FLAG || arg === LONG_CONFIG_FLAG) &&
       isModelInstructionsOverride(args[index + 1] ?? "")
     ) {
       return true;
     }
-    if (
-      arg.startsWith(`${LONG_CONFIG_FLAG}=`) &&
-      isModelInstructionsOverride(arg.slice(`${LONG_CONFIG_FLAG}=`.length))
-    ) {
+    if ([CONFIG_FLAG, LONG_CONFIG_FLAG].some((flag) =>
+      arg.startsWith(`${flag}=`) && isModelInstructionsOverride(arg.slice(flag.length + 1)),
+    )) {
       return true;
     }
   }
@@ -515,8 +517,19 @@ export function injectModelInstructionsBypassArgs(
   ) {
     return [...args];
   }
-  const filePath = env[OWX_MODEL_INSTRUCTIONS_FILE_ENV] || defaultFilePath || join(cwd, "AGENTS.md");
-  return [...args, CONFIG_FLAG, `${MODEL_INSTRUCTIONS_FILE_KEY}=\"${escapeTomlString(filePath)}\"`];
+  const customFilePath = env[OWX_MODEL_INSTRUCTIONS_FILE_ENV]?.trim();
+  if (!customFilePath && env[OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] !== "1") return [...args];
+  const filePath = customFilePath || defaultFilePath || join(cwd, "AGENTS.md");
+  const replacementArgs = [CONFIG_FLAG, `${MODEL_INSTRUCTIONS_FILE_KEY}=\"${escapeTomlString(filePath)}\"`];
+  const separatorIndex = args.indexOf("--");
+  if (separatorIndex < 0) return [...args, ...replacementArgs];
+  return [...args.slice(0, separatorIndex), ...replacementArgs, ...args.slice(separatorIndex)];
+}
+
+function needsSessionModelInstructions(args: string[], env: NodeJS.ProcessEnv): boolean {
+  return env[OWX_BYPASS_DEFAULT_SYSTEM_PROMPT_ENV] === "1"
+    && !env[OWX_MODEL_INSTRUCTIONS_FILE_ENV]?.trim()
+    && !hasModelInstructionsOverride(args);
 }
 
 async function repairLaunchConfig(cwd: string): Promise<void> {
@@ -575,7 +588,9 @@ async function runDirectCodex(rawArgs: string[], execMode = false): Promise<void
   for (const warning of notify.contract.warnings) console.warn(`[owx] ${warning}`);
   const normalized = normalizeCodexLaunchArgs(notify.passthroughArgs);
   await repairLaunchConfig(cwd);
-  const instructionsPath = await prepareDirectOverlay(cwd, sessionId);
+  const instructionsPath = needsSessionModelInstructions(normalized, process.env)
+    ? await prepareDirectOverlay(cwd, sessionId)
+    : undefined;
   const codexHome = resolveCodexHomeForLaunch(cwd, process.env);
   const env = {
     ...sanitizeDirectCodexEnv(process.env),
@@ -591,7 +606,7 @@ async function runDirectCodex(rawArgs: string[], execMode = false): Promise<void
     );
     runCodexBlocking(cwd, args, env);
   } finally {
-    await removeSessionModelInstructionsFile(cwd, sessionId).catch(() => undefined);
+    if (instructionsPath) await removeSessionModelInstructionsFile(cwd, sessionId).catch(() => undefined);
   }
 }
 
@@ -615,7 +630,7 @@ export async function launchWithAuthHotswap(args: string[]): Promise<void> {
         codexHomeOverride: resolveCodexHomeForLaunch(launchCwd, env),
       }),
       preLaunch: async (launchCwd, sessionId) => {
-        await prepareDirectOverlay(launchCwd, sessionId);
+        if (needsSessionModelInstructions(args, env)) await prepareDirectOverlay(launchCwd, sessionId);
       },
       postLaunch: async (launchCwd, sessionId) => {
         await removeSessionModelInstructionsFile(launchCwd, sessionId);
@@ -689,15 +704,11 @@ async function reasoningCommand(args: string[]): Promise<void> {
     );
     return;
   }
-  if (!REASONING_MODE_SET.has(mode)) {
-    throw new Error(
-      `Invalid reasoning mode \"${mode}\". Expected one of: ${REASONING_MODES.join(", ")}.\n${REASONING_USAGE}`,
-    );
-  }
+  const effort = parseConfiguredAgentReasoningEffort(mode, "reasoning mode");
   await mkdir(dirname(configPath), { recursive: true });
   const existing = existsSync(configPath) ? await readFile(configPath, "utf-8") : "";
-  await writeFile(configPath, upsertTopLevelTomlString(existing, REASONING_KEY, mode));
-  console.log(`Set ${REASONING_KEY}=\"${mode}\" in ${configPath}`);
+  await writeFile(configPath, upsertTopLevelTomlString(existing, REASONING_KEY, effort));
+  console.log(`Set ${REASONING_KEY}=\"${effort}\" in ${configPath}`);
 }
 
 export async function main(args: string[]): Promise<void> {

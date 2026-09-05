@@ -4,7 +4,7 @@ owen-codex (owx) - OpenAI Codex workflow tooling
 Usage:
   owx           Launch Codex CLI directly in the current terminal
   owx launch    Launch Codex CLI directly
-  owx exec      Run codex exec non-interactively with OWX overlay injection
+  owx exec      Run codex exec non-interactively with native OWX lifecycle context
   owx imagegen  Queue built-in image generation continuations
   owx setup     Install skills, prompts, config, and AGENTS.md
   owx update    Install stable (or --dev), then refresh setup
@@ -48,7 +48,7 @@ Usage:
   owx mcp-serve Serve a retained MCP compatibility target
   owx status    Show retained workflow status
   owx cancel    Cancel active retained workflows
-  owx reasoning <low|medium|high|xhigh>
+  owx reasoning <low|medium|high|xhigh|max|ultra>
   owx help      Show this help
   owx version   Show version
 

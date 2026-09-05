@@ -11,6 +11,8 @@ import {
   readAutoresearchModeStateForActiveDecision,
 } from "../autoresearch/skill-validation.js";
 import { buildExecFollowupStopOutput } from "../exec/followup.js";
+import { getCompactionInstructions, sessionModelInstructionsPath } from "../hooks/agents-overlay.js";
+import { generateCodebaseMap } from "../hooks/codebase-map.js";
 import { buildDeepInterviewConfigInstruction } from "../hooks/deep-interview-config-instruction.js";
 import { buildNativeHookEvent } from "../hooks/extensibility/events.js";
 import { dispatchHookEventRuntime } from "../hooks/extensibility/runtime.js";
@@ -1426,6 +1428,13 @@ async function buildSessionStartContext(
     );
   }
 
+  if (process.env.OWX_BYPASS_DEFAULT_SYSTEM_PROMPT !== "1"
+    && !existsSync(sessionModelInstructionsPath(cwd, sessionId))) {
+    const codebaseMap = await generateCodebaseMap(cwd);
+    if (codebaseMap) sections.push(`[Codebase map]\n${codebaseMap}`);
+    sections.push(`[Compaction protocol]\n${getCompactionInstructions()}`);
+  }
+
   const modeSummaries: string[] = [];
   for (const mode of ["ralph", "autopilot", "ultrawork", "ultraqa", "ralplan", "deep-interview"] as const) {
     const state = await readJsonIfExists(getStatePath(mode, cwd, sessionId));
@@ -2211,6 +2220,39 @@ function isAllowedRalplanArtifactPath(cwd: string, rawPath: string): boolean {
   return isAllowedPlanningArtifactPath(cwd, rawPath, RALPLAN_ALLOWED_WRITE_PREFIXES);
 }
 
+function isAllowedSessionPlanningStateWrite(
+  payload: CodexHookPayload,
+  cwd: string,
+  sessionId: string,
+  mode: "deep-interview" | "ralplan",
+): boolean {
+  if (!sessionId) return false;
+  const input = safeObject(payload.tool_input);
+  const rawPath = safeString(input.file_path ?? input.filePath ?? input.path).trim();
+  const content = safeString(input.content);
+  if (!rawPath || !content || isAbsolute(rawPath) || rawPath.includes("\\") || rawPath.split("/").includes("..")) {
+    return false;
+  }
+  const expectedPath = `.owx/state/sessions/${sessionId}/${mode}-state.json`;
+  const relativePath = relative(cwd, resolve(cwd, rawPath)).replace(/\\/g, "/");
+  if (relativePath !== expectedPath) return false;
+  let existingPath = cwd;
+  for (const segment of relativePath.split("/")) {
+    existingPath = join(existingPath, segment);
+    const stats = lstatSync(existingPath, { throwIfNoEntry: false });
+    if (!stats) break;
+    if (stats.isSymbolicLink() || (stats.isFile() && stats.nlink > 1)) return false;
+  }
+  try {
+    const state = safeObject(JSON.parse(content));
+    if (!state || state.mode !== mode || state.active !== true || state.session_id !== sessionId) return false;
+    const phase = safeString(state.current_phase ?? state.currentPhase).trim().toLowerCase();
+    return !TERMINAL_MODE_PHASES.has(phase) && phase !== "completing";
+  } catch {
+    return false;
+  }
+}
+
 function readPreToolUseCommand(payload: CodexHookPayload): string {
   const toolInput = safeObject(payload.tool_input);
   return safeString(toolInput.command).trim();
@@ -2359,7 +2401,7 @@ function heredocBodyRanges(command: string): Array<{ start: number; end: number 
 
 const PLANNING_COMMAND_POSITION_PATTERN = String.raw`(?:^\s*|[;&|(){}\n]\s*)(?:(?:if|then|elif|else|while|until|do)\s+)?`;
 const PLANNING_COMMAND_PREFIX_ATOM_PATTERN = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s;&|]+)|\d*(?:>\||>>?|<<?|<>|>&|<&)\s*(?:"[^"]*"|'[^']*'|[^\s;&|]+))`;
-const PLANNING_COMMAND_DECORATOR_PATTERN = String.raw`(?:!\s+)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*(?:(?:command(?:\s+-p)?|exec|nohup|time|coproc|sudo(?:\s+-[^\s]+)*|nice(?:\s+-n\s+\d+)?)\s+|env\s+(?:(?:-[^\s]+|[A-Za-z_][A-Za-z0-9_]*=[^\s]+)\s+)*)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*`;
+const PLANNING_COMMAND_DECORATOR_PATTERN = String.raw`(?:!\s+)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*(?:(?:command(?:\s+-(?:p|v|V))?|exec|nohup|time|coproc|sudo(?:\s+-[^\s]+)*|nice(?:\s+-n\s+\d+)?)\s+|env\s+(?:(?:-[^\s]+|[A-Za-z_][A-Za-z0-9_]*=[^\s]+)\s+)*)?(?:${PLANNING_COMMAND_PREFIX_ATOM_PATTERN}\s+)*`;
 
 function planningExecutablePattern(names: string): string {
   return String.raw`["']?(?:[^\s;&|(){}"']+\/)*(?:${names})["']?`;
@@ -2582,6 +2624,32 @@ function commandExecutesPlanningArtifact(command: string): boolean {
   );
 }
 
+function readPlanningSimpleCommandTail(command: string, start: number): string {
+  let tail = "";
+  let quote: "'" | '"' | null = null;
+  for (let index = start; index < command.length; index += 1) {
+    const character = command[index] ?? "";
+    if (quote) {
+      tail += character;
+      if (character === "\\" && quote === '"' && index + 1 < command.length) {
+        tail += command[index + 1] ?? "";
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      tail += character;
+      continue;
+    }
+    if (/[;&|(){}\n]/.test(character)) break;
+    tail += character;
+  }
+  return tail;
+}
+
 function classifyPlanningStateMutation(command: string): "none" | "allow" | "block" {
   const scan = stripHeredocBodiesForPlanningScan(command);
   if (
@@ -2615,25 +2683,38 @@ function classifyPlanningStateMutation(command: string): "none" | "allow" | "blo
     const subcommand = safeString(stateCommand[1])
       .replace(/^['"]|['"]$/g, "")
       .trim();
-    if (subcommand !== "read" && subcommand !== "write" && subcommand !== "clear") return "block";
+    if (
+      subcommand !== "read"
+      && subcommand !== "write"
+      && subcommand !== "clear"
+      && subcommand !== "list-active"
+      && subcommand !== "get-status"
+    ) return "block";
   }
   const stateCommandPattern = new RegExp(
-    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${owxExecutable}\\s+state\\s+(clear|write)\\b([^;&|()\\n]*)`,
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${owxExecutable}\\s+state\\s+(clear|write)\\b`,
     "gm",
   );
   for (const actualStateCommand of scan.matchAll(stateCommandPattern)) {
+    const commandTail = readPlanningSimpleCommandTail(
+      scan,
+      (actualStateCommand.index ?? 0) + actualStateCommand[0].length,
+    );
+    if (/^\s*(?:--help|-h|help)(?:\s|$)/.test(commandTail)) {
+      classification = "allow";
+      continue;
+    }
     if (actualStateCommand[1] === "clear") return "block";
-    const commandTail = safeString(actualStateCommand[2]);
-    const input = commandTail.match(/--input\s+(?:'([^']*)'|"([^"$`]*)")/);
+    const input = commandTail.match(/--input(?:\s+|=)(?:'([^']*)'|"([^"$`]*)")/);
     const jsonText = safeString(input?.[1] ?? input?.[2]).trim();
     if (!jsonText) return "block";
     try {
       const value = safeObject(JSON.parse(jsonText));
-      if (!value || value.active === false) return "block";
+      if (!value) return "block";
       const phase = safeString(value.current_phase ?? value.currentPhase)
         .trim()
         .toLowerCase();
-      if (TERMINAL_MODE_PHASES.has(phase) || phase === "completing") return "block";
+      if (value.active === false || TERMINAL_MODE_PHASES.has(phase) || phase === "completing") return "block";
       classification = "allow";
     } catch {
       return "block";
@@ -2752,6 +2833,18 @@ const PLANNING_READ_ONLY_GIT_SUBCOMMANDS = new Set([
   "version",
 ]);
 
+function isReadOnlyPlanningGitInvocation(subcommand: string, rawArguments: string): boolean {
+  if (PLANNING_READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return true;
+  const args = rawArguments.trim();
+  if (subcommand === "branch") {
+    return args === "" || /^(?:(?:-a|--all|-r|--remotes|-v|--verbose|--no-color)\s*)+$/.test(args);
+  }
+  if (subcommand === "remote") {
+    return args === "" || /^(?:-v|--verbose)$/.test(args);
+  }
+  return false;
+}
+
 function maskPlanningShellQuotedLiterals(command: string): string {
   let quote: "'" | '"' | null = null;
   let masked = "";
@@ -2855,11 +2948,12 @@ function commandUsesOnlyClassifiedPlanningExecutables(command: string): boolean 
   if (commandInvokesPlanningExecutable(command, "ruby|perl")) return false;
   if (commandInvokesPlanningExecutable(command, "node")) {
     const invokesOwxCli = /\bnode\s+(?:[^\s;&|]+\/)*(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan);
+    const safeVersionQuery = /^\s*node\s+(?:--version|-v)\s*$/.test(scan);
     const safeDiagnostic =
       /\bnode\s+-e\s+(?:'console\.(?:log|error)\(\s*"(?:[^"\\]|\\.)*"\s*\)'|"console\.(?:log|error)\(\s*'(?:[^'\\]|\\.)*'\s*\)")\s*$/m.test(
         scan,
       );
-    if (!invokesOwxCli && !safeDiagnostic) return false;
+    if (!invokesOwxCli && !safeVersionQuery && !safeDiagnostic) return false;
   }
   if (commandInvokesPlanningExecutable(command, "bun|tsx")) {
     if (!/(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)) return false;
@@ -2868,17 +2962,17 @@ function commandUsesOnlyClassifiedPlanningExecutables(command: string): boolean 
     commandInvokesPlanningExecutable(command, "owx") ||
     /(?:dist\/cli\/owx\.js|node_modules\/\.bin\/owx)\b/.test(scan)
   ) {
-    if (!/\b(?:owx|owx\.js)\s+state\s+(?:read|write)\b/.test(scan)) return false;
+    if (!/\b(?:owx|owx\.js)\s+state\s+(?:read|write|list-active|get-status)\b/.test(scan)) return false;
   }
   const gitPattern = new RegExp(
-    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${planningExecutablePattern("git")}(?:\\s+-[^\\s;&|]+)*\\s+([^\\s;&|(){}]+)`,
+    `${PLANNING_COMMAND_POSITION_PATTERN}${PLANNING_COMMAND_DECORATOR_PATTERN}${planningExecutablePattern("git")}(?:\\s+-[^\\s;&|]+)*\\s+([^\\s;&|(){}]+)([^;&|(){}\\n]*)`,
     "gm",
   );
   for (const match of scan.matchAll(gitPattern)) {
     const subcommand = safeString(match[1])
       .replace(/^["']|["']$/g, "")
       .toLowerCase();
-    if (!PLANNING_READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return false;
+    if (!isReadOnlyPlanningGitInvocation(subcommand, safeString(match[2]))) return false;
   }
   return true;
 }
@@ -3150,7 +3244,10 @@ async function buildRalplanPreToolUseBoundaryOutput(
     blocked = !isAllowedRalplanBashWrite(cwd, command);
   } else if (PLANNING_MODE_IMPLEMENTATION_TOOL_NAMES.has(toolName)) {
     const candidates = collectImplementationToolPathCandidates(payload, toolName, pathCandidates);
-    blocked = candidates.length === 0 || !candidates.every((candidate) => isAllowedRalplanArtifactPath(cwd, candidate));
+    const allowedStateWrite = toolName === "Write"
+      && isAllowedSessionPlanningStateWrite(payload, cwd, sessionId, "ralplan");
+    blocked = !allowedStateWrite
+      && (candidates.length === 0 || !candidates.every((candidate) => isAllowedRalplanArtifactPath(cwd, candidate)));
   }
 
   if (!blocked) return null;
@@ -3160,14 +3257,19 @@ async function buildRalplanPreToolUseBoundaryOutput(
   const planningModeLabel = activeMode === "autopilot" ? "Autopilot planning" : "Ralplan";
   const planningModeDescription =
     activeMode === "autopilot" ? "Autopilot is supervising a planning phase" : "Ralplan is consensus-planning mode";
+  const attemptedStateDeactivation = toolName === "Bash"
+    && /\b(?:owx|owx\.js)\s+state\s+write\b[^\n]*"active"\s*:\s*false/.test(command);
   return {
     decision: "block",
-    reason: `${planningModeLabel} is active (phase: ${phase}); implementation/write tools are blocked until an explicit execution handoff workflow is activated.`,
+    reason: attemptedStateDeactivation
+      ? `${planningModeLabel} is active (phase: ${phase}); keep active=true and write current_phase=paused after approved planning, or current_phase=waiting_for_input when a required answer is missing. Explicit cancellation or execution handoff owns deactivation.`
+      : `${planningModeLabel} is active (phase: ${phase}); implementation/write tools are blocked until an explicit execution handoff workflow is activated.`,
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       additionalContext:
         `${planningModeDescription}. ` +
         "Write only planning artifacts under `.owx/context/`, `.owx/plans/`, `.owx/specs/`, required `.owx/state/` files, or direct Markdown drafts under `.owx/drafts/*.md`. " +
+        "Keep the workflow guard active with `active=true`: use `current_phase=paused` after approved planning, or `current_phase=waiting_for_input` when a required answer is missing. Explicit cancellation or execution handoff owns deactivation. " +
         "Do not edit implementation files or run implementation-focused writes from planning phases. " +
         `To execute, first process an explicit handoff such as ${formatExecutionHandoffList(cwd)}, which must emit terminal planning state before implementation begins.`,
     },
@@ -3195,8 +3297,11 @@ async function buildDeepInterviewPreToolUseBoundaryOutput(
     blocked = !isAllowedDeepInterviewBashWrite(cwd, command);
   } else if (DEEP_INTERVIEW_IMPLEMENTATION_TOOL_NAMES.has(toolName)) {
     const candidates = collectImplementationToolPathCandidates(payload, toolName, pathCandidates);
-    blocked =
-      candidates.length === 0 || !candidates.every((candidate) => isAllowedDeepInterviewArtifactPath(cwd, candidate));
+    const allowedStateWrite = toolName === "Write"
+      && isAllowedSessionPlanningStateWrite(payload, cwd, sessionId, "deep-interview");
+    blocked = !allowedStateWrite
+      && (candidates.length === 0
+        || !candidates.every((candidate) => isAllowedDeepInterviewArtifactPath(cwd, candidate)));
   }
 
   if (!blocked) return null;
@@ -3509,14 +3614,18 @@ function buildRalplanContinuationStatus(
   }
 
   const completeHint = blocker.planningComplete
-    ? ` The planning artifacts are present; if consensus is approved, emit terminal ralplan complete/approved handoff state and stop planning. Implementation must wait for an explicit ${formatExecutionHandoffList(cwd).replaceAll("`", "")} handoff.`
+    ? ` The planning artifacts are present; if consensus is approved, keep the guard active and write current_phase=paused before stopping. Implementation must wait for an explicit ${formatExecutionHandoffList(cwd).replaceAll("`", "")} handoff.`
     : "";
 
   return {
     reason: `Status: continue_from_artifact — ralplan is still active (phase: ${phase}) and has not emitted a terminal complete/paused/waiting status. Continue from the current ralplan artifact, resolve any review ambiguity conservatively or ask the user if needed, and proceed to the next planning/review step before stopping; do not begin implementation from ralplan.${artifact}${completeHint}`,
     stopReasonSuffix: "continue_artifact",
-    systemMessage: `OWX ralplan status: continue_from_artifact at phase ${phase}; continue from the current ralplan artifact and finish by stating whether ralplan is complete, paused for review, waiting for input, or still continuing; do not begin implementation from ralplan.`,
+    systemMessage: `OWX ralplan status: continue_from_artifact at phase ${phase}; continue from the current ralplan artifact and finish by writing active=true with current_phase=paused after approval, or current_phase=waiting_for_input when a question is required; do not begin implementation from ralplan.`,
   };
+}
+
+function isRalplanStopPausePhase(phase: string): boolean {
+  return ["paused", "paused_for_review", "waiting_for_input"].includes(phase.trim().toLowerCase());
 }
 
 function resolveRepeatableStopSessionId(payload: CodexHookPayload, canonicalSessionId?: string): string {
@@ -3758,6 +3867,7 @@ async function buildSkillStopOutput(
   const activeSubagentCount = subagentSummary?.activeSubagentThreadIds.length ?? 0;
 
   if (blocker.skill === "ralplan") {
+    if (activeSubagentCount === 0 && isRalplanStopPausePhase(blocker.phase)) return null;
     const status = buildRalplanContinuationStatus(blocker, activeSubagentCount, cwd);
     return {
       decision: "block",

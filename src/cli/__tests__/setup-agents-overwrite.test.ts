@@ -207,7 +207,7 @@ describe('owx setup AGENTS refresh behavior', () => {
       assert.doesNotMatch(output, /Skipped AGENTS\.md overwrite/);
       assert.match(
         agentsContent,
-        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| high \\|`),
+        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| ${expectedContext.frontierReasoningEffort} \\|`),
       );
       assert.match(
         agentsContent,
@@ -265,7 +265,7 @@ describe('owx setup AGENTS refresh behavior', () => {
       assert.match(agentsContent, /Footer guidance stays user-owned\./);
       assert.match(
         agentsContent,
-        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| high \\|`),
+        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| ${expectedContext.frontierReasoningEffort} \\|`),
       );
       assert.doesNotMatch(agentsContent, /legacy-frontier/);
       assert.doesNotMatch(agentsContent, /<!-- owx:generated:agents-md -->/);
@@ -444,7 +444,7 @@ describe('owx setup AGENTS refresh behavior', () => {
       assert.match(agentsContent, /Keep this custom guidance\./);
       assert.match(
         agentsContent,
-        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| high \\|`),
+        new RegExp(`\\| Frontier \\(leader\\) \\| \`${expectedContext.frontierModel}\` \\| ${expectedContext.frontierReasoningEffort} \\|`),
       );
       assert.doesNotMatch(agentsContent, /legacy-frontier/);
       assert.doesNotMatch(agentsContent, /legacy-spark/);

@@ -15,6 +15,7 @@ import {
   getStandardDefaultModel,
   readAgentReasoningOverrides,
   readConfiguredEnvOverrides,
+  parseConfiguredAgentReasoningEffort,
 } from '../models.js';
 
 describe('getModelForMode', () => {
@@ -218,7 +219,6 @@ describe('getModelForMode', () => {
       agentReasoning: {
         Architect: ' xhigh ',
         critic: 'high',
-        executor: 'invalid',
         'bad role': 'low',
         empty: '   ',
       },
@@ -230,6 +230,26 @@ describe('getModelForMode', () => {
     });
     assert.equal(getAgentReasoningOverride('ARCHITECT'), 'xhigh');
     assert.equal(getAgentReasoningOverride('executor'), undefined);
+  });
+
+  it('accepts max for configured agent reasoning and rejects invalid values explicitly', async () => {
+    await writeConfig({ agentReasoning: { explore: 'max', executor: 'invalid' } });
+
+    assert.throws(
+      () => readAgentReasoningOverrides(),
+      /agentReasoning\.executor.*low, medium, high, xhigh, max, ultra.*invalid/i,
+    );
+  });
+
+  it('rejects non-string configured agent reasoning values explicitly', async () => {
+    await writeConfig({ agentReasoning: { executor: 7 } });
+    assert.throws(() => readAgentReasoningOverrides(), /agentReasoning\.executor.*received 7/i);
+  });
+
+  it('accepts every supported Codex host effort for native agents', () => {
+    assert.equal(parseConfiguredAgentReasoningEffort(' MAX '), 'max');
+    assert.equal(parseConfiguredAgentReasoningEffort('ultra'), 'ultra');
+    assert.equal(parseConfiguredAgentReasoningEffort(' ultra '), 'ultra');
   });
 
   it('inherits the main default for standard agents when no standard override is configured', async () => {

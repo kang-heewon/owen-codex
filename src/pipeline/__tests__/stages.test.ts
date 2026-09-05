@@ -1,9 +1,11 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, mkdir, readFile, writeFile } from 'fs/promises';
 import { basename, dirname, join, relative } from 'path';
 import { tmpdir } from 'os';
+import { promisify } from 'node:util';
 import { existsSync } from 'fs';
 import type { StageContext } from '../types.js';
 import { createDeepInterviewStage, buildDeepInterviewInstruction } from '../stages/deep-interview.js';
@@ -13,12 +15,44 @@ import { createCodeReviewStage, buildCodeReviewInstruction } from '../stages/cod
 import { createUltragoalStage, buildUltragoalInstruction } from '../stages/ultragoal.js';
 import { createUltraqaStage, buildUltraqaInstruction } from '../stages/ultraqa.js';
 import { subagentTrackingPath } from '../../subagents/tracker.js';
+import {
+  checkpointUltragoal,
+  createUltragoalPlan,
+  resolveReusableUltragoalReviewEvidence,
+  startNextUltragoal,
+} from '../../ultragoal/artifacts.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 let tempDir: string;
+const execFileAsync = promisify(execFile);
+
+function cleanUltragoalQualityGate(): object {
+  return {
+    aiSlopCleaner: { status: 'passed', evidence: 'cleaner passed' },
+    verification: { status: 'passed', commands: ['npm test'], evidence: 'tests passed' },
+    codeReview: {
+      recommendation: 'APPROVE',
+      architectStatus: 'CLEAR',
+      evidence: 'independent review passed',
+      independentReview: {
+        codeReviewer: { agentRole: 'code-reviewer', evidence: 'code-reviewer approved' },
+        architect: { agentRole: 'architect', evidence: 'architect cleared' },
+      },
+    },
+  };
+}
+
+async function initializeGitCandidate(cwd: string): Promise<void> {
+  await execFileAsync('git', ['init'], { cwd });
+  await execFileAsync('git', ['config', 'user.email', 'owx-tests@example.invalid'], { cwd });
+  await execFileAsync('git', ['config', 'user.name', 'OWX Tests'], { cwd });
+  await writeFile(join(cwd, 'candidate.ts'), 'export const candidate = 1;\n');
+  await execFileAsync('git', ['add', 'candidate.ts'], { cwd });
+  await execFileAsync('git', ['commit', '-m', 'baseline'], { cwd });
+}
 
 function encodeApprovedExecutionTask(task: string, quote: 'single' | 'double'): string {
   return quote === 'single'
@@ -1050,6 +1084,133 @@ describe('Code Review Stage', () => {
     assert.equal(verdict.recommendation, 'APPROVE');
     assert.equal(verdict.architectural_status, 'CLEAR');
     assert.equal(artifacts.return_to_ralplan_reason, null);
+  });
+
+  it('does not reuse legacy Ultragoal quality gates without a candidate binding', async () => {
+    const ledgerDir = join(tempDir, '.owx/ultragoal');
+    await mkdir(ledgerDir, { recursive: true });
+    await writeFile(join(ledgerDir, 'ledger.jsonl'), `${JSON.stringify({
+      ts: '2026-09-05T00:00:00.000Z',
+      event: 'goal_completed',
+      goalId: 'G001-final',
+      qualityGate: cleanUltragoalQualityGate(),
+    })}\n`);
+
+    const resolved = await resolveReusableUltragoalReviewEvidence(tempDir, 'test task');
+    assert.equal(resolved.status, 'unavailable');
+    assert.match('reason' in resolved ? resolved.reason : '', /no candidate, scope, and runtime binding/);
+  });
+
+  it('reuses Ultragoal review proof only for the same dirty and untracked candidate and scope', async () => {
+    await initializeGitCandidate(tempDir);
+    await createUltragoalPlan(tempDir, {
+      brief: 'test task',
+      goals: [{ title: 'Final', objective: 'Complete the reviewed candidate.' }],
+    });
+    const started = await startNextUltragoal(tempDir);
+    await writeFile(join(tempDir, 'candidate.ts'), 'export const candidate = 2;\n');
+    await writeFile(join(tempDir, 'untracked.ts'), 'export const added = true;\n');
+    await checkpointUltragoal(tempDir, {
+      goalId: started.goal!.id,
+      status: 'complete',
+      evidence: 'final gates passed',
+      codexGoal: { goal: { objective: started.plan.codexObjective!, status: 'complete' } },
+      qualityGate: cleanUltragoalQualityGate(),
+    });
+
+    const stage = createCodeReviewStage();
+    const resolvedEvidence = await resolveReusableUltragoalReviewEvidence(tempDir, 'test task');
+    assert.equal(resolvedEvidence.status, 'reusable', JSON.stringify(resolvedEvidence));
+    const reused = await stage.run(makeCtx({ artifacts: { ultragoal: { ledger: '.owx/ultragoal/ledger.jsonl' } } }));
+    const reusedVerdict = reused.artifacts.review_verdict as Record<string, unknown>;
+    const binding = reusedVerdict.candidate_binding as { candidate?: { baseCommit?: string; changedPaths?: string[] } };
+    assert.equal(reused.status, 'completed');
+    assert.equal(reusedVerdict.clean, true, JSON.stringify(reusedVerdict));
+    assert.equal(reusedVerdict.evidence_source, 'ultragoal-quality-gate');
+    assert.match(binding.candidate?.baseCommit ?? '', /^[a-f0-9]{40}$/);
+    assert.deepEqual(binding.candidate?.changedPaths, ['candidate.ts', 'untracked.ts']);
+
+    const wrongScope = await stage.run(makeCtx({ task: 'different task' }));
+    const wrongScopeVerdict = wrongScope.artifacts.review_verdict as Record<string, unknown>;
+    assert.equal(wrongScopeVerdict.clean, false);
+    assert.match(String(wrongScopeVerdict.summary), /scope does not match/);
+
+    const goalsPath = join(tempDir, '.owx/ultragoal/goals.json');
+    const completedPlan = await readFile(goalsPath, 'utf8');
+    const reopenedPlan = JSON.parse(completedPlan) as { activeGoalId?: string; goals: Array<{ id: string; status: string }> };
+    reopenedPlan.goals[0]!.status = 'in_progress';
+    reopenedPlan.activeGoalId = reopenedPlan.goals[0]!.id;
+    await writeFile(goalsPath, `${JSON.stringify(reopenedPlan, null, 2)}\n`);
+    const reopened = await stage.run(makeCtx());
+    const reopenedVerdict = reopened.artifacts.review_verdict as Record<string, unknown>;
+    assert.equal(reopenedVerdict.clean, false);
+    assert.match(String(reopenedVerdict.summary), /plan that is no longer complete/);
+    await writeFile(goalsPath, completedPlan);
+
+    const ledgerPath = join(tempDir, '.owx/ultragoal/ledger.jsonl');
+    const originalLedger = await readFile(ledgerPath, 'utf8');
+    const tamperedEntries = originalLedger.trim().split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
+    const completionEntry = tamperedEntries.find((entry) => entry.reviewEvidenceBinding !== undefined);
+    const reviewBinding = completionEntry?.reviewEvidenceBinding as { runtime?: { nodeVersion?: string } } | undefined;
+    assert.ok(reviewBinding?.runtime);
+    reviewBinding.runtime.nodeVersion = 'v0.0.0';
+    await writeFile(ledgerPath, `${tamperedEntries.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+    const wrongRuntime = await stage.run(makeCtx());
+    const wrongRuntimeVerdict = wrongRuntime.artifacts.review_verdict as Record<string, unknown>;
+    assert.equal(wrongRuntimeVerdict.clean, false);
+    assert.match(String(wrongRuntimeVerdict.summary), /runtime environment/);
+    await writeFile(ledgerPath, originalLedger);
+
+    await writeFile(join(tempDir, 'untracked.ts'), 'export const added = false;\n');
+    const stale = await stage.run(makeCtx());
+    const staleVerdict = stale.artifacts.review_verdict as Record<string, unknown>;
+    assert.equal(stale.status, 'completed');
+    assert.equal(staleVerdict.clean, false);
+    assert.match(String(staleVerdict.summary), /does not match the current candidate/);
+
+    await writeFile(join(tempDir, 'untracked.ts'), 'export const added = true;\n');
+    await execFileAsync('git', ['add', 'candidate.ts', 'untracked.ts'], { cwd: tempDir });
+    await execFileAsync('git', ['commit', '-m', 'advance base'], { cwd: tempDir });
+    const changedBase = await stage.run(makeCtx());
+    const changedBaseVerdict = changedBase.artifacts.review_verdict as Record<string, unknown>;
+    assert.equal(changedBaseVerdict.clean, false);
+    assert.match(String(changedBaseVerdict.summary), /base commit/);
+  });
+
+  it('does not produce reusable review evidence for a dirty submodule candidate', async () => {
+    const submoduleSource = await mkdtemp(join(tmpdir(), 'owx-review-submodule-'));
+    try {
+      await execFileAsync('git', ['init'], { cwd: submoduleSource });
+      await execFileAsync('git', ['config', 'user.email', 'owx-tests@example.invalid'], { cwd: submoduleSource });
+      await execFileAsync('git', ['config', 'user.name', 'OWX Tests'], { cwd: submoduleSource });
+      await writeFile(join(submoduleSource, 'module.ts'), 'export const moduleValue = 1;\n');
+      await execFileAsync('git', ['add', 'module.ts'], { cwd: submoduleSource });
+      await execFileAsync('git', ['commit', '-m', 'module baseline'], { cwd: submoduleSource });
+
+      await initializeGitCandidate(tempDir);
+      await execFileAsync('git', ['-c', 'protocol.file.allow=always', 'submodule', 'add', submoduleSource, 'vendor/module'], { cwd: tempDir });
+      await execFileAsync('git', ['add', '.gitmodules', 'vendor/module'], { cwd: tempDir });
+      await execFileAsync('git', ['commit', '-m', 'add submodule'], { cwd: tempDir });
+      await createUltragoalPlan(tempDir, {
+        brief: 'test task',
+        goals: [{ title: 'Final', objective: 'Complete the reviewed candidate.' }],
+      });
+      const started = await startNextUltragoal(tempDir);
+      await writeFile(join(tempDir, 'vendor/module/module.ts'), 'export const moduleValue = 2;\n');
+      await checkpointUltragoal(tempDir, {
+        goalId: started.goal!.id,
+        status: 'complete',
+        evidence: 'final gates passed',
+        codexGoal: { goal: { objective: started.plan.codexObjective!, status: 'complete' } },
+        qualityGate: cleanUltragoalQualityGate(),
+      });
+
+      const resolved = await resolveReusableUltragoalReviewEvidence(tempDir, 'test task');
+      assert.equal(resolved.status, 'unavailable');
+      assert.match('reason' in resolved ? resolved.reason : '', /no candidate, scope, and runtime binding/);
+    } finally {
+      await rm(submoduleSource, { recursive: true, force: true });
+    }
   });
 
   it('marks non-clean review as return-to-ralplan input', async () => {

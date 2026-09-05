@@ -827,16 +827,28 @@ const KEYWORD_INTENT_PATTERNS: Record<IntentKeyword, RegExp[]> = {
     /(?:^|[^\w])\$(?:ultragoal)\b/i,
     /^\s*\/ultragoal\b/i,
     /\b(?:use|run|start|enable|launch|invoke|activate|resume|continue)\s+(?:the\s+)?ultragoal\b/i,
-    /\bultragoal\s+(?:mode|workflow|skill|loop|plan|goals?)\b/i,
   ],
   autopilot: [
     /(?:^|[^\w])\$(?:autopilot)\b/i,
     /^\s*\/autopilot\b/i,
     /^\s*(?:please\s+)?autopilot(?:\s+(?:this|mode|workflow|skill|loop|now))?\s*[.!]?\s*$/i,
-    /\b(?:use|run|start|enable|launch|invoke|activate|resume|continue)\s+(?:the\s+)?autopilot(?:\s+(?:mode|workflow|skill|loop|now))?\s*[.!]?\s*$/i,
-    /\bautopilot\s+(?:mode|workflow|skill|loop)\b/i,
+    /^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:use|run|start|enable|launch|invoke|activate|resume|continue)\s+(?:the\s+)?autopilot(?:\s+(?:mode|workflow|skill|loop|now))?(?:\s*[.!]?\s*$|\s+(?:to|for|on|and)\b)/i,
   ],
 };
+
+const WORKFLOW_DISCUSSION_PATTERNS: RegExp[] = [
+  /\b(?:explain|explanation|describe|definition|meaning|tell\s+me\s+about)\b/i,
+  /^\s*(?:please\s+)?(?:what|why|how|when|where|which)\b/i,
+  /\b(?:is|are|was|were)\s+(?:documented|described|mentioned|defined)\b/i,
+  /(?:설명해\s*줘|설명해주세요|설명해봐|무슨\s+뜻|어떤\s+(?:기능|스킬|워크플로)|어떻게\s+(?:동작|작동)하는지)/,
+];
+
+function isWorkflowDiscussionRequest(text: string): boolean {
+  if (/^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:use|run|start|enable|launch|invoke|activate|resume|continue|cancel|stop|abort)\b/i.test(text)) {
+    return false;
+  }
+  return WORKFLOW_DISCUSSION_PATTERNS.some((pattern) => pattern.test(text));
+}
 
 function hasExplicitPromptsInvocation(text: string): boolean {
   return /(?:^|\s)\/prompts:[\w.-]+(?=[\s.,!?;:]|$)/i.test(text);
@@ -933,6 +945,9 @@ export function detectKeywords(text: string): KeywordMatch[] {
   }
   if (explicit.length > 0) {
     return explicit;
+  }
+  if (isWorkflowDiscussionRequest(normalizedText)) {
+    return [];
   }
 
   const implicit: KeywordMatch[] = [];

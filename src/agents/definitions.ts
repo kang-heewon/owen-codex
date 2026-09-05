@@ -4,10 +4,12 @@
  * Prompt content is loaded from the prompts/ directory at runtime.
  */
 
+import type { ConfiguredAgentReasoningEffort } from '../config/models.js';
+
 export interface AgentDefinition {
   name: string;
   description: string;
-  reasoningEffort: 'low' | 'medium' | 'high' | 'max';
+  reasoningEffort: ConfiguredAgentReasoningEffort;
   /** Optional exact model pin for roles that should bypass tier defaults. */
   exactModel?: 'gpt-5.4-mini';
   posture: 'frontier-orchestrator' | 'deep-worker' | 'fast-lane';

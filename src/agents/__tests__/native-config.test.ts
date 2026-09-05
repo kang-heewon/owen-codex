@@ -9,6 +9,7 @@ import type { AgentDefinition } from "../definitions.js";
 import type { CatalogManifest } from "../../catalog/schema.js";
 import {
   composeRoleInstructionsForRole,
+  composeRoleInstructions,
   generateAgentToml,
   installNativeAgentConfigs,
 } from "../native-config.js";
@@ -212,7 +213,7 @@ describe("agents/native-config", () => {
     assert.doesNotMatch(tunedToml, /exact gpt-5\.4-mini model/);
   });
 
-  it("adds a leaf guard after delegation guidance in generated native agent instructions", () => {
+  it("keeps delegation guidance out of generated leaf agent instructions", () => {
     const codeReviewerToml = generateAgentToml(
       AGENT_DEFINITIONS["code-reviewer"],
       "code-reviewer prompt",
@@ -225,14 +226,12 @@ describe("agents/native-config", () => {
     const postureDelegationIndex = codeReviewerToml.indexOf(
       "Default to delegation and orchestration when specialists exist.",
     );
-    const modelDelegationIndex = codeReviewerToml.indexOf("precise delegation.");
     const guardIndex = codeReviewerToml.indexOf("<native_subagent_leaf_guard>");
     const metadataIndex = codeReviewerToml.indexOf("## OWX Agent Metadata");
 
-    assert.ok(postureDelegationIndex >= 0, "frontier posture delegation text should exist");
-    assert.ok(modelDelegationIndex >= 0, "frontier model delegation text should exist");
-    assert.ok(guardIndex > postureDelegationIndex, "leaf guard should override posture delegation text");
-    assert.ok(guardIndex > modelDelegationIndex, "leaf guard should override model delegation text");
+    assert.equal(postureDelegationIndex, -1, "leaf posture must not recommend delegation");
+    assert.doesNotMatch(codeReviewerToml, /<model_class_guidance>/);
+    assert.ok(guardIndex >= 0, "leaf guard should be present");
     assert.ok(metadataIndex > guardIndex, "metadata should remain final non-policy bookkeeping");
 
     const gitMasterToml = generateAgentToml(
@@ -275,6 +274,30 @@ describe("agents/native-config", () => {
 
     assert.doesNotMatch(metisToml, /<native_subagent_leaf_guard>/);
     assert.match(metisToml, /native_subagent_delegation: allowed/);
+    assert.match(metisToml, /Delegate only bounded, independent work/);
+    assert.match(metisToml, /retain ownership of integration and final verification/);
+  });
+
+  it("keeps native instructions without role metadata in the leaf lane", () => {
+    const instructions = composeRoleInstructions("custom role prompt", null, undefined, { nativeAgent: true });
+    assert.match(instructions, /do not call Task, spawn_agent, or native child agents/);
+    assert.doesNotMatch(instructions, /<native_subagent_delegation>/);
+  });
+
+  it("uses only the supplied environment when resolving generated agent models", () => {
+    const previous = process.env.OWX_DEFAULT_STANDARD_MODEL;
+    process.env.OWX_DEFAULT_STANDARD_MODEL = "process-standard";
+    try {
+      const toml = generateAgentToml(AGENT_DEFINITIONS.debugger, "debugger prompt", {
+        configTomlContent: 'model = "frontier-config"\n',
+        env: {} as NodeJS.ProcessEnv,
+      });
+      assert.match(toml, /model = "frontier-config"/);
+      assert.doesNotMatch(toml, /process-standard/);
+    } finally {
+      if (previous === undefined) delete process.env.OWX_DEFAULT_STANDARD_MODEL;
+      else process.env.OWX_DEFAULT_STANDARD_MODEL = previous;
+    }
   });
 
   it("keeps native-only leaf guards out of non-native role composition", () => {

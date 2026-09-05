@@ -7,6 +7,10 @@
  * ralplan instead of treating review findings as infrastructure failure.
  */
 
+import {
+  resolveReusableUltragoalReviewEvidence,
+  type UltragoalReviewEvidenceBinding,
+} from '../../ultragoal/artifacts.js';
 import type { PipelineStage, StageContext, StageResult } from '../types.js';
 
 export interface CodeReviewStageOptions {
@@ -33,6 +37,8 @@ export interface CodeReviewVerdict {
   architectural_status: 'CLEAR' | 'WATCH' | 'BLOCK';
   clean: boolean;
   summary: string;
+  evidence_source?: 'ultragoal-quality-gate';
+  candidate_binding?: UltragoalReviewEvidenceBinding;
 }
 
 export function createCodeReviewStage(options: CodeReviewStageOptions = {}): PipelineStage {
@@ -52,16 +58,30 @@ export function createCodeReviewStage(options: CodeReviewStageOptions = {}): Pip
         instruction: buildCodeReviewInstruction(ctx.task),
       };
       const hasReviewEvidence = options.recommendation !== undefined || options.architecturalStatus !== undefined;
-      const recommendation = options.recommendation ?? 'REQUEST CHANGES';
-      const architecturalStatus = options.architecturalStatus ?? 'BLOCK';
-      const clean = hasReviewEvidence && recommendation === 'APPROVE' && architecturalStatus === 'CLEAR';
+      const reusableEvidence = hasReviewEvidence
+        ? null
+        : await resolveReusableUltragoalReviewEvidence(ctx.cwd, ctx.task);
+      const reusedReview = reusableEvidence?.status === 'reusable' ? reusableEvidence.qualityGate.codeReview : null;
+      const recommendation = options.recommendation ?? reusedReview?.recommendation ?? 'REQUEST CHANGES';
+      const architecturalStatus = options.architecturalStatus ?? reusedReview?.architectStatus ?? 'BLOCK';
+      const clean = (hasReviewEvidence || reusedReview !== null)
+        && recommendation === 'APPROVE'
+        && architecturalStatus === 'CLEAR';
       const verdict: CodeReviewVerdict = {
         recommendation,
         architectural_status: architecturalStatus,
         clean,
-        summary: options.summary ?? (hasReviewEvidence
-          ? (clean ? 'Review clean.' : 'Review returned findings; return to ralplan.')
-          : 'Code-review evidence missing; fail closed and return to ralplan.'),
+        summary: options.summary ?? (reusedReview
+          ? 'Reused candidate-bound Ultragoal independent review evidence.'
+          : hasReviewEvidence
+            ? (clean ? 'Review clean.' : 'Review returned findings; return to ralplan.')
+            : reusableEvidence?.status === 'stale'
+              ? reusableEvidence.reason
+              : 'Code-review evidence missing; fail closed and return to ralplan.'),
+        ...(reusableEvidence?.status === 'reusable' ? {
+          evidence_source: 'ultragoal-quality-gate' as const,
+          candidate_binding: reusableEvidence.binding,
+        } : {}),
       };
 
       return {

@@ -12,11 +12,16 @@ import type { CatalogManifest } from "../catalog/schema.js";
 import { getInstallableNativeAgentNames } from "./policy.js";
 import {
   getCodexConfigRootModelProvider,
+  getEnvConfiguredMainDefaultModel,
+  getEnvConfiguredSparkDefaultModel,
   getEnvConfiguredStandardDefaultModel,
   getAgentReasoningOverride,
   getMainDefaultModel,
   getSparkDefaultModel,
-  getStandardDefaultModel,
+  DEFAULT_FRONTIER_MODEL,
+  DEFAULT_SPARK_MODEL,
+  CONFIGURED_AGENT_REASONING_EFFORTS,
+  type ConfiguredAgentReasoningEffort,
 } from "../config/models.js";
 import { getRootModelName } from "../config/generator.js";
 import { codexAgentsDir } from "../utils/paths.js";
@@ -24,13 +29,19 @@ import { codexAgentsDir } from "../utils/paths.js";
 export const EXACT_GPT_5_4_MINI_MODEL = "gpt-5.4-mini";
 export const EXACT_RESEARCHER_MODEL = EXACT_GPT_5_4_MINI_MODEL;
 
+const KNOWN_OPENAI_REASONING_LIMITS: Readonly<Record<string, ConfiguredAgentReasoningEffort>> = {
+  "gpt-5.4-mini": "xhigh",
+  "gpt-5.5": "xhigh",
+  "gpt-5.3-codex-spark": "xhigh",
+  "gpt-5.6-luna": "max",
+};
+
 const POSTURE_OVERLAYS: Record<AgentDefinition["posture"], string> = {
   "frontier-orchestrator": [
     "<posture_overlay>",
     "",
     "You are operating in the frontier-orchestrator posture.",
     "- Prioritize intent classification before implementation.",
-    "- Default to delegation and orchestration when specialists exist.",
     "- Treat the first decision as a routing problem: research vs planning vs implementation vs verification.",
     "- Challenge flawed user assumptions concisely before execution when the design is likely to cause avoidable problems.",
     "- Preserve explicit executor handoff boundaries: do not absorb deep implementation work when a specialized executor is more appropriate.",
@@ -61,36 +72,6 @@ const POSTURE_OVERLAYS: Record<AgentDefinition["posture"], string> = {
   ].join("\n"),
 };
 
-const MODEL_CLASS_OVERLAYS: Record<AgentDefinition["modelClass"], string> = {
-  frontier: [
-    "<model_class_guidance>",
-    "",
-    "This role is tuned for frontier-class models.",
-    "- Use the model's steerability for coordination, tradeoff reasoning, and precise delegation.",
-    "- Favor clean routing decisions over impulsive implementation.",
-    "",
-    "</model_class_guidance>",
-  ].join("\n"),
-  standard: [
-    "<model_class_guidance>",
-    "",
-    "This role is tuned for standard-capability models.",
-    "- Balance autonomy with clear boundaries.",
-    "- Prefer explicit verification and narrow scope control over speculative reasoning.",
-    "",
-    "</model_class_guidance>",
-  ].join("\n"),
-  fast: [
-    "<model_class_guidance>",
-    "",
-    "This role is tuned for cost-efficient specialist models.",
-    "- Use the configured reasoning budget for accurate search, synthesis, and routing.",
-    "- Escalate rather than bluff when deeper work is required.",
-    "",
-    "</model_class_guidance>",
-  ].join("\n"),
-};
-
 const EXACT_MINI_MODEL_OVERLAY = [
   "<exact_model_guidance>",
   "",
@@ -112,19 +93,34 @@ const NATIVE_SUBAGENT_LEAF_GUARD = [
   "</native_subagent_leaf_guard>",
 ].join("\n");
 
+const NATIVE_SUBAGENT_LEADER_GUIDANCE = [
+  "<native_subagent_delegation>",
+  "",
+  "Delegate only bounded, independent work that can run in parallel.",
+  "Assign explicit ownership and retain ownership of integration and final verification.",
+  "",
+  "</native_subagent_delegation>",
+].join("\n");
+
 export interface GeneratedNativeAgentConfig {
   name: string;
   description: string;
   developerInstructions?: string;
   model?: string;
   modelProvider?: string;
-  reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  reasoningEffort?: ConfiguredAgentReasoningEffort;
 }
 
-interface AgentModelResolutionOptions {
+export interface AgentModelResolutionOptions {
   codexHomeOverride?: string;
   configTomlContent?: string;
   env?: NodeJS.ProcessEnv;
+}
+
+export interface AgentModelLanes {
+  frontierModel: string;
+  standardModel: string;
+  sparkModel: string;
 }
 
 interface RoleInstructionMetadata {
@@ -157,7 +153,11 @@ function resolveFrontierModel(options: AgentModelResolutionOptions): string {
     options.configTomlContent,
   );
   return getRootModelName(configTomlContent)
-    ?? getMainDefaultModel(options.codexHomeOverride);
+    ?? getEnvConfiguredMainDefaultModel(
+      options.env ?? process.env,
+      options.codexHomeOverride,
+    )
+    ?? (options.env ? DEFAULT_FRONTIER_MODEL : getMainDefaultModel(options.codexHomeOverride));
 }
 
 function resolveStandardModel(options: AgentModelResolutionOptions): string {
@@ -167,29 +167,43 @@ function resolveStandardModel(options: AgentModelResolutionOptions): string {
   );
 
   if (explicitStandardModel) return explicitStandardModel;
-  return getStandardDefaultModel(options.codexHomeOverride);
+  return resolveFrontierModel(options);
 }
 
-function resolveAgentModel(
+export function resolveAgentModel(
   agent: AgentDefinition,
   options: AgentModelResolutionOptions = {},
+): string {
+  return resolveAgentModelFromLanes(agent, {
+    frontierModel: resolveFrontierModel(options),
+    standardModel: resolveStandardModel(options),
+    sparkModel: getEnvConfiguredSparkDefaultModel(
+      options.env ?? process.env,
+      options.codexHomeOverride,
+    ) ?? (options.env ? DEFAULT_SPARK_MODEL : getSparkDefaultModel(options.codexHomeOverride)),
+  });
+}
+
+export function resolveAgentModelFromLanes(
+  agent: AgentDefinition,
+  lanes: AgentModelLanes,
 ): string {
   if (agent.exactModel) {
     return agent.exactModel;
   }
 
   if (agent.name === "executor") {
-    return resolveFrontierModel(options);
+    return lanes.frontierModel;
   }
 
   switch (agent.modelClass) {
     case "frontier":
-      return resolveFrontierModel(options);
+      return lanes.frontierModel;
     case "fast":
-      return getSparkDefaultModel(options.codexHomeOverride);
+      return lanes.sparkModel;
     case "standard":
     default:
-      return resolveStandardModel(options);
+      return lanes.standardModel;
   }
 }
 
@@ -207,20 +221,20 @@ export function composeRoleInstructions(
   const parts = [instructions];
 
   if (metadata) {
-    parts.push(
-      "",
-      POSTURE_OVERLAYS[metadata.posture],
-      "",
-      MODEL_CLASS_OVERLAYS[metadata.modelClass],
-    );
+    parts.push("", POSTURE_OVERLAYS[metadata.posture]);
   }
 
   if (isExactMiniModel(resolvedModel)) {
     parts.push("", EXACT_MINI_MODEL_OVERLAY);
   }
 
-  if (options.nativeAgent === true && metadata?.nativeSubagentDelegation !== "allowed") {
-    parts.push("", NATIVE_SUBAGENT_LEAF_GUARD);
+  if (options.nativeAgent === true) {
+    parts.push(
+      "",
+      metadata?.nativeSubagentDelegation === "allowed"
+        ? NATIVE_SUBAGENT_LEADER_GUIDANCE
+        : NATIVE_SUBAGENT_LEAF_GUARD,
+    );
   }
 
   const metadataLines = [];
@@ -333,22 +347,36 @@ export function generateAgentToml(
   promptContent: string,
   options: AgentModelResolutionOptions = {},
 ): string {
-  const resolvedModel = resolveAgentModel(agent, options);
-  const resolvedModelProvider = getCodexConfigRootModelProvider(options.codexHomeOverride);
+  const resolved = resolveNativeAgentConfig(agent, options);
   return generateStandaloneAgentToml({
     name: agent.name,
     description: agent.description,
     developerInstructions: composeRoleInstructions(
       promptContent,
       agent,
-      resolvedModel,
+      resolved.model,
       { nativeAgent: true },
     ),
-    model: resolvedModel,
-    modelProvider: resolvedModelProvider,
-    reasoningEffort: getAgentReasoningOverride(agent.name, options.codexHomeOverride)
-      ?? agent.reasoningEffort,
+    ...resolved,
   });
+}
+
+export function resolveNativeAgentConfig(
+  agent: AgentDefinition,
+  options: AgentModelResolutionOptions = {},
+): Pick<GeneratedNativeAgentConfig, "model" | "modelProvider" | "reasoningEffort"> {
+  const model = resolveAgentModel(agent, options);
+  const modelProvider = getCodexConfigRootModelProvider(options.codexHomeOverride);
+  const reasoningEffort = getAgentReasoningOverride(agent.name, options.codexHomeOverride) ?? agent.reasoningEffort;
+  const knownLimit = !modelProvider || modelProvider === "openai" ? KNOWN_OPENAI_REASONING_LIMITS[model] : undefined;
+  if (knownLimit && CONFIGURED_AGENT_REASONING_EFFORTS.indexOf(reasoningEffort) > CONFIGURED_AGENT_REASONING_EFFORTS.indexOf(knownLimit)) {
+    throw new Error(`${agent.name}: ${model} does not support reasoning effort ${reasoningEffort}; the supported maximum is ${knownLimit}`);
+  }
+  return {
+    model,
+    modelProvider,
+    reasoningEffort,
+  };
 }
 
 /**

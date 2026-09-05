@@ -1,6 +1,9 @@
 import { existsSync } from 'node:fs';
-import { appendFile, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { appendFile, lstat, mkdir, open, readFile, readlink, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import {
   formatCodexGoalReconciliation,
   parseCodexGoalSnapshot,
@@ -12,6 +15,7 @@ export const ULTRAGOAL_BRIEF = 'brief.md';
 export const ULTRAGOAL_GOALS = 'goals.json';
 export const ULTRAGOAL_LEDGER = 'ledger.jsonl';
 const ULTRAGOAL_MUTATION_LOCK = '.mutation.lock';
+const execFileAsync = promisify(execFile);
 
 export type UltragoalStatus = 'pending' | 'in_progress' | 'complete' | 'failed' | 'review_blocked' | 'needs_user_decision';
 export type UltragoalCodexGoalMode = 'aggregate' | 'per_story';
@@ -181,6 +185,7 @@ export interface UltragoalLedgerEntry {
   codexGoal?: unknown;
   evidence?: string;
   qualityGate?: UltragoalQualityGate;
+  reviewEvidenceBinding?: UltragoalReviewEvidenceBinding;
   steering?: UltragoalSteeringAudit;
   before?: unknown;
   after?: unknown;
@@ -253,10 +258,210 @@ export interface UltragoalQualityGate {
   };
 }
 
+export interface UltragoalReviewEvidenceBinding {
+  version: 1;
+  candidate: {
+    baseCommit: string;
+    fingerprint: string;
+    changedPaths: string[];
+  };
+  scope: {
+    taskSha256: string;
+    planScopeSha256: string;
+    goalId: string;
+  };
+  runtime: {
+    platform: NodeJS.Platform;
+    arch: string;
+    nodeVersion: string;
+    ci: string | null;
+    nodeEnv: string | null;
+  };
+}
+
+export type ReusableUltragoalReviewEvidence =
+  | {
+      status: 'reusable';
+      qualityGate: UltragoalQualityGate;
+      binding: UltragoalReviewEvidenceBinding;
+    }
+  | {
+      status: 'unavailable' | 'stale';
+      reason: string;
+    };
+
 export class UltragoalError extends Error {}
 
 function iso(now = new Date()): string {
   return now.toISOString();
+}
+
+function sha256(value: string | Buffer): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function ultragoalScopePayload(plan: UltragoalPlan, brief: string): string {
+  return JSON.stringify({
+    brief: normalizeObjective(brief),
+    goals: plan.goals.map((goal) => ({
+      id: goal.id,
+      title: goal.title,
+      objective: goal.objective,
+      steeringStatus: goal.steeringStatus ?? null,
+      supersededBy: goal.supersededBy ?? [],
+      supersedes: goal.supersedes ?? [],
+    })),
+  });
+}
+
+async function gitOutput(cwd: string, args: string[]): Promise<string> {
+  const result = await execFileAsync('git', args, { cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  return result.stdout;
+}
+
+async function buildReviewEvidenceBinding(
+  cwd: string,
+  plan: UltragoalPlan,
+  goalId: string,
+): Promise<UltragoalReviewEvidenceBinding | undefined> {
+  let repositoryRoot: string;
+  let baseCommit: string;
+  try {
+    repositoryRoot = (await gitOutput(cwd, ['rev-parse', '--show-toplevel'])).trim();
+    baseCommit = (await gitOutput(cwd, ['rev-parse', 'HEAD'])).trim();
+  } catch {
+    return undefined;
+  }
+  if (await realpath(repositoryRoot) !== await realpath(cwd) || !baseCommit) return undefined;
+
+  if (existsSync(join(cwd, '.gitmodules'))) {
+    const submoduleStatus = await gitOutput(cwd, ['submodule', 'status', '--recursive']);
+    if (submoduleStatus.split(/\r?\n/).some((line) => line.startsWith('-') || line.startsWith('U'))) return undefined;
+    const dirtySubmodules = await gitOutput(cwd, [
+      'submodule',
+      'foreach',
+      '--quiet',
+      '--recursive',
+      'git status --porcelain --untracked-files=all',
+    ]);
+    if (dirtySubmodules.trim()) return undefined;
+  }
+
+  const [trackedDiff, trackedPathsOutput, untrackedOutput, brief] = await Promise.all([
+    gitOutput(cwd, ['diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--', '.', ':(exclude).owx/**']),
+    gitOutput(cwd, ['diff', '--name-only', '-z', 'HEAD', '--', '.', ':(exclude).owx/**']),
+    gitOutput(cwd, ['ls-files', '--others', '--exclude-standard', '-z', '--', '.', ':(exclude).owx/**']),
+    readFile(ultragoalBriefPath(cwd), 'utf8'),
+  ]);
+  const untrackedPaths = untrackedOutput.split('\0').filter(Boolean).sort();
+  const candidateHash = createHash('sha256').update(baseCommit).update('\0').update(trackedDiff);
+  for (const path of untrackedPaths) {
+    const absolutePath = resolve(cwd, path);
+    const relativePath = relative(cwd, absolutePath);
+    if (!relativePath || relativePath.startsWith('..')) {
+      throw new UltragoalError(`Unsafe untracked candidate path: ${path}`);
+    }
+    const stat = await lstat(absolutePath);
+    const content = stat.isSymbolicLink() ? await readlink(absolutePath) : await readFile(absolutePath);
+    candidateHash.update('\0untracked\0').update(path).update('\0').update(String(stat.mode)).update('\0').update(content);
+  }
+  const changedPaths = Array.from(new Set([
+    ...trackedPathsOutput.split('\0').filter(Boolean),
+    ...untrackedPaths,
+  ])).sort();
+
+  return {
+    version: 1,
+    candidate: {
+      baseCommit,
+      fingerprint: candidateHash.digest('hex'),
+      changedPaths,
+    },
+    scope: {
+      taskSha256: sha256(normalizeObjective(brief)),
+      planScopeSha256: sha256(ultragoalScopePayload(plan, brief)),
+      goalId,
+    },
+    runtime: {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      ci: process.env.CI ?? null,
+      nodeEnv: process.env.NODE_ENV ?? null,
+    },
+  };
+}
+
+function isReviewEvidenceBinding(value: unknown): value is UltragoalReviewEvidenceBinding {
+  if (!value || typeof value !== 'object') return false;
+  const binding = value as Partial<UltragoalReviewEvidenceBinding>;
+  return binding.version === 1
+    && typeof binding.candidate?.baseCommit === 'string'
+    && typeof binding.candidate?.fingerprint === 'string'
+    && Array.isArray(binding.candidate?.changedPaths)
+    && binding.candidate.changedPaths.every((path) => typeof path === 'string')
+    && typeof binding.scope?.taskSha256 === 'string'
+    && typeof binding.scope?.planScopeSha256 === 'string'
+    && typeof binding.scope?.goalId === 'string'
+    && typeof binding.runtime?.platform === 'string'
+    && typeof binding.runtime?.arch === 'string'
+    && typeof binding.runtime?.nodeVersion === 'string'
+    && (typeof binding.runtime?.ci === 'string' || binding.runtime?.ci === null)
+    && (typeof binding.runtime?.nodeEnv === 'string' || binding.runtime?.nodeEnv === null);
+}
+
+export async function resolveReusableUltragoalReviewEvidence(
+  cwd: string,
+  task: string,
+): Promise<ReusableUltragoalReviewEvidence> {
+  let entries: UltragoalLedgerEntry[];
+  try {
+    const raw = await readFile(ultragoalLedgerPath(cwd), 'utf8');
+    entries = raw.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as UltragoalLedgerEntry);
+  } catch {
+    return { status: 'unavailable', reason: 'No readable Ultragoal completion ledger was found.' };
+  }
+  const entry = [...entries].reverse().find((candidate) => (
+    (candidate.event === 'goal_completed' || candidate.event === 'aggregate_completed')
+    && candidate.qualityGate !== undefined
+  ));
+  if (!entry?.qualityGate || !entry.goalId) {
+    return { status: 'unavailable', reason: 'No completed Ultragoal quality-gate evidence was found.' };
+  }
+  if (!isReviewEvidenceBinding(entry.reviewEvidenceBinding)) {
+    return { status: 'unavailable', reason: 'Ultragoal review evidence has no candidate, scope, and runtime binding.' };
+  }
+
+  let qualityGate: UltragoalQualityGate;
+  try {
+    qualityGate = validateQualityGate(entry.qualityGate);
+  } catch (error) {
+    return { status: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+  }
+  let plan: UltragoalPlan;
+  let currentBinding: UltragoalReviewEvidenceBinding | undefined;
+  try {
+    plan = await readUltragoalPlan(cwd);
+    if (!isUltragoalDone(plan)) {
+      return { status: 'stale', reason: 'Ultragoal review evidence belongs to a plan that is no longer complete.' };
+    }
+    currentBinding = await buildReviewEvidenceBinding(cwd, plan, entry.goalId);
+  } catch (error) {
+    return {
+      status: 'unavailable',
+      reason: `Ultragoal review evidence could not be rebound: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (!currentBinding) {
+    return { status: 'unavailable', reason: 'Current Git candidate could not be bound to the Ultragoal review evidence.' };
+  }
+  if (entry.reviewEvidenceBinding.scope.taskSha256 !== sha256(normalizeObjective(task))) {
+    return { status: 'stale', reason: 'Ultragoal review evidence scope does not match the current pipeline task.' };
+  }
+  if (JSON.stringify(entry.reviewEvidenceBinding) !== JSON.stringify(currentBinding)) {
+    return { status: 'stale', reason: 'Ultragoal review evidence does not match the current candidate, scope, base commit, or runtime environment.' };
+  }
+  return { status: 'reusable', qualityGate, binding: currentBinding };
 }
 
 export function ultragoalDir(cwd: string): string {
@@ -1369,6 +1574,9 @@ export async function checkpointUltragoal(cwd: string, options: CheckpointOption
   const qualityGate = options.status === 'complete' && (aggregateCompletion !== undefined || (isFinalRunCompletionCandidate(plan, goal) && !options.allowActiveFinalCodexGoal))
     ? validateQualityGate(options.qualityGate)
     : undefined;
+  const reviewEvidenceBinding = qualityGate
+    ? await buildReviewEvidenceBinding(cwd, plan, goal.id)
+    : undefined;
   if (aggregateCompletion) {
     plan.aggregateCompletion = aggregateCompletion;
     if (plan.activeGoalId === goal.id) delete plan.activeGoalId;
@@ -1382,6 +1590,7 @@ export async function checkpointUltragoal(cwd: string, options: CheckpointOption
       evidence: options.evidence,
       codexGoal: options.codexGoal,
       qualityGate,
+      reviewEvidenceBinding,
       message: 'Aggregate ultragoal plan completed via task-scoped Codex goal snapshot; microgoal ledger progress remains independent.',
     });
     return plan;
@@ -1423,6 +1632,7 @@ export async function checkpointUltragoal(cwd: string, options: CheckpointOption
     evidence: options.evidence,
     codexGoal: options.codexGoal,
     qualityGate,
+    reviewEvidenceBinding,
     blockerSignature: goal.blockerSignature,
     blockerOccurrenceCount: goal.blockerOccurrenceCount,
     requiredExternalDecision: goal.requiredExternalDecision,

@@ -109,6 +109,8 @@ The final ultragoal story is not complete until the active agent has run the fin
    owx ultragoal checkpoint --goal-id <id> --status complete --evidence "<tests/files/review evidence>" --codex-goal-json <fresh-complete-get-goal-json-or-path> --quality-gate-json <quality-gate-json-or-path>
    ```
 
+   In a Git repository, checkpointing records an internal ledger binding for the exact reviewed candidate: base commit, tracked diff, untracked file contents, Ultragoal brief/goal scope, and relevant runtime environment. `.owx` workflow artifacts are excluded from the candidate fingerprint. Dirty or uninitialized submodules prevent reusable binding because their full candidate contents are not proven. A later pipeline code-review phase may consume this proof only while every binding field still matches and the plan remains complete; legacy checkpoints without the binding remain valid Ultragoal history but cannot satisfy downstream review.
+
 `--quality-gate-json` must include:
 
 ```json

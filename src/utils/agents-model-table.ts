@@ -1,4 +1,6 @@
+import { parse as parseToml } from '@iarna/toml';
 import { AGENT_DEFINITIONS, type AgentDefinition } from '../agents/definitions.js';
+import { resolveAgentModelFromLanes } from '../agents/native-config.js';
 import { isNativeAgentInstallableStatus } from '../agents/policy.js';
 import { tryReadCatalogManifest } from '../catalog/reader.js';
 import { getRootModelName } from '../config/generator.js';
@@ -9,6 +11,9 @@ import {
   getEnvConfiguredMainDefaultModel,
   getEnvConfiguredStandardDefaultModel,
   getSparkDefaultModel,
+  readAgentReasoningOverrides,
+  parseConfiguredAgentReasoningEffort,
+  type ConfiguredAgentReasoningEffort,
 } from '../config/models.js';
 
 export const OWX_MODELS_START_MARKER = '<!-- OWX:MODELS:START -->';
@@ -18,6 +23,8 @@ export interface AgentsModelTableContext {
   frontierModel: string;
   sparkModel: string;
   subagentDefaultModel: string;
+  frontierReasoningEffort?: ConfiguredAgentReasoningEffort;
+  agentReasoningOverrides?: Record<string, ConfiguredAgentReasoningEffort>;
 }
 
 function escapeTableCell(value: string): string {
@@ -26,29 +33,6 @@ function escapeTableCell(value: string): string {
 
 function formatRoleLabel(role: string): string {
   return role.includes('(') ? role : `\`${role}\``;
-}
-
-function getAgentRecommendedModel(
-  agent: AgentDefinition,
-  context: AgentsModelTableContext,
-): string {
-  if (agent.exactModel) {
-    return agent.exactModel;
-  }
-
-  if (agent.name === 'executor') {
-    return context.frontierModel;
-  }
-
-  switch (agent.modelClass) {
-    case 'fast':
-      return context.sparkModel;
-    case 'frontier':
-      return context.frontierModel;
-    case 'standard':
-    default:
-      return context.subagentDefaultModel;
-  }
 }
 
 function getAgentUseCase(agent: AgentDefinition): string {
@@ -101,10 +85,18 @@ export function resolveAgentsModelTableContext(
     getEnvConfiguredStandardDefaultModel(env, codexHomeOverride) ??
     frontierModel;
 
+  const agentReasoningOverrides = readAgentReasoningOverrides(codexHomeOverride);
+  const parsedConfig = parseToml(configTomlContent) as { model_reasoning_effort?: unknown };
+  const rawFrontierEffort = parsedConfig.model_reasoning_effort;
+  const frontierReasoningEffort = rawFrontierEffort === undefined
+    ? undefined
+    : parseConfiguredAgentReasoningEffort(rawFrontierEffort, 'model_reasoning_effort');
   return {
     frontierModel,
     sparkModel,
     subagentDefaultModel,
+    ...(frontierReasoningEffort ? { frontierReasoningEffort } : {}),
+    ...(Object.keys(agentReasoningOverrides).length > 0 ? { agentReasoningOverrides } : {}),
   };
 }
 
@@ -116,7 +108,7 @@ export function buildAgentsModelTable(
     buildTableRow(
       'Frontier (leader)',
       context.frontierModel,
-      'high',
+      context.frontierReasoningEffort ?? 'high',
       'Primary leader/orchestrator for planning, coordination, and frontier-class reasoning.',
     ),
     buildTableRow(
@@ -134,8 +126,12 @@ export function buildAgentsModelTable(
     ...getModelTableAgents(definitions).map((agent) =>
       buildTableRow(
         agent.name,
-        getAgentRecommendedModel(agent, context),
-        agent.reasoningEffort,
+        resolveAgentModelFromLanes(agent, {
+          frontierModel: context.frontierModel,
+          standardModel: context.subagentDefaultModel,
+          sparkModel: context.sparkModel,
+        }),
+        context.agentReasoningOverrides?.[agent.name] ?? agent.reasoningEffort,
         getAgentUseCase(agent),
       ),
     ),

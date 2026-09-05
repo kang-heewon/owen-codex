@@ -9,6 +9,7 @@ import { mkdtemp, readdir, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { basename, join } from "path";
 import { AGENT_DEFINITIONS } from "../agents/definitions.js";
+import { resolveNativeAgentConfig } from "../agents/native-config.js";
 import { getInstallableNativeAgentNames } from "../agents/policy.js";
 import { readCatalogManifest } from "../catalog/reader.js";
 import {
@@ -39,7 +40,13 @@ import {
 } from "../hooks/explore-routing.js";
 import { readTriageConfig } from "../hooks/triage-config.js";
 import { triagePrompt } from "../hooks/triage-heuristic.js";
-import { hasOmxAgentsContract } from "../utils/agents-md.js";
+import { hasOmxAgentsContract, isOmxGeneratedAgentsMd } from "../utils/agents-md.js";
+import {
+	OWX_MODELS_END_MARKER,
+	OWX_MODELS_START_MARKER,
+	renderAgentsModelTableBlock,
+	resolveAgentsModelTableContext,
+} from "../utils/agents-model-table.js";
 import { getPackageRoot } from "../utils/package.js";
 import {
 	codexAgentsDir,
@@ -248,6 +255,7 @@ export async function doctor(options: DoctorOptions = {}): Promise<void> {
 
 	// Check 6.4: Spark/model lane routing (issue #2757)
 	checks.push(checkSparkRouting(paths));
+	checks.push(checkNativeAgentModelRouting(paths, scopeResolution.scope, cwd));
 
 	// Check 6.5: Legacy/current skill-root overlap
 	if (scopeResolution.scope === "user") {
@@ -1716,7 +1724,9 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 			);
 			continue;
 		}
-		const expectedReasoningEffort = AGENT_DEFINITIONS[agentName]?.reasoningEffort;
+		const expectedReasoningEffort = resolveNativeAgentConfig(AGENT_DEFINITIONS[agentName], {
+			codexHomeOverride,
+		}).reasoningEffort;
 		if (!info.reasoningEffort) {
 			problems.push(
 				`${agentName}.toml has no model_reasoning_effort field (stale install; run \`owx setup --force\`)`,
@@ -1769,6 +1779,128 @@ export function checkSparkRouting(paths: DoctorPaths): Check {
 		message:
 			`${laneSummary}; Spark-lane native agent(s) wired: ${wired.join(", ")}. ` +
 			`If Luna usage is still absent, the leader may not be delegating read-only lookups to the Spark lane, or the Codex usage view may lag.`,
+	};
+}
+
+interface NativeAgentModelRoutingOptions {
+	definitions?: typeof AGENT_DEFINITIONS;
+	installableAgentNames?: Iterable<string>;
+	agentsMdPath?: string;
+}
+
+function getInstallableManagedAgentNames(): string[] {
+	try {
+		return [...getInstallableNativeAgentNames(readCatalogManifest(getPackageRoot()))].sort();
+	} catch {
+		return Object.keys(AGENT_DEFINITIONS).sort();
+	}
+}
+
+function readManagedModelTableBlock(content: string): string | undefined {
+	const start = content.indexOf(OWX_MODELS_START_MARKER);
+	const end = content.indexOf(OWX_MODELS_END_MARKER, start + OWX_MODELS_START_MARKER.length);
+	if (start < 0 || end < 0) return undefined;
+	return content.slice(start, end + OWX_MODELS_END_MARKER.length);
+}
+
+/** Validate every OWX-managed native role and the generated AGENTS model table. */
+export function checkNativeAgentModelRouting(
+	paths: DoctorPaths,
+	scope: DoctorSetupScope = "user",
+	cwd = process.cwd(),
+	options: NativeAgentModelRoutingOptions = {},
+): Check {
+	const name = "Native agent model routing";
+	const definitions = options.definitions ?? AGENT_DEFINITIONS;
+	const installableNames = options.installableAgentNames
+		? [...options.installableAgentNames].sort()
+		: getInstallableManagedAgentNames();
+	const configTomlContent = existsSync(paths.configPath)
+		? readFileSync(paths.configPath, "utf-8")
+		: "";
+	const problems: string[] = [];
+	const preserved: string[] = [];
+	const missing: string[] = [];
+	let checked = 0;
+
+	for (const agentName of installableNames) {
+		const agent = definitions[agentName];
+		if (!agent) continue;
+		const tomlPath = join(paths.agentsDir, `${agentName}.toml`);
+		if (!existsSync(tomlPath)) {
+			missing.push(`${agentName}.toml`);
+			continue;
+		}
+		const raw = readFileSync(tomlPath, "utf-8");
+		if (!raw.startsWith(`# owen-codex agent: ${agentName}\n`)) {
+			preserved.push(`${agentName}.toml (user-managed)`);
+			continue;
+		}
+		const actual = readInstalledAgentModelInfo(tomlPath);
+		let expected: ReturnType<typeof resolveNativeAgentConfig>;
+		try {
+			expected = resolveNativeAgentConfig(agent, {
+				codexHomeOverride: paths.codexHomeDir,
+				configTomlContent,
+				env: process.env,
+			});
+		} catch (error) {
+			return {
+				name,
+				status: "fail",
+				message: error instanceof Error ? error.message : String(error),
+			};
+		}
+		checked += 1;
+		if (actual.model !== expected.model) {
+			problems.push(`${agentName}.toml model is \`${actual.model ?? "missing"}\`; expected \`${expected.model}\``);
+		}
+		if (actual.reasoningEffort !== expected.reasoningEffort) {
+			problems.push(`${agentName}.toml model_reasoning_effort is \`${actual.reasoningEffort ?? "missing"}\`; expected \`${expected.reasoningEffort}\``);
+		}
+		if (actual.modelProvider !== expected.modelProvider) {
+			problems.push(`${agentName}.toml model_provider is \`${actual.modelProvider ?? "unset"}\`; expected \`${expected.modelProvider ?? "unset"}\``);
+		}
+	}
+
+	if (missing.length > 0) {
+		problems.push(`missing native roles: ${missing.join(", ")} (run \`owx setup --force\`)`);
+	}
+	const agentsMdPath = options.agentsMdPath
+		?? (scope === "project" ? join(cwd, "AGENTS.md") : join(paths.codexHomeDir, "AGENTS.md"));
+	if (existsSync(agentsMdPath)) {
+		const agentsMd = readFileSync(agentsMdPath, "utf-8");
+		const actualBlock = readManagedModelTableBlock(agentsMd);
+		if (actualBlock) {
+			const expectedBlock = renderAgentsModelTableBlock(
+				resolveAgentsModelTableContext(configTomlContent, {
+					codexHomeOverride: paths.codexHomeDir,
+					env: process.env,
+				}),
+				definitions,
+			);
+			if (actualBlock !== expectedBlock) {
+				problems.push(`managed model table in ${agentsMdPath} is stale (run \`owx setup --force\`)`);
+			}
+		} else if (isOmxGeneratedAgentsMd(agentsMd) || hasOmxAgentsContract(agentsMd)) {
+			problems.push(`managed model table in ${agentsMdPath} is missing (run \`owx setup --merge-agents\`)`);
+		}
+	}
+
+	const preservedSuffix = preserved.length > 0
+		? `; preserved without inspection: ${preserved.join(", ")}`
+		: "";
+	if (problems.length > 0) {
+		return {
+			name,
+			status: "warn",
+			message: `${problems.join("; ")}${preservedSuffix}`,
+		};
+	}
+	return {
+		name,
+		status: "pass",
+		message: `${checked} OWX-managed native role(s) match current model resolution${preservedSuffix}`,
 	};
 }
 

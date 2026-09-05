@@ -76,7 +76,9 @@ The canonical flow is:
 $ralplan -> durable consensus artifact -> explicit execution lane -> $ultragoal | $ralph
 ```
 
-Before any execution lane begins, ralplan must emit terminal planning state (complete, paused, failed, or waiting for input) and the durable handoff record below. Do not continue from consensus planning into direct code edits in the same ralplan session.
+After consensus approval, persist the durable handoff record below. For a planning-only request, keep `active:true` and set `current_phase:"paused"` before returning the approved plan. This stops planning while retaining the implementation guard. Use `current_phase:"waiting_for_input"` only when a required user answer is actually missing, and keep `active:true` there as well. Do not deactivate the mode or invoke cancel merely to finish a planning-only response.
+
+An explicit execution handoff owns terminalizing the planning state before activating its execution lane. Do not continue from consensus planning into direct code edits in the same ralplan session.
 
 ## Durable Consensus Handoff Contract
 

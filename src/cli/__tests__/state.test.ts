@@ -74,4 +74,14 @@ describe('stateCommand', () => {
       /valid JSON/i,
     );
   });
+
+  it('rejects unsupported state write arguments instead of treating them as workflow state', async () => {
+    await assert.rejects(
+      stateCommand(['write', '--unknown-option'], {
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+      /Unknown state argument: --unknown-option/,
+    );
+  });
 });

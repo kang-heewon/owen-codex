@@ -255,6 +255,28 @@ describe('keyword detector retained surfaces', () => {
     assert.equal(detectPrimaryKeyword('start autopilot bug investigation'), null);
   });
 
+  it('does not treat explanation, question, or skill-reference prose as workflow activation', () => {
+    assert.equal(detectPrimaryKeyword('I want a short explanation of this function.'), null);
+    assert.equal(detectPrimaryKeyword('Please explain how code review works.'), null);
+    assert.equal(detectPrimaryKeyword('How does consensus plan work?'), null);
+    assert.equal(detectPrimaryKeyword('The autopilot skill is described in this document.'), null);
+    assert.equal(detectPrimaryKeyword('The ultragoal workflow needs a documentation update.'), null);
+    assert.equal(detectPrimaryKeyword('The consensus plan is described in this document.'), null);
+    assert.equal(detectPrimaryKeyword('autopilot skill이 어떻게 동작하는지 설명해줘'), null);
+  });
+
+  it('keeps explicit workflow invocations authoritative in explanation-shaped prompts', () => {
+    assert.equal(detectPrimaryKeyword('$autopilot explain the function')?.skill, 'autopilot');
+    assert.equal(detectPrimaryKeyword('$ralplan 이 계획을 설명해줘')?.skill, 'ralplan');
+  });
+
+  it('preserves workflow action and cancellation requests that also ask for an explanation', () => {
+    assert.equal(detectPrimaryKeyword('Run autopilot to fix the bug and explain the result.')?.skill, 'autopilot');
+    assert.equal(detectPrimaryKeyword('Could you run autopilot and explain the result?')?.skill, 'autopilot');
+    assert.equal(detectPrimaryKeyword('Stop the active task and explain what remains.')?.skill, 'cancel');
+    assert.equal(detectPrimaryKeyword('How do I run autopilot to fix the bug?'), null);
+  });
+
   it('keeps higher-priority workflow keywords ahead of autopilot mentions', () => {
     const match = detectPrimaryKeyword('autopilot this after consensus plan');
     assert.ok(match);
@@ -485,6 +507,25 @@ describe('keyword registry coverage', () => {
 });
 
 describe('keyword detector skill-active-state lifecycle', () => {
+  it('does not create workflow state for ordinary explanation requests', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'owx-keyword-state-explanation-'));
+    const stateDir = join(cwd, '.owx', 'state');
+    try {
+      const result = await recordSkillActivation({
+        stateDir,
+        sourceCwd: cwd,
+        text: 'I want a short explanation of this function.',
+        sessionId: 'sess-explanation',
+        nowIso: '2026-05-10T00:00:00.000Z',
+      });
+
+      assert.equal(result, null);
+      assert.equal(existsSync(stateDir), false);
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it('co-locates direct boxed activation mode detail and canonical skill state for OWX_ROOT', async () => {
     const root = await mkdtemp(join(tmpdir(), 'owx-keyword-boxed-root-'));
     const sourceCwd = join(root, 'source');
@@ -3338,7 +3379,7 @@ deepMaxRounds = 21
 
       const result = await recordSkillActivation({
         stateDir,
-        text: 'I want a starter API',
+        text: '$autopilot build a starter API',
         nowIso: '2026-02-26T00:00:00.000Z',
       });
 

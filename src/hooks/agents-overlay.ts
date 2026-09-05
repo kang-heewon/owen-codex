@@ -287,7 +287,7 @@ function getNativeSubagentRoutingInstructions(): string {
   ].join("\n");
 }
 
-function getCompactionInstructions(): string {
+export function getCompactionInstructions(): string {
   return [
     "Before context compaction, preserve critical state:",
     "1. Write progress checkpoint via `owx state write --input '<json>' --json`",

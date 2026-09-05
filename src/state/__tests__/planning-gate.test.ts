@@ -44,6 +44,14 @@ describe('planning gate: tool classification', () => {
     }), true);
   });
 
+  it('allows active waiting-state transitions to reach the state CLI', () => {
+    assert.equal(isImplementationToolCall({
+      tool_name: 'Bash',
+      tool_input: 'owx state write --input \'{"mode":"ralplan","active":true,"current_phase":"waiting_for_input"}\' --json',
+    }), false);
+    assert.equal(isImplementationToolCall({ tool_name: 'Bash', tool_input: 'owx state write --help' }), false);
+  });
+
   it('does not classify Read, Glob, Grep, or safe Bash as implementation tools', () => {
     assert.equal(isImplementationToolCall({ tool_name: 'Read' }), false);
     assert.equal(isImplementationToolCall({ tool_name: 'Glob' }), false);

@@ -1131,6 +1131,34 @@ command = "node"
 		}
 	});
 
+	it("fails when legacy JSON trust state makes hooks.json invalid at runtime", async () => {
+		const wd = await mkdtemp(join(tmpdir(), "owx-doctor-hooks-state-"));
+		try {
+			const home = join(wd, "home");
+			const codexDir = join(home, ".codex");
+			await mkdir(codexDir, { recursive: true });
+			const managedHooks = JSON.parse(buildHooksJsonWithPostCompactCommand(
+				`${quoteCommandPart(process.execPath)} ${quoteCommandPart(join(wd, "dist", "scripts", "codex-native-hook.js"))}`,
+				codexDir,
+			)) as Record<string, unknown>;
+			managedHooks.state = { legacy: { trusted_hash: "sha256:old" } };
+			await writeFile(join(codexDir, "hooks.json"), JSON.stringify(managedHooks));
+
+			const res = runOmx(wd, ["doctor"], {
+				HOME: home,
+				CODEX_HOME: codexDir,
+			});
+			if (shouldSkipForSpawnPermissions(res.error)) return;
+			assert.equal(res.status, 0, res.stderr || res.stdout);
+			assert.match(
+				res.stdout,
+				/\[XX\] Native hooks: invalid hooks\.json; Codex may skip OWX hook coverage until "owx setup --force" repairs it/,
+			);
+		} finally {
+			await rm(wd, { recursive: true, force: true });
+		}
+	});
+
 	it("verbose doctor warns instead of executing when the effective PostCompact command is stale", async () => {
 		const wd = await mkdtemp(join(tmpdir(), "owx-doctor-postcompact-stale-"));
 		try {

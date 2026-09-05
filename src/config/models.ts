@@ -34,7 +34,16 @@ export interface OmxConfigEnv {
   [key: string]: string | undefined;
 }
 
-export type ConfiguredAgentReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+export const CONFIGURED_AGENT_REASONING_EFFORTS = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const;
+
+export type ConfiguredAgentReasoningEffort = typeof CONFIGURED_AGENT_REASONING_EFFORTS[number];
 
 interface OmxConfigFile {
   agentReasoning?: Record<string, unknown>;
@@ -98,17 +107,17 @@ function normalizeConfiguredValue(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function normalizeAgentReasoningEffort(value: unknown): ConfiguredAgentReasoningEffort | undefined {
+export function parseConfiguredAgentReasoningEffort(
+  value: unknown,
+  fieldName = 'reasoning effort',
+): ConfiguredAgentReasoningEffort {
   const normalized = normalizeConfiguredValue(value)?.toLowerCase();
-  if (
-    normalized === 'low' ||
-    normalized === 'medium' ||
-    normalized === 'high' ||
-    normalized === 'xhigh'
-  ) {
-    return normalized;
+  if ((CONFIGURED_AGENT_REASONING_EFFORTS as readonly string[]).includes(normalized ?? '')) {
+    return normalized as ConfiguredAgentReasoningEffort;
   }
-  return undefined;
+  throw new Error(
+    `${fieldName} must be one of: ${CONFIGURED_AGENT_REASONING_EFFORTS.join(', ')}; received ${JSON.stringify(value)}`,
+  );
 }
 
 function normalizeAgentName(value: unknown): string | undefined {
@@ -148,8 +157,11 @@ export function readAgentReasoningOverrides(
   const resolved: Record<string, ConfiguredAgentReasoningEffort> = {};
   for (const [key, value] of Object.entries(raw)) {
     const role = normalizeAgentName(key);
-    const effort = normalizeAgentReasoningEffort(value);
-    if (role && effort) resolved[role] = effort;
+    if (!role || (typeof value === 'string' && value.trim() === '')) continue;
+    resolved[role] = parseConfiguredAgentReasoningEffort(
+      value,
+      `agentReasoning.${key}`,
+    );
   }
   return resolved;
 }

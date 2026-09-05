@@ -27,6 +27,7 @@ Delegates to the `code-reviewer` and `architect` agents in parallel for a two-la
 1. **Identify Changes**
    - Run `git diff` to find changed files
    - Determine scope of review (specific files or entire PR)
+   - When entered immediately after Ultragoal, inspect its final ledger quality gate first. Reuse its two-lane review only when the ledger proof is bound to and still matches the exact current base commit, tracked diff, untracked contents, approved brief/goal scope, and runtime environment. Treat missing, legacy-unbound, malformed, or mismatched proof as unavailable and run fresh review lanes.
 
 2. **Launch Parallel Review Lanes**
    - **`code-reviewer` lane** - owns spec compliance, security, code quality, performance, and maintainability findings
@@ -66,6 +67,7 @@ Delegates to the `code-reviewer` and `architect` agents in parallel for a two-la
      - Else if architect status is **WATCH**, final recommendation is **COMMENT**
      - Else final recommendation follows the `code-reviewer` lane
    - The final report must make architect blockers impossible to miss
+   - Candidate-bound Ultragoal proof completes this phase through validated review evidence; record its provenance in the verdict rather than reporting the phase as skipped.
 
 ## Agent Delegation
 

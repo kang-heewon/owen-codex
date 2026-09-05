@@ -17,11 +17,11 @@ const pluginRoot = join(
 
 const requiredFiles = [
 	"SKILL.md",
-	"fixtures/ko-register-pairs.md",
-	"fixtures/ko-structure-pairs.md",
 	"fixtures/preservation-cases.md",
 	"fixtures/technical-writing-cases.md",
 	"references/examples.md",
+	"references/ko-register-pairs.md",
+	"references/ko-structure-pairs.md",
 	"references/korean.md",
 	"references/patterns.md",
 	"references/preservation.md",
@@ -129,8 +129,8 @@ describe("prose-quality skill contract", () => {
 
 	it("treats Korean translationese as a contextual register issue, not a word blacklist", () => {
 		const korean = readSkillFile("references/korean.md");
-		const registerPairs = readSkillFile("fixtures/ko-register-pairs.md");
-		const structurePairs = readSkillFile("fixtures/ko-structure-pairs.md");
+		const registerPairs = readSkillFile("references/ko-register-pairs.md");
+		const structurePairs = readSkillFile("references/ko-structure-pairs.md");
 
 		assertMatchesAll(korean, [
 			/(?:translationese|직역투)/i,

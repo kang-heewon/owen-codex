@@ -69,13 +69,20 @@ Supported setup flags (current implementation):
 
 ## Setup-owned configuration surfaces
 
+### Launch instructions and model changes
+
+- Normal `owx`, `owx exec`, and `owx resume` launches retain Codex's built-in model instructions. Codex loads `AGENTS.md`; native lifecycle hooks add OWX session context, including the codebase map and compaction protocol.
+- `OWX_BYPASS_DEFAULT_SYSTEM_PROMPT=1` explicitly opts into the generated replacement instructions. `OWX_MODEL_INSTRUCTIONS_FILE` selects a custom replacement. `OWX_BYPASS_DEFAULT_SYSTEM_PROMPT=0` disables environment-driven replacement. An explicit Codex `-c model_instructions_file=...` argument remains authoritative.
+- After changing the configured model or OWX role overrides, run `owx doctor` to find stale OWX-managed native agents and the generated model table. Refresh them with setup in the intended scope. User-owned agent files and intentional role model pins remain separate from generated defaults.
+- `owx reasoning` and OWX agent reasoning overrides share `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`. Availability for a selected model depends on the installed Codex host; unsupported values must be reported by that host, not silently lowered. Preserve the existing effort when changing models unless the user requests a different effort.
+
 Use this map when reconciling setup behavior or debugging a confusing install:
 
 | Surface | Owner | Notes |
 | --- | --- | --- |
 | `./.owx/setup-scope.json` | `owx setup` | Persists setup scope and user-scope skill delivery mode. TTY reruns summarize it and offer keep/review/reset. |
 | `~/.codex/config.toml` / `./.codex/config.toml` | `owx setup` generated blocks + user edits | Setup refreshes OWX-managed blocks while preserving supported manual content; setup-owned runtime feature flags include `multi_agent`, `child_agents_md`, the Codex hook feature flag (`hooks` or legacy `codex_hooks`), and `goals`. |
-| `~/.codex/hooks.json` / `./.codex/hooks.json` | `owx setup` shared ownership | Setup owns OWX native hook wrappers and preserves user-owned hooks. |
+| `~/.codex/hooks.json` / `./.codex/hooks.json` | `owx setup` shared ownership | Setup owns OWX native hook wrappers and preserves user-owned hooks. Codex accepts only `description` and `hooks` at the JSON root. Setup removes legacy JSON `state` trust caches and regenerates OWX-managed trust under `[hooks.state]` in `config.toml`; unsupported root fields stop setup without rewriting the hooks file. |
 | prompts, skills, native agents | `owx setup` or Codex plugin delivery | Legacy mode installs local files; plugin mode relies on plugin discovery for bundled skills, archives/removes legacy OWX-managed prompt/skill copies, and refreshes setup-owned native agent TOMLs for `agent_type` routing while cleaning up stale generated/non-installable native agents. |
 | `AGENTS.md` | `owx setup` with overwrite safety | Generated defaults or managed refreshes are guarded by force/session checks. |
 | `./.owx/hud-config.json` | `owx setup` / `$hud` | Setup creates the focused default; `$hud` can adjust it later. |

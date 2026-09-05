@@ -96,6 +96,7 @@ Complex tasks often fail silently: partial implementations get declared "done", 
    - >20 files or security/architectural changes: `task(agent_type="architect", reasoning_effort="xhigh", prompt="...")`
    - Ralph floor: always run an explicit `architect` native subagent, even for small changes
    - Approval applies only to the exact diff reviewed after Step 7.6. Any source change after approval makes that approval stale.
+   - Ralph's architect-only approval remains Ralph completion evidence. It can satisfy a downstream two-lane code-review gate only when a matching independent `code-reviewer` approval also exists and the combined proof is durably bound to the same candidate, task scope, base commit, and runtime environment.
 9. **Completion audit**: After approval, run the prompt-to-artifact completion audit against the approved diff and its fresh post-clean verification evidence.
 10. **On approval and a passing audit**: If Codex goal mode is active, call `update_goal({status: "complete"})` before `/cancel`; report final elapsed time and token-budget usage when the tool returns it. Then run `/cancel` to cleanly exit and clean up all state files.
 11. **On rejection**: Fix the issues raised, then start a new finalization cycle at Step 6, including a new single cleaner pass for the new stable candidate and architect review of that candidate's exact post-clean diff.

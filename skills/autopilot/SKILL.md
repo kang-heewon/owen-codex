@@ -52,6 +52,7 @@ Autopilot must not run a separate broad expansion/planning/execution/QA/validati
 
 4. **Phase `code-review`** — merge-readiness gate
    - Run `$code-review` on the diff/artifacts produced by `$ultragoal`.
+   - If the final Ultragoal ledger already contains clean independent review evidence bound to the exact current Git candidate, approved task/goal scope, base commit, and runtime environment, validate and consume that proof as the completed code-review phase. The normalized Autopilot task passed to the pipeline must match the Ultragoal brief used as the agreed scope. Do not skip the phase. Missing or mismatched binding requires a fresh review.
    - A clean review means final recommendation `APPROVE` with architectural status `CLEAR`.
    - `COMMENT`, `REQUEST CHANGES`, any architectural `WATCH`/`BLOCK`, or any unresolved finding is not clean.
    - If not clean, increment the review cycle, persist `review_verdict`, set `return_to_ralplan_reason`, and transition back to Phase `ralplan`.

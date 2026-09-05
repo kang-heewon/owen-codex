@@ -113,6 +113,12 @@ describe("owx setup/uninstall shared ownership for native hooks", () => {
 
       const hooksPath = join(codexDir, "hooks.json");
       await writeHooksJson(hooksPath, {
+        description: "user hook collection",
+        state: {
+          "custom:/hooks.json:session_start:0:0": {
+            trusted_hash: "sha256:legacy-user-cache",
+          },
+        },
         hooks: {
           SessionStart: [
             makeUserCommandHook('node "/custom/session-start.js"', "startup"),
@@ -128,6 +134,9 @@ describe("owx setup/uninstall shared ownership for native hooks", () => {
       assert.equal(setupResult.status, 0, setupResult.stderr || setupResult.stdout);
 
       const refreshed = await readHooksJson(hooksPath);
+      assert.equal(refreshed.description, "user hook collection");
+      assert.equal(Object.hasOwn(refreshed, "state"), false);
+      assert.equal(Object.hasOwn(refreshed.hooks ?? {}, "state"), false);
       assert.ok(
         hookCommands(refreshed.hooks?.SessionStart).includes(
           'node "/custom/session-start.js"',
@@ -160,6 +169,37 @@ describe("owx setup/uninstall shared ownership for native hooks", () => {
         /PostCompact Nudge|additionalContext|printf/,
         "generated PostCompact hooks should not embed advisory text or shell printf workarounds",
       );
+      assert.match(
+        await readFile(join(codexDir, "config.toml"), "utf-8"),
+        /\[hooks\.state\./,
+        "setup should regenerate managed trust in config.toml instead of hooks.json",
+      );
+    } finally {
+      await rm(wd, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unsupported hooks.json root metadata without rewriting the file", async () => {
+    const wd = await mkdtemp(join(tmpdir(), "owx-setup-hooks-unsupported-root-"));
+    try {
+      const home = join(wd, "home");
+      const codexDir = join(wd, ".codex");
+      await mkdir(home, { recursive: true });
+      await mkdir(codexDir, { recursive: true });
+      const hooksPath = join(codexDir, "hooks.json");
+      const original = `${JSON.stringify({ version: 1, hooks: {} }, null, 2)}\n`;
+      await writeFile(hooksPath, original);
+
+      const setupResult = runOmx(wd, ["setup", "--scope", "project"], {
+        HOME: home,
+      });
+      if (shouldSkipForSpawnPermissions(setupResult.error)) return;
+      assert.notEqual(setupResult.status, 0);
+      assert.match(
+        setupResult.stderr || setupResult.stdout,
+        /Unsupported hooks\.json root field\(s\): version/,
+      );
+      assert.equal(await readFile(hooksPath, "utf-8"), original);
     } finally {
       await rm(wd, { recursive: true, force: true });
     }

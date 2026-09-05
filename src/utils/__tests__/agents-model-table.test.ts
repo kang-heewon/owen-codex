@@ -89,6 +89,26 @@ describe('agents model table', () => {
     assert.match(table, /\| `executor` \| `gpt-frontier` \| medium \| Code implementation, refactoring, feature work \(deep-worker, standard\) \|/);
   });
 
+  it('renders configured per-agent reasoning overrides in managed rows', () => {
+    const table = buildAgentsModelTable({
+      frontierModel: 'gpt-frontier',
+      sparkModel: 'gpt-spark',
+      subagentDefaultModel: 'gpt-standard',
+      agentReasoningOverrides: { architect: 'max' },
+    });
+
+    assert.match(table, /\| `architect` \| `gpt-frontier` \| max \|/);
+  });
+
+  it('renders the current root host effort, including ultra, in the frontier summary', () => {
+    const context = resolveAgentsModelTableContext(
+      'model = "gpt-6-astra"\nmodel_reasoning_effort = "ultra"\n',
+    );
+    const table = buildAgentsModelTable(context);
+
+    assert.match(table, /\| Frontier \(leader\) \| `gpt-6-astra` \| ultra \|/);
+  });
+
   it('replaces existing marker-bounded content and appends the block when missing', () => {
     const context = {
       frontierModel: 'gpt-frontier',

@@ -101,7 +101,7 @@ Jumping into code without understanding requirements leads to rework, scope cree
    - **Start goal-mode follow-up** — proceed via `$ultragoal` by default, or `$autoresearch-goal` / `$performance-goal` when the approved plan specifically fits research validation or measurable optimization
    - **Request changes** — return to step 1 with user feedback
    - **Reject** — discard the plan entirely
-   If NOT running with `--interactive`, output the final approved plan and stop. Do NOT auto-execute.
+   If NOT running with `--interactive`, persist the approved consensus evidence, set the Ralplan state to `active:true,current_phase:"paused"`, output the final approved plan, and stop. The active planning guard remains until an explicit execution handoff; do not deactivate or cancel it to finish the response. Do NOT auto-execute.
 8. *(--interactive only)* User chooses via the structured question UI (never ask for approval in plain text when a structured surface is available)
 9. On user approval (--interactive only):
    - **Approve durable goal execution**: **MUST** invoke `$ultragoal` with the approved plan path from `.owx/plans/` as context **plus the explicit available-agent-types roster, suggested reasoning levels, concrete role allocation guidance, and direct launch hints for Ultragoal follow-up work**. Use native Codex subagents with explicit `agent_type` and non-overlapping ownership when parallel lanes are warranted. Do NOT implement directly. Do NOT edit source code files in the planning agent. Ralph is not the default follow-up; only invoke `$ralph` when the user explicitly selects a legacy/persistent single-owner execution lane.

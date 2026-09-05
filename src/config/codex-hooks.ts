@@ -291,7 +291,7 @@ export function getMissingManagedCodexHookEvents(
   content: string,
 ): ManagedHookEventName[] | null {
   const parsed = parseCodexHooksConfig(content);
-  if (!parsed) return null;
+  if (!parsed || !isRuntimeCompatibleHooksConfig(parsed)) return null;
 
   return MANAGED_HOOK_EVENTS.filter((eventName) => {
     const entries = Array.isArray(parsed.hooks[eventName])
@@ -367,6 +367,41 @@ function stripManagedHooksFromEntry(entry: unknown): {
 
 function serializeCodexHooksConfig(root: JsonObject): string {
   return JSON.stringify(root, null, 2) + "\n";
+}
+
+function buildRuntimeCompatibleHooksRoot(root: JsonObject): JsonObject {
+  const unsupportedFields = Object.keys(root).filter(
+    (key) => key !== "description" && key !== "hooks" && key !== "state",
+  );
+  if (unsupportedFields.length > 0) {
+    throw new Error(
+      `Unsupported hooks.json root field(s): ${unsupportedFields.join(", ")}; expected only description, hooks, or legacy state`,
+    );
+  }
+  if (root.description !== undefined && typeof root.description !== "string") {
+    throw new Error("hooks.json description must be a string");
+  }
+  if (root.hooks !== undefined && !isPlainObject(root.hooks)) {
+    throw new Error("hooks.json hooks must be an object");
+  }
+
+  // Codex stores trust under config.toml [hooks.state]. Legacy JSON state is
+  // intentionally discarded here; setup regenerates OWX-managed TOML trust.
+  return typeof root.description === "string" ? { description: root.description } : {};
+}
+
+function isRuntimeCompatibleHooksConfig(parsed: ParsedCodexHooksConfig): boolean {
+  const rootKeys = Object.keys(parsed.root);
+  if (rootKeys.some((key) => key !== "description" && key !== "hooks")) {
+    return false;
+  }
+  if (
+    (parsed.root.description !== undefined && typeof parsed.root.description !== "string")
+    || (parsed.root.hooks !== undefined && !isPlainObject(parsed.root.hooks))
+  ) {
+    return false;
+  }
+  return !Object.hasOwn(parsed.hooks, "state");
 }
 
 function canonicalJson(value: unknown): unknown {
@@ -611,11 +646,8 @@ export function mergeManagedCodexHooksConfig(
       ? parseCodexHooksConfig(existingContent)
       : null;
 
-  const nextRoot = parsed ? cloneJson(parsed.root) : {};
+  const nextRoot = parsed ? buildRuntimeCompatibleHooksRoot(parsed.root) : {};
   const nextHooks = parsed ? cloneJson(parsed.hooks) : {};
-  const misplacedHookState = isPlainObject(nextHooks.state)
-    ? cloneJson(nextHooks.state)
-    : {};
   delete nextHooks.state;
 
   for (const eventName of MANAGED_HOOK_EVENTS) {
@@ -637,32 +669,6 @@ export function mergeManagedCodexHooksConfig(
     ];
   }
 
-  const existingRootState = isPlainObject(nextRoot.state)
-    ? cloneJson(nextRoot.state)
-    : {};
-  const nextState = {
-    ...misplacedHookState,
-    ...existingRootState,
-  };
-
-  const managedTrustState = hooksPath
-    ? buildManagedCodexHookTrustState(hooksPath, pkgRoot, resolvedOptions)
-    : {};
-  for (const [key, hookState] of Object.entries(managedTrustState)) {
-    const existingHookState = isPlainObject(nextState[key])
-      ? nextState[key]
-      : {};
-    nextState[key] = {
-      ...existingHookState,
-      trusted_hash: hookState.trusted_hash,
-    };
-  }
-  if (Object.keys(nextState).length > 0) {
-    nextRoot.state = nextState;
-  } else if (isPlainObject(nextRoot.state)) {
-    delete nextRoot.state;
-  }
-
   if (Object.keys(nextHooks).length > 0) {
     nextRoot.hooks = nextHooks;
   } else {
@@ -681,10 +687,8 @@ export function removeManagedCodexHooks(
   }
 
   const nextRoot = cloneJson(parsed.root);
+  delete nextRoot.state;
   const nextHooks = cloneJson(parsed.hooks);
-  const misplacedHookState = isPlainObject(nextHooks.state)
-    ? cloneJson(nextHooks.state)
-    : {};
   delete nextHooks.state;
   let removedCount = 0;
 
@@ -712,23 +716,6 @@ export function removeManagedCodexHooks(
   }
 
   const hasRemainingHookEntries = Object.keys(nextHooks).length > 0;
-  if (hasRemainingHookEntries) {
-    const existingRootState = isPlainObject(nextRoot.state)
-      ? cloneJson(nextRoot.state)
-      : {};
-    const nextState = {
-      ...misplacedHookState,
-      ...existingRootState,
-    };
-    if (Object.keys(nextState).length > 0) {
-      nextRoot.state = nextState;
-    } else if (isPlainObject(nextRoot.state)) {
-      delete nextRoot.state;
-    }
-  } else {
-    delete nextRoot.state;
-  }
-
   if (hasRemainingHookEntries) {
     nextRoot.hooks = nextHooks;
   } else {

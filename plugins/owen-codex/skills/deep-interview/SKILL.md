@@ -489,7 +489,7 @@ Recommend `$ultragoal` as the default durable goal-mode follow-up. Use native Co
 - Use `explore` for codebase fact gathering
 - Use native structured user input for each interview round when available; otherwise ask exactly one concise plain-text question and wait for the answer.
 - Use `owx state write/read --input '<json>' --json` for resumable mode state; `state_write` / `state_read` are explicit MCP compatibility fallbacks only
-- If the interview cannot ask a required round, persist the blocker as terminal state with `active: false` and `current_phase: "blocked"`; do not write a terminal blocked phase with `active: true`
+- If the interview cannot ask a required round, persist the blocker with `active:true` and `current_phase:"waiting_for_input"`, report the missing input, and stop. Keep the requirements guard active until an explicit handoff or cancellation; do not deactivate it merely to pause the interview.
 - Read/write context snapshots under `.owx/context/`
 - Read applicable repo rules/context during preflight; write durable glossary, ADR, or memory updates only when the user explicitly opts in and the content is public-safe
 - Record whether the oversized-context summary gate is not needed, pending, or satisfied before any scoring or handoff step

@@ -7,9 +7,9 @@ description: Cancel any active OWX mode (autopilot, ralph, ultrawork, ecomode, u
 
 Intelligent cancellation that detects and cancels the active OWX mode.
 
-**The cancel skill is the standard way to complete and exit any OWX mode.**
-When the stop hook detects work is complete, it instructs the LLM to invoke
-this skill for proper state cleanup. If cancel fails or is interrupted,
+Use this skill to cancel an active mode or perform cleanup required by its owning workflow.
+Planning-only Ralplan completion follows its owning skill's `active:true,current_phase:"paused"` contract. Keep that implementation guard until explicit cancellation or an execution handoff; do not force-clear planning state merely because the approved plan is ready to return.
+If cancel fails or is interrupted,
 retry with `--force` flag, or wait for the 2-hour staleness timeout as
 a last resort.
 
